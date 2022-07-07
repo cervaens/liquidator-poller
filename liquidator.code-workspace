@@ -1,0 +1,16 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "liquidator-main"
+		},
+		{
+			"path": "liquidator-worker"
+		}
+	],
+	"settings": {
+		"jira-plugin.workingProject": ""
+	}
+}
