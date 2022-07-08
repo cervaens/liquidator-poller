@@ -19,12 +19,12 @@ export class AppController {
 
   @Get('send-test-msg')
   async sendTestMsg() {
-    await this.compoundController.sendTestMsg();
-    await this.ctokenController.createCtoken({
-      address: 'test',
-      symbol: 'ss223',
-      price: undefined,
-    });
+    await this.compoundController.pollCTokens();
+    // await this.ctokenController.createCtoken({
+    //   address: 'test',
+    //   symbol: 'ss223',
+    //   price: undefined,
+    // });
     return this.appService.sendTestMsg();
   }
 }

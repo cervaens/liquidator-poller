@@ -4,6 +4,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Ctoken, CtokenDocument } from './ctoken.schema';
 import { CtokenDto } from './dto/create-ctoken.dto';
 import { NotFoundException } from '@nestjs/common';
+import { CompoundToken } from '../../compound-poller/classes/CompoundToken';
 
 @Injectable()
 export class CtokenService {
@@ -12,11 +13,21 @@ export class CtokenService {
   ) {}
 
   async create(createCtokenDto: CtokenDto): Promise<Ctoken> {
-    createCtokenDto['_id'] = createCtokenDto.address;
     const createdCtoken = await this.ctokenModel
       .findByIdAndUpdate(createCtokenDto['_id'], createCtokenDto)
       .setOptions({ upsert: true });
     return createdCtoken;
+  }
+
+  async createMany(CtokenArray: Array<CompoundToken>): Promise<boolean> {
+    for (const cToken of CtokenArray) {
+      const cTokenMongo = cToken.toMongoObj();
+      await this.ctokenModel
+        .findByIdAndUpdate(cTokenMongo._id, cTokenMongo)
+        .setOptions({ upsert: true });
+    }
+
+    return true;
   }
 
   async findAll(): Promise<Ctoken[]> {

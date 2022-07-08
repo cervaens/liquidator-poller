@@ -11,6 +11,7 @@ import {
 import { CtokenService } from './ctoken.service';
 import ParamsWithId from '../utils/paramsWithId';
 import CtokenDto from './dto/create-ctoken.dto';
+import { CompoundToken } from '../../compound-poller/classes/CompoundToken';
 
 @Controller('ctoken')
 export class CtokenController {
@@ -29,6 +30,11 @@ export class CtokenController {
   @Post()
   async createCtoken(@Body() ctoken: CtokenDto) {
     return this.ctokenService.create(ctoken);
+  }
+
+  @Post()
+  async createMany(@Body() ctokens: Array<CompoundToken>) {
+    return this.ctokenService.createMany(ctokens);
   }
 
   //   @Delete(':id')

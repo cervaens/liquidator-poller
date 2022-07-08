@@ -7,6 +7,8 @@ import { RabbitMQModule } from '@golevelup/nestjs-rabbitmq';
 import { MongooseModule } from '@nestjs/mongoose';
 import { CtokensModule } from './mongodb/ctoken/ctoken.module';
 import { CompoundPollerModule } from './compound-poller/compound-poller.module';
+import { HttpModule } from '@nestjs/axios';
+import { ConfigModule } from '@nestjs/config';
 
 @Global()
 @Module({
@@ -26,9 +28,11 @@ import { CompoundPollerModule } from './compound-poller/compound-poller.module';
     AppModule,
     CtokensModule,
     CompoundPollerModule,
+    HttpModule,
+    ConfigModule.forRoot({ isGlobal: true }),
   ],
   controllers: [AppController],
   providers: [AppService, TaskSchedulerService],
-  exports: [RabbitMQModule],
+  exports: [RabbitMQModule, HttpModule, CtokensModule],
 })
 export class AppModule {}

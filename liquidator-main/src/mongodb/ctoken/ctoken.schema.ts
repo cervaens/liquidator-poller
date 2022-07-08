@@ -15,6 +15,18 @@ export class Ctoken {
   symbol: string;
 
   @Prop()
+  collateralFactor: number;
+
+  @Prop()
+  exchangeRate: number;
+
+  @Prop()
+  underlyingSymbol: string;
+
+  @Prop()
+  underlyingAddress: string;
+
+  @Prop()
   price: number;
 }
 
