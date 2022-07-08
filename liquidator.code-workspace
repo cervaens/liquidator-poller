@@ -2,12 +2,6 @@
 	"folders": [
 		{
 			"path": "."
-		},
-		{
-			"path": "liquidator-main"
-		},
-		{
-			"path": "liquidator-worker"
 		}
 	],
 	"settings": {

@@ -1,27 +1,18 @@
-import { Module } from '@nestjs/common';
+import { Module, Global } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ScheduleModule } from '@nestjs/schedule';
 import { TaskSchedulerService } from './task-scheduler/task-scheduler.service';
-import { Transport, ClientsModule } from '@nestjs/microservices';
 import { RabbitMQModule } from '@golevelup/nestjs-rabbitmq';
+import { MongooseModule } from '@nestjs/mongoose';
+import { CtokensModule } from './mongodb/ctoken/ctoken.module';
+import { CompoundPollerModule } from './compound-poller/compound-poller.module';
 
+@Global()
 @Module({
   imports: [
     ScheduleModule.forRoot(),
-    ClientsModule.register([
-      {
-        name: 'QUEUE_SERVICE',
-        transport: Transport.RMQ,
-        options: {
-          urls: ['amqp://localhost:5672'],
-          queue: 'tasks_queue',
-          queueOptions: {
-            durable: false,
-          },
-        },
-      },
-    ]),
+    MongooseModule.forRoot('mongodb://localhost/nest'),
     RabbitMQModule.forRoot(RabbitMQModule, {
       exchanges: [
         {
@@ -33,8 +24,11 @@ import { RabbitMQModule } from '@golevelup/nestjs-rabbitmq';
       connectionInitOptions: { wait: false },
     }),
     AppModule,
+    CtokensModule,
+    CompoundPollerModule,
   ],
   controllers: [AppController],
   providers: [AppService, TaskSchedulerService],
+  exports: [RabbitMQModule],
 })
 export class AppModule {}
