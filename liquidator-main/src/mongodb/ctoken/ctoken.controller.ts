@@ -6,6 +6,7 @@ import {
   Param,
   Post,
   Put,
+  Logger,
 } from '@nestjs/common';
 
 import { CtokenService } from './ctoken.service';
@@ -16,6 +17,7 @@ import { CompoundToken } from '../../compound-poller/classes/CompoundToken';
 @Controller('ctoken')
 export class CtokenController {
   constructor(private readonly ctokenService: CtokenService) {}
+  private readonly logger = new Logger(CtokenController.name);
 
   @Get()
   async getAllCtokens() {
@@ -32,9 +34,10 @@ export class CtokenController {
     return this.ctokenService.create(ctoken);
   }
 
-  @Post()
+  // @Post()
   async createMany(@Body() ctokens: Array<CompoundToken>) {
-    return this.ctokenService.createMany(ctokens);
+    this.logger.debug('Calling service');
+    return await this.ctokenService.createMany(ctokens);
   }
 
   //   @Delete(':id')

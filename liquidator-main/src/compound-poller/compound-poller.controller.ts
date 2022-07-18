@@ -15,8 +15,9 @@ export class CompoundPollerController {
   async pollCTokens() {
     const { tokens }: Record<string, any> =
       await this.compoundPollerService.fetch({});
-    await this.ctokenController.createMany(tokens);
     this.logger.debug('Starting polling CTokens', tokens);
+    await this.ctokenController.createMany(tokens);
+
     return 'Done';
   }
 

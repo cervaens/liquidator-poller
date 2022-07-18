@@ -5,6 +5,9 @@
 		}
 	],
 	"settings": {
-		"jira-plugin.workingProject": ""
+		"jira-plugin.workingProject": "",
+		"files.exclude": {
+			"**/dist": true
+		}
 	}
 }
