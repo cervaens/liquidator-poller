@@ -27,7 +27,13 @@ export class Ctoken {
   underlyingAddress: string;
 
   @Prop()
-  price: number;
+  underlyingPrice: number;
+
+  @Prop()
+  priceTimestamp: number;
+
+  @Prop()
+  tokenHash: string;
 }
 
 export const CtokenSchema = SchemaFactory.createForClass(Ctoken);

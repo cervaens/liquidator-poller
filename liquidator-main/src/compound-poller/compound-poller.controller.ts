@@ -11,14 +11,29 @@ export class CompoundPollerController {
     private readonly ctokenController: CtokenController,
   ) {}
 
+  async onModuleInit(): Promise<void> {
+    this.pollCTokens();
+    setInterval(
+      () => this.pollCTokens(),
+      parseInt(process.env.COMPOUND_POLLING_SCHEDULE_CTOKENS),
+    );
+  }
+
   private readonly logger = new Logger(CompoundPollerController.name);
   async pollCTokens() {
+    this.logger.debug('Calling Ctokens endpoint');
     const { tokens }: Record<string, any> =
-      await this.compoundPollerService.fetch({});
-    this.logger.debug('Starting polling CTokens', tokens);
+      await this.compoundPollerService.fetchCtokens({});
     await this.ctokenController.createMany(tokens);
+    return true;
+  }
 
-    return 'Done';
+  async pollAccounts() {
+    this.logger.debug('Calling Accounts endpoint');
+    // const { accounts }: Record<string, any> =
+    //   await this.compoundPollerService.fetchAccounts({});
+    // await this.ctokenController.createMany(tokens);
+    return true;
   }
 
   async sendTestMsg() {

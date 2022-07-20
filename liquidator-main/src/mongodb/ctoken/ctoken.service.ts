@@ -34,6 +34,13 @@ export class CtokenService {
     return this.ctokenModel.find().exec();
   }
 
+  async findWithParams(
+    filter: Record<string, string>,
+    output: Record<string, number>,
+  ): Promise<Ctoken[]> {
+    return this.ctokenModel.find(filter, output).exec();
+  }
+
   async findOne(id: string) {
     const ctoken = await this.ctokenModel.findById(id);
     if (!ctoken) {
@@ -49,6 +56,14 @@ export class CtokenService {
     if (!ctoken) {
       throw new NotFoundException();
     }
+    return ctoken;
+  }
+
+  async updateMany(
+    filter: Record<string, unknown>,
+    setStat: Record<string, unknown>,
+  ) {
+    const ctoken = await this.ctokenModel.updateMany(filter, setStat);
     return ctoken;
   }
 }

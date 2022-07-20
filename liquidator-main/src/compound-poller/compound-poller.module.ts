@@ -4,8 +4,8 @@ import { CompoundPollerService } from './compound-poller.service';
 
 @Module({
   imports: [],
-  providers: [CompoundPollerService, CompoundPollerController],
+  providers: [CompoundPollerService],
   controllers: [CompoundPollerController],
-  exports: [CompoundPollerController],
+  exports: [],
 })
 export class CompoundPollerModule {}

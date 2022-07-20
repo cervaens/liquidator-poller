@@ -9,6 +9,11 @@ import { CtokensModule } from './mongodb/ctoken/ctoken.module';
 import { CompoundPollerModule } from './compound-poller/compound-poller.module';
 import { HttpModule } from '@nestjs/axios';
 import { ConfigModule } from '@nestjs/config';
+// import { Web3ProviderService } from './web3-provider/web3-provider.service';
+// import { Web3ProviderModule } from './web3-provider/web3-provider.module';
+import { web3Con, web3Ws } from './web3-provider/web3-provider.service';
+import { CompoundPricesWsService } from './compound-prices-ws/compound-prices-ws.service';
+import { CompoundPricesWsHelperService } from './compound-prices-ws-helper/compound-prices-ws-helper.service';
 
 @Global()
 @Module({
@@ -30,9 +35,24 @@ import { ConfigModule } from '@nestjs/config';
     CompoundPollerModule,
     HttpModule,
     ConfigModule.forRoot({ isGlobal: true }),
+    // Web3ProviderModule,
   ],
   controllers: [AppController],
-  providers: [AppService, TaskSchedulerService],
-  exports: [RabbitMQModule, HttpModule, CtokensModule],
+  providers: [
+    AppService,
+    TaskSchedulerService,
+    // Web3ProviderService,
+    {
+      provide: 'WEB3PROV',
+      useValue: web3Con,
+    },
+    {
+      provide: 'WEB3WS',
+      useValue: web3Ws,
+    },
+    CompoundPricesWsService,
+    CompoundPricesWsHelperService,
+  ],
+  exports: [RabbitMQModule, HttpModule, CtokensModule, CompoundPollerModule],
 })
 export class AppModule {}
