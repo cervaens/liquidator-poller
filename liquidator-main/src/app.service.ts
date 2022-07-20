@@ -17,15 +17,4 @@ export class AppService {
   getHello(): string {
     return 'Hello World!';
   }
-
-  async sendTestMsg() {
-    this.logger.debug('Message sent');
-    this.amqpConnection.publish('liquidator-exchange', 'test-msg', {
-      msg: 'something',
-    });
-    this.amqpConnection.publish('liquidator-exchange', 'test-queue-msg', {
-      msg: 'something',
-    });
-    return true;
-  }
 }

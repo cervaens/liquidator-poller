@@ -22,6 +22,7 @@ export class AppController {
     //   symbol: 'ss223',
     //   price: undefined,
     // });
-    return this.appService.sendTestMsg();
+    // return this.appService.sendTestMsg();
+    return false;
   }
 }

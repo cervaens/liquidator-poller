@@ -13,9 +13,15 @@ export class CompoundPollerController {
 
   async onModuleInit(): Promise<void> {
     this.pollCTokens();
+    this.pollAccounts();
     setInterval(
       () => this.pollCTokens(),
       parseInt(process.env.COMPOUND_POLLING_SCHEDULE_CTOKENS),
+    );
+
+    setInterval(
+      () => this.pollAccounts(),
+      parseInt(process.env.COMPOUND_POLLING_SCHEDULE_ACCOUNTS),
     );
   }
 
@@ -30,17 +36,13 @@ export class CompoundPollerController {
 
   async pollAccounts() {
     this.logger.debug('Calling Accounts endpoint');
-    // const { accounts }: Record<string, any> =
-    //   await this.compoundPollerService.fetchAccounts({});
+
+    await this.compoundPollerService.fetchAccounts();
     // await this.ctokenController.createMany(tokens);
     return true;
   }
 
   async sendTestMsg() {
-    console.log('GOT IT');
-    this.amqpConnection.publish('liquidator-exchange', 'test-msg', {
-      msg: 'test',
-    });
     return true;
   }
 }

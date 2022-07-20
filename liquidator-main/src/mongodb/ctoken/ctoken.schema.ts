@@ -30,9 +30,6 @@ export class Ctoken {
   underlyingPrice: number;
 
   @Prop()
-  priceTimestamp: number;
-
-  @Prop()
   tokenHash: string;
 }
 

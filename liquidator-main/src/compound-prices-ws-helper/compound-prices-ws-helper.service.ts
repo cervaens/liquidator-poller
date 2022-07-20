@@ -21,10 +21,10 @@ export class CompoundPricesWsHelperService {
     this.uniswapAnchorContract = await this.initUniswapAnchoredViewContract();
   }
 
-  anchorInput = [
+  anchorPriceUpdatedInput = [
     {
       type: 'uint256',
-      name: 'anchorPrice',
+      name: 'price',
     },
     {
       type: 'uint256',
@@ -36,12 +36,33 @@ export class CompoundPricesWsHelperService {
     },
   ];
 
+  priceUpdatedInput = [
+    {
+      type: 'uint256',
+      name: 'price',
+    },
+  ];
+
   logToObject = (tx: Record<string, any>) => {
-    const result = this.conWeb3.eth.abi.decodeLog(
-      this.anchorInput,
-      tx.data,
-      tx.topics,
-    );
+    let result;
+    if (
+      tx.topics[0] === process.env.COMPOUND_UNISWAPANCHORVIEW_PRICEUPDATED_TOPIC
+    ) {
+      result = this.conWeb3.eth.abi.decodeLog(
+        this.priceUpdatedInput,
+        tx.data,
+        tx.topics,
+      );
+    } else if (
+      tx.topics[0] ===
+      process.env.COMPOUND_UNISWAPANCHORVIEW_ANCHORPRICEUPDATED_TOPIC
+    ) {
+      result = this.conWeb3.eth.abi.decodeLog(
+        this.anchorPriceUpdatedInput,
+        tx.data,
+        tx.topics,
+      );
+    }
     return result;
   };
 
@@ -49,6 +70,10 @@ export class CompoundPricesWsHelperService {
     return await this.uniswapAnchorContract.methods
       .getTokenConfigBySymbolHash(tokenHash)
       .call();
+  }
+
+  async getTokenPrice(tokenSymbol: string) {
+    return await this.uniswapAnchorContract.methods.price(tokenSymbol).call();
   }
 
   async initUniswapAnchoredViewContract() {

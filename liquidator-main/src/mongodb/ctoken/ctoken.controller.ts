@@ -41,12 +41,10 @@ export class CtokenController {
   async updateCtokenPrice(
     address: string,
     price: number,
-    priceTimestamp: number,
     extraUpdate: Record<string, any>,
   ) {
     const updateSetExpression: Record<string, any> = {
       underlyingPrice: price,
-      priceTimestamp,
     };
     if (extraUpdate) {
       Object.assign(updateSetExpression, extraUpdate);

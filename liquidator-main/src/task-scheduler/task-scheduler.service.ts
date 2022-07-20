@@ -1,5 +1,5 @@
-import { Injectable, Logger, Inject } from '@nestjs/common';
-import { Cron } from '@nestjs/schedule';
+import { Injectable, Logger } from '@nestjs/common';
+// import { Cron } from '@nestjs/schedule';
 // import { CompoundPollerController } from '../compound-poller/compound-poller.controller';
 
 @Injectable()

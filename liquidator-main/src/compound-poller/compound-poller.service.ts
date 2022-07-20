@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { CompoundToken } from './classes/CompoundToken';
 import { firstValueFrom } from 'rxjs';
 import { HttpService } from '@nestjs/axios';
@@ -9,6 +9,8 @@ export class CompoundPollerService {
     private readonly httpService: HttpService,
     private readonly amqpConnection: AmqpConnection,
   ) {}
+
+  private readonly logger = new Logger(CompoundPollerService.name);
   getHello(): string {
     return 'Hello World!';
   }
@@ -29,35 +31,62 @@ export class CompoundPollerService {
   }
 
   async fetchAccounts() {
-    let i = 1;
-    let pageCount = 0;
+    const options = {
+      page_size: 100,
+      // Adding this one which reduces the returned results in around 700 accounts
+      'max_health[value]':
+        process.env.COMPOUND_POLLING_ACCOUNT_MAX_HEALTH || 1.3,
+      'min_borrow_value_in_eth[value]':
+        process.env.COMPOUND_POLLING_ACCOUNT_MIN_BORROW_ETH || 0.09,
+    };
+    const firstPage = await this.fetch('account', {
+      ...options,
+      page_number: 1,
+    });
 
-    let result;
-    do {
-      // Sleep on each iter to avoid API rate limiting
-      await this.sleep(100);
+    if (firstPage.error || firstPage.errors) {
+      this.logger.warn(
+        'Fetch AccountService failed: ' + firstPage.error + firstPage.errors,
+      );
+    }
+    this.amqpConnection.publish('liquidator-exchange', 'accounts-polled', {
+      accounts: firstPage.data.accounts,
+    });
 
-      result = await this.fetch('account', {
-        page_number: i,
-        page_size: 300,
-        'max_health[value]': 1.1, // Adding this one which reduces the returned results in around 700 accounts
-        'min_borrow_value_in_eth[value]': 0.09,
-      });
-      if (result.error) {
-        console.warn('Fetch AccountService failed: ' + result.error.toString());
-        continue;
+    const pageCount =
+      firstPage.data &&
+      firstPage.data.pagination_summary &&
+      firstPage.data.pagination_summary.total_pages;
+
+    const promises = [];
+    for (let i = 2; i <= pageCount; i++) {
+      promises.push(
+        this.fetch('account', {
+          ...options,
+          page_number: i,
+        }),
+      );
+    }
+
+    const promiseExecution = async () => {
+      for (const promise of promises) {
+        try {
+          const res = await promise;
+
+          this.amqpConnection.publish(
+            'liquidator-exchange',
+            'accounts-polled',
+            {
+              accounts: res.data.accounts,
+            },
+          );
+        } catch (error) {
+          this.logger.error(error.message);
+        }
       }
+    };
 
-      pageCount = result.pagination.total_pages;
-      i++;
-
-      this.amqpConnection.publish('liquidator-exchange', 'test-msg', {
-        accounts: result.accounts,
-      });
-
-      // send result.accounts
-    } while (i <= pageCount);
-
+    await promiseExecution();
     return true;
   }
 

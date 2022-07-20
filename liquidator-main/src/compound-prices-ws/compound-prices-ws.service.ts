@@ -22,15 +22,44 @@ export class CompoundPricesWsService {
         process.env.COMPOUND_UNISWAPANCHORVIEW_ADDRESS ||
         '0x65c816077C29b557BEE980ae3cC2dCE80204A0C5',
       topics: [
-        process.env.COMPOUND_UNISWAPANCHORVIEW_ANCHORPRICEUPDATED_TOPIC ||
-          '0xac9b6bb0c67df7ef0d18e58e4bd539c4d6f780c4c8f341cd8e649109edeb5faf',
+        [
+          process.env.COMPOUND_UNISWAPANCHORVIEW_PRICEUPDATED_TOPIC ||
+            '0x46eec4e0eeeef5830de3472bb39db7e52b1c809286dc87c4b85b20e003cc70c3',
+          //   process.env.COMPOUND_UNISWAPANCHORVIEW_ANCHORPRICEUPDATED_TOPIC ||
+          //     '0xac9b6bb0c67df7ef0d18e58e4bd539c4d6f780c4c8f341cd8e649109edeb5faf',
+        ],
       ],
     };
 
+    // web3Ws.eth.subscribe('newBlockHeaders', (err, result) => {
+    //   this.logger.debug(
+    //     `☑️ *Got New block* | Our timestamp: ${parseInt(
+    //       (new Date().getTime() / 1000).toString(),
+    //     )} block timestamp:  ${result.timestamp} blocknumber: ${result.number}`,
+    //   );
+    // });
+
+    web3Ws.eth
+      .subscribe('pendingTransactions', function (error, result) {
+        if (!error) console.log(result);
+      })
+      .on('data', async (transaction) => {
+        setTimeout(async () => {
+          try {
+            const tx = await conWeb3.eth.getTransaction(transaction);
+            console.log(tx);
+          } catch (err) {
+            console.error(err);
+          }
+        });
+      });
+
+    let msgPrices = [];
     this.web3Ws.eth.subscribe('logs', options, async (err, tx) => {
       if (err) return;
 
       let extraUpdate = null;
+
       if (!this.addressFromHash[tx.topics[1]]) {
         const tokenInfo = await this.helper.getTokenInfo(tx.topics[1]);
         this.addressFromHash[tx.topics[1]] =
@@ -41,24 +70,34 @@ export class CompoundPricesWsService {
       }
 
       const priceObj = this.helper.logToObject(tx);
-
-      this.amqpConnection.publish('liquidator-exchange', 'test-msg', {
+      msgPrices.push({
         address: this.addressFromHash[tx.topics[1]],
-        price: parseInt(priceObj.anchorPrice),
-        timestamp: parseInt(priceObj.newTimestamp),
+        price: parseInt(priceObj.price),
       });
+
+      // Here we group all prices from within 200 ms
+      // just not to trigger the same logic per price on the same second
+      if (msgPrices.length === 1) {
+        setTimeout(() => {
+          this.amqpConnection.publish(
+            'liquidator-exchange',
+            'prices-updated',
+            msgPrices,
+          );
+          msgPrices = [];
+        }, 200);
+      }
 
       await this.ctoken.updateCtokenPrice(
         this.addressFromHash[tx.topics[1]],
-        parseInt(priceObj.anchorPrice),
-        parseInt(priceObj.newTimestamp),
+        parseInt(priceObj.price),
         extraUpdate,
       );
 
       this.logger.debug(
         `☑️ *Got Prices* | Address: ${
           this.addressFromHash[tx.topics[1]]
-        } Price: ${priceObj.anchorPrice}`,
+        } Price: ${priceObj.price}`,
       );
     });
   }
@@ -80,16 +119,5 @@ export class CompoundPricesWsService {
 
   getHello(): string {
     return 'Hello World!';
-  }
-
-  async sendTestMsg() {
-    this.logger.debug('Message sent');
-    this.amqpConnection.publish('liquidator-exchange', 'test-msg', {
-      msg: 'something',
-    });
-    this.amqpConnection.publish('liquidator-exchange', 'test-queue-msg', {
-      msg: 'something',
-    });
-    return true;
   }
 }
