@@ -39,20 +39,20 @@ export class CompoundPricesWsService {
     //   );
     // });
 
-    web3Ws.eth
-      .subscribe('pendingTransactions', function (error, result) {
-        if (!error) console.log(result);
-      })
-      .on('data', async (transaction) => {
-        setTimeout(async () => {
-          try {
-            const tx = await conWeb3.eth.getTransaction(transaction);
-            console.log(tx);
-          } catch (err) {
-            console.error(err);
-          }
-        });
-      });
+    // web3Ws.eth
+    //   .subscribe('pendingTransactions', function (error, result) {
+    //     if (!error) console.log(result);
+    //   })
+    //   .on('data', async (transaction) => {
+    //     setTimeout(async () => {
+    //       try {
+    //         const tx = await conWeb3.eth.getTransaction(transaction);
+    //         console.log(tx);
+    //       } catch (err) {
+    //         console.error(err);
+    //       }
+    //     });
+    //   });
 
     let msgPrices = [];
     this.web3Ws.eth.subscribe('logs', options, async (err, tx) => {
