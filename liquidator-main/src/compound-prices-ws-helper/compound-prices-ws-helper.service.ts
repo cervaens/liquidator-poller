@@ -14,7 +14,6 @@ export class CompoundPricesWsHelperService {
     private readonly amqpConnection: AmqpConnection,
     private readonly ctoken: CtokenController,
     @Inject('WEB3PROV') private conWeb3: Web3,
-    @Inject('WEB3WS') private web3Ws: Web3,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -74,6 +73,42 @@ export class CompoundPricesWsHelperService {
 
   async getTokenPrice(tokenSymbol: string) {
     return await this.uniswapAnchorContract.methods.price(tokenSymbol).call();
+  }
+
+  async getTokensPrice(tokens: Array<string>) {
+    const tokenPrices = {};
+    const promises: Record<string, Promise<any>> = {};
+
+    for (const token of tokens) {
+      // Compound considers stable coins as 1 dollar
+      if (token.match('USDC|USDT|TUSD|USDP')) {
+        tokenPrices[token] = '1000000';
+      } else if (token === 'WBTC') {
+        promises[token] = this.uniswapAnchorContract.methods
+          .price('BTC')
+          .call();
+      } else {
+        promises[token] = this.uniswapAnchorContract.methods
+          .price(token)
+          .call();
+      }
+    }
+
+    const promiseExecution = async () => {
+      for (const token of Object.keys(promises)) {
+        try {
+          const res = await promises[token];
+          tokenPrices[token] = res;
+        } catch (error) {
+          this.logger.error(error.message);
+        }
+      }
+    };
+
+    this.amqpConnection.publish('liquidator-exchange', 'prices-polled', {});
+
+    await promiseExecution();
+    return tokenPrices;
   }
 
   async initUniswapAnchoredViewContract() {

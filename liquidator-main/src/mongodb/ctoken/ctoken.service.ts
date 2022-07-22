@@ -63,7 +63,28 @@ export class CtokenService {
     filter: Record<string, unknown>,
     setStat: Record<string, unknown>,
   ) {
-    const ctoken = await this.ctokenModel.updateMany(filter, setStat);
-    return ctoken;
+    return this.ctokenModel.updateMany(filter, setStat);
+  }
+
+  async updateCtokenPriceFromAddressOrSymbol(
+    address: string,
+    underlyingSymbol: string,
+    price: number,
+    extraUpdate: Record<string, any>,
+  ) {
+    let query: Record<string, string>;
+    if (address) {
+      query = { address };
+    }
+    if (underlyingSymbol) {
+      query = { underlyingSymbol };
+    }
+    const updateSetExpression: Record<string, any> = {
+      underlyingPrice: price,
+    };
+    if (extraUpdate) {
+      Object.assign(updateSetExpression, extraUpdate);
+    }
+    return this.updateMany(query, { $set: updateSetExpression });
   }
 }

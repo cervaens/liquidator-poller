@@ -2,17 +2,23 @@ import { Controller, Logger } from '@nestjs/common';
 import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
 import { CompoundPollerService } from './compound-poller.service';
 import { CtokenController } from '../mongodb/ctoken/ctoken.controller';
-
+import { CompoundToken } from './classes/CompoundToken';
+import { CompoundPricesWsService } from '../compound-prices-ws/compound-prices-ws.service';
 @Controller('compound-poller')
 export class CompoundPollerController {
   constructor(
     private readonly amqpConnection: AmqpConnection,
     private readonly compoundPollerService: CompoundPollerService,
     private readonly ctokenController: CtokenController,
+    private readonly compoundPrices: CompoundPricesWsService,
   ) {}
 
-  async onModuleInit(): Promise<void> {
-    this.pollCTokens();
+  async onApplicationBootstrap(): Promise<void> {
+    const tokenSymbols = await this.pollCTokens();
+    await this.compoundPrices.pollAndStorePrices([
+      ...new Set(tokenSymbols),
+    ] as Array<string>);
+
     this.pollAccounts();
     setInterval(
       () => this.pollCTokens(),
@@ -31,7 +37,7 @@ export class CompoundPollerController {
     const { tokens }: Record<string, any> =
       await this.compoundPollerService.fetchCtokens({});
     await this.ctokenController.createMany(tokens);
-    return true;
+    return tokens.map((token: CompoundToken) => token.underlyingSymbol);
   }
 
   async pollAccounts() {

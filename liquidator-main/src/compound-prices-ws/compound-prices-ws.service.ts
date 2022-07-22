@@ -4,6 +4,7 @@ import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
 import Web3 from 'web3';
 import { CompoundPricesWsHelperService } from '../compound-prices-ws-helper/compound-prices-ws-helper.service';
 import { CtokenController } from 'src/mongodb/ctoken/ctoken.controller';
+import { RabbitSubscribe } from '@golevelup/nestjs-rabbitmq';
 
 @Injectable()
 export class CompoundPricesWsService {
@@ -13,7 +14,7 @@ export class CompoundPricesWsService {
     private readonly amqpConnection: AmqpConnection,
     private readonly ctoken: CtokenController,
     // @Inject('WEB3') private conn: Web3,
-    @Inject('WEB3PROV') private conWeb3: Web3,
+    // @Inject('WEB3PROV') private conWeb3: Web3,
     @Inject('WEB3WS') private web3Ws: Web3,
     private helper: CompoundPricesWsHelperService,
   ) {
@@ -30,14 +31,14 @@ export class CompoundPricesWsService {
         ],
       ],
     };
-
-    // web3Ws.eth.subscribe('newBlockHeaders', (err, result) => {
-    //   this.logger.debug(
-    //     `☑️ *Got New block* | Our timestamp: ${parseInt(
-    //       (new Date().getTime() / 1000).toString(),
-    //     )} block timestamp:  ${result.timestamp} blocknumber: ${result.number}`,
-    //   );
-    // });
+    this.logger.debug('INITIALINZ');
+    web3Ws.eth.subscribe('newBlockHeaders', (err, result) => {
+      this.logger.debug(
+        `☑️ *Got New block* | Our timestamp: ${parseInt(
+          (new Date().getTime() / 1000).toString(),
+        )} block timestamp:  ${result.timestamp} blocknumber: ${result.number}`,
+      );
+    });
 
     // web3Ws.eth
     //   .subscribe('pendingTransactions', function (error, result) {
@@ -88,8 +89,9 @@ export class CompoundPricesWsService {
         }, 200);
       }
 
-      await this.ctoken.updateCtokenPrice(
+      await this.ctoken.updateCtokenPriceFromAddressOrSymbol(
         this.addressFromHash[tx.topics[1]],
+        null,
         parseInt(priceObj.price),
         extraUpdate,
       );
@@ -100,6 +102,16 @@ export class CompoundPricesWsService {
         } Price: ${priceObj.price}`,
       );
     });
+  }
+
+  @RabbitSubscribe({
+    exchange: 'liquidator-exchange',
+    routingKey: 'poll-prices',
+  })
+  public async pollAndStorePrices(tokens: Array<string>) {
+    const tokenPrices = await this.helper.getTokensPrice(tokens);
+    await this.ctoken.updateCtokensPrices(tokenPrices);
+    this.logger.debug('stored');
   }
 
   //   async onApplicationBootstrap(): Promise<void> {}

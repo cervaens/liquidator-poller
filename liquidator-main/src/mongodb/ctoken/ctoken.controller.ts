@@ -30,7 +30,6 @@ export class CtokenController {
   }
 
   async createMany(@Body() ctokens: Array<CompoundToken>) {
-    this.logger.debug('Inserting CTokens: ' + ctokens.length);
     return await this.ctokenService.createMany(ctokens);
   }
 
@@ -38,20 +37,33 @@ export class CtokenController {
     return this.ctokenService.update(id, ctoken);
   }
 
-  async updateCtokenPrice(
+  async updateCtokenPriceFromAddressOrSymbol(
     address: string,
+    symbol: string,
     price: number,
     extraUpdate: Record<string, any>,
   ) {
-    const updateSetExpression: Record<string, any> = {
-      underlyingPrice: price,
-    };
-    if (extraUpdate) {
-      Object.assign(updateSetExpression, extraUpdate);
-    }
-    return this.ctokenService.updateMany(
-      { address },
-      { $set: updateSetExpression },
+    return this.ctokenService.updateCtokenPriceFromAddressOrSymbol(
+      address,
+      symbol,
+      price,
+      extraUpdate,
     );
+  }
+
+  async updateCtokensPrices(tokenPrices: Record<string, string>) {
+    const promises = [];
+    for (const token of Object.keys(tokenPrices)) {
+      promises.push(
+        this.updateCtokenPriceFromAddressOrSymbol(
+          null,
+          token,
+          parseInt(tokenPrices[token]),
+          null,
+        ),
+      );
+    }
+
+    return Promise.all(promises);
   }
 }

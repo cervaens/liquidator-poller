@@ -50,7 +50,7 @@ export class CompoundPollerService {
       );
     }
     this.amqpConnection.publish('liquidator-exchange', 'accounts-polled', {
-      accounts: firstPage.data.accounts,
+      accounts: firstPage.data && firstPage.data.accounts,
     });
 
     const pageCount =

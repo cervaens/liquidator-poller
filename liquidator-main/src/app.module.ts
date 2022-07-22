@@ -12,8 +12,6 @@ import { ConfigModule } from '@nestjs/config';
 // import { Web3ProviderService } from './web3-provider/web3-provider.service';
 // import { Web3ProviderModule } from './web3-provider/web3-provider.module';
 import { web3Con, web3Ws } from './web3-provider/web3-provider.service';
-import { CompoundPricesWsService } from './compound-prices-ws/compound-prices-ws.service';
-import { CompoundPricesWsHelperService } from './compound-prices-ws-helper/compound-prices-ws-helper.service';
 
 @Global()
 @Module({
@@ -50,9 +48,14 @@ import { CompoundPricesWsHelperService } from './compound-prices-ws-helper/compo
       provide: 'WEB3WS',
       useValue: web3Ws,
     },
-    CompoundPricesWsService,
-    CompoundPricesWsHelperService,
   ],
-  exports: [RabbitMQModule, HttpModule, CtokensModule, CompoundPollerModule],
+  exports: [
+    RabbitMQModule,
+    HttpModule,
+    CtokensModule,
+    CompoundPollerModule,
+    'WEB3WS',
+    'WEB3PROV',
+  ],
 })
 export class AppModule {}
