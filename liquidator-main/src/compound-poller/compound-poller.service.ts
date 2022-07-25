@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { CompoundToken } from './classes/CompoundToken';
+import { CompoundToken } from '../mongodb/ctoken/classes/CompoundToken';
+import { CompoundAccount } from '../mongodb/compound-accounts/classes/CompoundAccount';
 import { firstValueFrom } from 'rxjs';
 import { HttpService } from '@nestjs/axios';
 import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
@@ -50,7 +51,12 @@ export class CompoundPollerService {
       );
     }
     this.amqpConnection.publish('liquidator-exchange', 'accounts-polled', {
-      accounts: firstPage.data && firstPage.data.accounts,
+      accounts:
+        firstPage.data &&
+        firstPage.data.accounts &&
+        firstPage.data.accounts.map(
+          (i: Record<string, any>) => new CompoundAccount(i),
+        ),
     });
 
     const pageCount =
@@ -77,7 +83,12 @@ export class CompoundPollerService {
             'liquidator-exchange',
             'accounts-polled',
             {
-              accounts: res.data.accounts,
+              accounts:
+                res.data &&
+                res.data.accounts &&
+                res.data.accounts.map(
+                  (i: Record<string, any>) => new CompoundAccount(i),
+                ),
             },
           );
         } catch (error) {

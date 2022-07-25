@@ -3,7 +3,7 @@ import { Body, Controller, Param, Logger } from '@nestjs/common';
 import { CtokenService } from './ctoken.service';
 import ParamsWithId from '../utils/paramsWithId';
 import CtokenDto from './dto/create-ctoken.dto';
-import { CompoundToken } from '../../compound-poller/classes/CompoundToken';
+import { CompoundToken } from './classes/CompoundToken';
 
 @Controller('ctoken')
 export class CtokenController {

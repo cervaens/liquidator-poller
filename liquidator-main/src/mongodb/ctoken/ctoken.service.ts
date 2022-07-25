@@ -4,7 +4,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Ctoken, CtokenDocument } from './ctoken.schema';
 import { CtokenDto } from './dto/create-ctoken.dto';
 import { NotFoundException } from '@nestjs/common';
-import { CompoundToken } from '../../compound-poller/classes/CompoundToken';
+import { CompoundToken } from './classes/CompoundToken';
 
 @Injectable()
 export class CtokenService {

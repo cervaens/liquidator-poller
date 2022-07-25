@@ -31,7 +31,6 @@ export class CompoundPricesWsService {
         ],
       ],
     };
-    this.logger.debug('INITIALINZ');
     web3Ws.eth.subscribe('newBlockHeaders', (err, result) => {
       this.logger.debug(
         `☑️ *Got New block* | Our timestamp: ${parseInt(
@@ -111,7 +110,6 @@ export class CompoundPricesWsService {
   public async pollAndStorePrices(tokens: Array<string>) {
     const tokenPrices = await this.helper.getTokensPrice(tokens);
     await this.ctoken.updateCtokensPrices(tokenPrices);
-    this.logger.debug('stored');
   }
 
   //   async onApplicationBootstrap(): Promise<void> {}

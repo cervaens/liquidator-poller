@@ -1,7 +1,7 @@
 import { Module, Global } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { ScheduleModule } from '@nestjs/schedule';
+// import { ScheduleModule } from '@nestjs/schedule';
 import { TaskSchedulerService } from './task-scheduler/task-scheduler.service';
 import { RabbitMQModule } from '@golevelup/nestjs-rabbitmq';
 import { MongooseModule } from '@nestjs/mongoose';
@@ -12,11 +12,12 @@ import { ConfigModule } from '@nestjs/config';
 // import { Web3ProviderService } from './web3-provider/web3-provider.service';
 // import { Web3ProviderModule } from './web3-provider/web3-provider.module';
 import { web3Con, web3Ws } from './web3-provider/web3-provider.service';
+import { CompoundAccountsModule } from './mongodb/compound-accounts/compound-accounts.module';
 
 @Global()
 @Module({
   imports: [
-    ScheduleModule.forRoot(),
+    // ScheduleModule.forRoot(),
     MongooseModule.forRoot('mongodb://localhost/nest'),
     RabbitMQModule.forRoot(RabbitMQModule, {
       exchanges: [
@@ -33,6 +34,7 @@ import { web3Con, web3Ws } from './web3-provider/web3-provider.service';
     CompoundPollerModule,
     HttpModule,
     ConfigModule.forRoot({ isGlobal: true }),
+    CompoundAccountsModule,
     // Web3ProviderModule,
   ],
   controllers: [AppController],
