@@ -6,8 +6,6 @@ export type CompoundAccountsDocument = CompoundAccounts & Document;
 class Token {
   address: string;
   borrow_balance_underlying: number;
-  lifetime_borrow_interest_accrued: number;
-  lifetime_supply_interest_accrued: number;
   safe_withdraw_amount_underlying: number;
   supply_balance_underlying: number;
 }

@@ -25,6 +25,9 @@ export class CompoundAccount {
     for (const token of tokens) {
       const tokenObj = {};
       for (const [key, value] of Object.entries(token)) {
+        if (key.match(/^lifetime/)) {
+          continue;
+        }
         if (value && typeof value === 'object') {
           tokenObj[key] = parseFloat(value.value);
         } else {

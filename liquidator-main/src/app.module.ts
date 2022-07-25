@@ -17,8 +17,13 @@ import { CompoundAccountsModule } from './mongodb/compound-accounts/compound-acc
 @Global()
 @Module({
   imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
     // ScheduleModule.forRoot(),
-    MongooseModule.forRoot('mongodb://localhost/nest'),
+    MongooseModule.forRoot(
+      process.env.MONGODB_URL +
+        process.env.MONGODB_DBNAME +
+        '?retryWrites=true&w=majority',
+    ),
     RabbitMQModule.forRoot(RabbitMQModule, {
       exchanges: [
         {
@@ -33,7 +38,6 @@ import { CompoundAccountsModule } from './mongodb/compound-accounts/compound-acc
     CtokensModule,
     CompoundPollerModule,
     HttpModule,
-    ConfigModule.forRoot({ isGlobal: true }),
     CompoundAccountsModule,
     // Web3ProviderModule,
   ],
