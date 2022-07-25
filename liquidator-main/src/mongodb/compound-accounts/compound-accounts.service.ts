@@ -8,7 +8,7 @@ import {
 // import { CompoundAccountsDto } from './dto/create-ctoken.dto';
 // import { NotFoundException } from '@nestjs/common';
 import { CompoundAccount } from './classes/CompoundAccount';
-import { RabbitSubscribe } from '@golevelup/nestjs-rabbitmq';
+import { AmqpConnection, RabbitSubscribe } from '@golevelup/nestjs-rabbitmq';
 
 @Injectable()
 export class CompoundAccountsService {
@@ -16,6 +16,7 @@ export class CompoundAccountsService {
   constructor(
     @InjectModel(CompoundAccounts.name)
     private compoundAccountsModel: Model<CompoundAccountsDocument>,
+    private readonly amqpConnection: AmqpConnection,
   ) {}
 
   @RabbitSubscribe({
@@ -26,12 +27,27 @@ export class CompoundAccountsService {
   public async accountsPolledHandler(
     msg: Record<string, Array<CompoundAccount>>,
   ) {
-    this.logger.debug('Got accounts');
+    const queries = [];
     for (const compoundAccount of msg.accounts) {
-      await this.compoundAccountsModel
-        .findByIdAndUpdate(compoundAccount._id, compoundAccount)
-        .setOptions({ upsert: true });
+      queries.push({
+        updateOne: {
+          filter: { _id: compoundAccount._id },
+          update: compoundAccount,
+          upsert: true,
+        },
+      });
     }
-    this.logger.debug('Stored accounts');
+    // BulkWrite returns the nr docs modified and its the fastest to execute
+    const res = await this.compoundAccountsModel.bulkWrite(queries);
+    if (res && res.result && res.result.nModified) {
+      this.amqpConnection.publish(
+        'liquidator-exchange',
+        'accounts-updated',
+        msg,
+      );
+      this.logger.debug(
+        res.result.nModified + ' Compound accounts were updated',
+      );
+    }
   }
 }

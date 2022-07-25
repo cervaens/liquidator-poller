@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Global, Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { RabbitMQModule } from '@golevelup/nestjs-rabbitmq';
@@ -6,6 +6,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { ConfigModule } from '@nestjs/config';
 import { CompoundAccountsModule } from './compound-accounts/compound-accounts.module';
 
+@Global()
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -29,5 +30,6 @@ import { CompoundAccountsModule } from './compound-accounts/compound-accounts.mo
   ],
   controllers: [AppController],
   providers: [AppService, AppController],
+  exports: [RabbitMQModule],
 })
 export class AppModule {}
