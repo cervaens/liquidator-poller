@@ -32,7 +32,7 @@ import { CompoundAccountsModule } from './mongodb/compound-accounts/compound-acc
         },
       ],
       uri: ['amqp://localhost:5672'],
-      connectionInitOptions: { wait: false },
+      connectionInitOptions: { wait: true, timeout: 50000 },
     }),
     AppModule,
     CtokensModule,

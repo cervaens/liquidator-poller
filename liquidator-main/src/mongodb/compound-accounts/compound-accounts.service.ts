@@ -40,14 +40,20 @@ export class CompoundAccountsService {
     // BulkWrite returns the nr docs modified and its the fastest to execute
     const res = await this.compoundAccountsModel.bulkWrite(queries);
     if (res && res.result && res.result.nModified) {
-      this.amqpConnection.publish(
-        'liquidator-exchange',
-        'accounts-updated',
-        msg,
+      const candidateAccounts = msg.accounts.filter(
+        (account) =>
+          account.health >= parseFloat(process.env.CANDIDATE_MIN_HEALTH) &&
+          account.health <= parseFloat(process.env.CANDIDATE_MAX_HEALTH),
       );
-      this.logger.debug(
-        res.result.nModified + ' Compound accounts were updated',
-      );
+      if (candidateAccounts.length > 0) {
+        this.amqpConnection.publish('liquidator-exchange', 'accounts-updated', {
+          accounts: candidateAccounts,
+        });
+        this.logger.debug(
+          candidateAccounts.length +
+            ' candidate Compound accounts were updated',
+        );
+      }
     }
   }
 }
