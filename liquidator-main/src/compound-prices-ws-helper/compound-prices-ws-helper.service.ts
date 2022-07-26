@@ -105,9 +105,12 @@ export class CompoundPricesWsHelperService {
       }
     };
 
-    this.amqpConnection.publish('liquidator-exchange', 'prices-polled', {});
-
     await promiseExecution();
+    this.amqpConnection.publish(
+      'liquidator-exchange',
+      'prices-polled',
+      tokenPrices,
+    );
     return tokenPrices;
   }
 

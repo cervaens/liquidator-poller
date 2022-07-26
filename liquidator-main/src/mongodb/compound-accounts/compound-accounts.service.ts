@@ -19,16 +19,24 @@ export class CompoundAccountsService {
     private readonly amqpConnection: AmqpConnection,
   ) {}
 
+  private isInit = true;
+
   @RabbitSubscribe({
     exchange: 'liquidator-exchange',
     routingKey: 'accounts-polled',
     queue: 'accounts',
   })
   public async accountsPolledHandler(
-    msg: Record<string, Array<CompoundAccount>>,
+    msg: Record<string, Array<Record<string, any>>>,
   ) {
     const queries = [];
-    for (const compoundAccount of msg.accounts) {
+    const candidates = [];
+    for (const account of msg.accounts) {
+      const compoundAccount = new CompoundAccount(account);
+      if (compoundAccount.isCandidate()) {
+        candidates.push(account);
+      }
+      // compoundAccount.updateAccount(this.cToken, this.symbolPricesUSD);
       queries.push({
         updateOne: {
           filter: { _id: compoundAccount._id },
@@ -39,19 +47,18 @@ export class CompoundAccountsService {
     }
     // BulkWrite returns the nr docs modified and its the fastest to execute
     const res = await this.compoundAccountsModel.bulkWrite(queries);
-    if (res && res.result && res.result.nModified) {
-      const candidateAccounts = msg.accounts.filter(
-        (account) =>
-          account.health >= parseFloat(process.env.CANDIDATE_MIN_HEALTH) &&
-          account.health <= parseFloat(process.env.CANDIDATE_MAX_HEALTH),
-      );
-      if (candidateAccounts.length > 0) {
-        this.amqpConnection.publish('liquidator-exchange', 'accounts-updated', {
-          accounts: candidateAccounts,
-        });
+    if (this.isInit || (res && res.result && res.result.nModified)) {
+      this.isInit = false;
+      if (candidates.length > 0) {
+        this.amqpConnection.publish(
+          'liquidator-exchange',
+          'candidates-updated',
+          {
+            accounts: candidates,
+          },
+        );
         this.logger.debug(
-          candidateAccounts.length +
-            ' candidate Compound accounts were updated',
+          candidates.length + ' candidate Compound accounts were updated',
         );
       }
     }

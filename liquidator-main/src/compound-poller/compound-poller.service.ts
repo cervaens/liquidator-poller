@@ -22,12 +22,21 @@ export class CompoundPollerService {
 
   async fetchCtokens(withConfig: Record<string, any>) {
     const json = await this.fetch('ctoken', withConfig);
+    const tokens = json.data.cToken.map(
+      (i: Record<string, any>) => new CompoundToken(i),
+    );
+
+    const tokenObj = {};
+    for (const token of tokens) {
+      tokenObj[token.symbol] = token;
+    }
+    this.amqpConnection.publish('liquidator-exchange', 'ctokens-polled', {
+      ...tokenObj,
+    });
 
     return {
       error: json.error,
-      tokens: json.data.cToken.map(
-        (i: Record<string, any>) => new CompoundToken(i),
-      ),
+      tokens,
     };
   }
 
@@ -51,12 +60,7 @@ export class CompoundPollerService {
       );
     }
     this.amqpConnection.publish('liquidator-exchange', 'accounts-polled', {
-      accounts:
-        firstPage.data &&
-        firstPage.data.accounts &&
-        firstPage.data.accounts.map(
-          (i: Record<string, any>) => new CompoundAccount(i),
-        ),
+      accounts: firstPage.data && firstPage.data.accounts,
     });
 
     const pageCount =
@@ -83,12 +87,7 @@ export class CompoundPollerService {
             'liquidator-exchange',
             'accounts-polled',
             {
-              accounts:
-                res.data &&
-                res.data.accounts &&
-                res.data.accounts.map(
-                  (i: Record<string, any>) => new CompoundAccount(i),
-                ),
+              accounts: res.data && res.data.accounts,
             },
           );
         } catch (error) {

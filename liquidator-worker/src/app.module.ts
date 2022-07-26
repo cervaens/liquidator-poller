@@ -4,7 +4,8 @@ import { AppService } from './app.service';
 import { RabbitMQModule } from '@golevelup/nestjs-rabbitmq';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ConfigModule } from '@nestjs/config';
-import { CompoundAccountsModule } from './compound-accounts/compound-accounts.module';
+import { CompoundAccountsModule } from './mongodb/compound-accounts/compound-accounts.module';
+import { CandidatesModule } from './candidates/candidates.module';
 
 @Global()
 @Module({
@@ -27,6 +28,7 @@ import { CompoundAccountsModule } from './compound-accounts/compound-accounts.mo
     }),
     AppModule,
     CompoundAccountsModule,
+    CandidatesModule,
   ],
   controllers: [AppController],
   providers: [AppService, AppController],

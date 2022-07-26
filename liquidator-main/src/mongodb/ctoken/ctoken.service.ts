@@ -21,9 +21,8 @@ export class CtokenService {
 
   async createMany(CtokenArray: Array<CompoundToken>): Promise<boolean> {
     for (const cToken of CtokenArray) {
-      const cTokenMongo = cToken.toMongoObj();
       await this.ctokenModel
-        .findByIdAndUpdate(cTokenMongo._id, cTokenMongo)
+        .findByIdAndUpdate(cToken._id, cToken)
         .setOptions({ upsert: true });
     }
 

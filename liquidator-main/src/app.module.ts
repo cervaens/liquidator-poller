@@ -13,6 +13,7 @@ import { ConfigModule } from '@nestjs/config';
 // import { Web3ProviderModule } from './web3-provider/web3-provider.module';
 import { web3Con, web3Ws } from './web3-provider/web3-provider.service';
 import { CompoundAccountsModule } from './mongodb/compound-accounts/compound-accounts.module';
+import { CandidatesModule } from './candidates/candidates.module';
 
 @Global()
 @Module({
@@ -32,13 +33,14 @@ import { CompoundAccountsModule } from './mongodb/compound-accounts/compound-acc
         },
       ],
       uri: ['amqp://localhost:5672'],
-      connectionInitOptions: { wait: true, timeout: 50000 },
+      connectionInitOptions: { wait: false, timeout: 50000 },
     }),
     AppModule,
     CtokensModule,
     CompoundPollerModule,
     HttpModule,
     CompoundAccountsModule,
+    CandidatesModule,
     // Web3ProviderModule,
   ],
   controllers: [AppController],

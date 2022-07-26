@@ -7,7 +7,6 @@ import { CompoundPricesWsService } from '../compound-prices-ws/compound-prices-w
 @Controller('compound-poller')
 export class CompoundPollerController {
   constructor(
-    private readonly amqpConnection: AmqpConnection,
     private readonly compoundPollerService: CompoundPollerService,
     private readonly ctokenController: CtokenController,
     private readonly compoundPrices: CompoundPricesWsService,
