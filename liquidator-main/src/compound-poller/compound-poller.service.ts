@@ -40,7 +40,8 @@ export class CompoundPollerService {
     };
   }
 
-  async fetchAccounts() {
+  async fetchAccounts(init = false) {
+    const initTs = new Date().getTime();
     const options = {
       page_size: 100,
       // Adding this one which reduces the returned results in around 700 accounts
@@ -61,6 +62,7 @@ export class CompoundPollerService {
     }
     this.amqpConnection.publish('liquidator-exchange', 'accounts-polled', {
       accounts: firstPage.data && firstPage.data.accounts,
+      init,
     });
 
     const pageCount =
@@ -88,6 +90,7 @@ export class CompoundPollerService {
             'accounts-polled',
             {
               accounts: res.data && res.data.accounts,
+              init,
             },
           );
         } catch (error) {
@@ -97,6 +100,9 @@ export class CompoundPollerService {
     };
 
     await promiseExecution();
+    this.logger.debug(
+      ` fetchAccounts execution time: ${new Date().getTime() - initTs} ms`,
+    );
     return true;
   }
 

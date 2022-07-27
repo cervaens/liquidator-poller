@@ -6,7 +6,8 @@ import { CompoundAccount } from 'src/mongodb/compound-accounts/classes/CompoundA
 @Injectable()
 export class CandidatesService {
   constructor(private readonly amqpConnection: AmqpConnection) {}
-  private activeCandidates: Record<string, Record<string, any>> = {};
+  private activeModuleCandidates: Record<string, Record<string, any>> = {};
+  private activeAllCandidates: Array<string> = [];
   private readonly logger = new Logger(CandidatesService.name);
 
   private cToken: Record<string, any> = {};
@@ -30,6 +31,30 @@ export class CandidatesService {
 
   @RabbitSubscribe({
     exchange: 'liquidator-exchange',
+    routingKey: 'candidates-new',
+    queue: 'candidates-new',
+  })
+  public async newCandidates(msg: Record<string, Array<Record<string, any>>>) {
+    if (msg.init) {
+      this.activeModuleCandidates = {};
+    }
+    const candidateIds = [];
+    for (const account of msg.accounts) {
+      const compoundAccount = new CompoundAccount(account);
+      candidateIds.push(compoundAccount._id);
+      compoundAccount.updateAccount(this.cToken, this.symbolPricesUSD);
+      this.activeModuleCandidates[account.address] = compoundAccount;
+    }
+    this.logger.debug('Added ' + msg.accounts.length + ' new candidates');
+
+    // Adding new candidates to global list
+    this.amqpConnection.publish('liquidator-exchange', 'candidates-list', {
+      ids: candidateIds,
+    });
+  }
+
+  @RabbitSubscribe({
+    exchange: 'liquidator-exchange',
     routingKey: 'candidates-updated',
   })
   public async updateCandidates(
@@ -38,9 +63,11 @@ export class CandidatesService {
     for (const account of msg.accounts) {
       const compoundAccount = new CompoundAccount(account);
       compoundAccount.updateAccount(this.cToken, this.symbolPricesUSD);
-      this.activeCandidates[account.address] = compoundAccount;
+      if (this.activeModuleCandidates[account.address]) {
+        this.activeModuleCandidates[account.address] = compoundAccount;
+      }
     }
-    this.logger.debug('Received ' + msg.accounts.length + ' updates');
-    // console.log(this.activeCandidates);
+    this.logger.debug('Updated ' + msg.accounts.length + ' candidates');
+    // console.log(this.activeModuleCandidates);
   }
 }

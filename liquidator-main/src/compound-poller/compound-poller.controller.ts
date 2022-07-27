@@ -18,7 +18,7 @@ export class CompoundPollerController {
       ...new Set(tokenSymbols),
     ] as Array<string>);
 
-    this.pollAccounts();
+    this.pollAccounts(true);
     setInterval(
       () => this.pollCTokens(),
       parseInt(process.env.COMPOUND_POLLING_SCHEDULE_CTOKENS),
@@ -39,10 +39,10 @@ export class CompoundPollerController {
     return tokens.map((token: CompoundToken) => token.underlyingSymbol);
   }
 
-  async pollAccounts() {
+  async pollAccounts(init = false) {
     this.logger.debug('Calling Accounts endpoint');
 
-    await this.compoundPollerService.fetchAccounts();
+    await this.compoundPollerService.fetchAccounts(init);
     // await this.ctokenController.createMany(tokens);
     return true;
   }

@@ -13,6 +13,7 @@ import { AmqpConnection, RabbitSubscribe } from '@golevelup/nestjs-rabbitmq';
 @Injectable()
 export class CompoundAccountsService {
   private readonly logger = new Logger(CompoundAccountsService.name);
+  private allActiveCandidates: Array<string> = [];
   constructor(
     @InjectModel(CompoundAccounts.name)
     private compoundAccountsModel: Model<CompoundAccountsDocument>,
@@ -23,6 +24,16 @@ export class CompoundAccountsService {
 
   @RabbitSubscribe({
     exchange: 'liquidator-exchange',
+    routingKey: 'candidates-list',
+  })
+  public async updateAllCandidatesList(msg: Record<string, Array<string>>) {
+    this.allActiveCandidates = this.allActiveCandidates.concat(msg.ids);
+    this.allActiveCandidates = [...new Set(this.allActiveCandidates)];
+    this.logger.debug(this.allActiveCandidates.length);
+  }
+
+  @RabbitSubscribe({
+    exchange: 'liquidator-exchange',
     routingKey: 'accounts-polled',
     queue: 'accounts',
   })
@@ -30,11 +41,14 @@ export class CompoundAccountsService {
     msg: Record<string, Array<Record<string, any>>>,
   ) {
     const queries = [];
-    const candidates = [];
+    const candidatesUpdated = [];
+    const candidatesNew = [];
     for (const account of msg.accounts) {
       const compoundAccount = new CompoundAccount(account);
       if (compoundAccount.isCandidate()) {
-        candidates.push(account);
+        this.allActiveCandidates.includes(compoundAccount._id)
+          ? candidatesUpdated.push(account)
+          : candidatesNew.push(account);
       }
       // compoundAccount.updateAccount(this.cToken, this.symbolPricesUSD);
       queries.push({
@@ -45,22 +59,31 @@ export class CompoundAccountsService {
         },
       });
     }
-    // BulkWrite returns the nr docs modified and its the fastest to execute
-    const res = await this.compoundAccountsModel.bulkWrite(queries);
-    if (this.isInit || (res && res.result && res.result.nModified)) {
+
+    // if (this.isInit || (res && res.result && res.result.nModified)) {
+    if (candidatesNew.length > 0) {
+      this.amqpConnection.publish('liquidator-exchange', 'candidates-new', {
+        accounts: candidatesNew,
+        init: msg.init,
+      });
       this.isInit = false;
-      if (candidates.length > 0) {
-        this.amqpConnection.publish(
-          'liquidator-exchange',
-          'candidates-updated',
-          {
-            accounts: candidates,
-          },
-        );
-        this.logger.debug(
-          candidates.length + ' candidate Compound accounts were updated',
-        );
-      }
+      this.logger.debug(
+        candidatesNew.length + ' new Compound candidates were sent',
+      );
     }
+
+    if (candidatesUpdated.length > 0) {
+      this.amqpConnection.publish('liquidator-exchange', 'candidates-updated', {
+        accounts: candidatesUpdated,
+        init: msg.init,
+      });
+      this.isInit = false;
+      this.logger.debug(
+        candidatesUpdated.length + ' Compound candidates were sent for update',
+      );
+    }
+
+    // BulkWrite returns the nr docs modified and its the fastest to execute
+    await this.compoundAccountsModel.bulkWrite(queries);
   }
 }
