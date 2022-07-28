@@ -1,6 +1,6 @@
 import { AmqpConnection, RabbitSubscribe } from '@golevelup/nestjs-rabbitmq';
 import { Injectable, Logger } from '@nestjs/common';
-import { StandardAccount } from 'src/classes/StandardAccount';
+// import { StandardAccount } from 'src/classes/StandardAccount';
 import { CompoundAccount } from 'src/mongodb/compound-accounts/classes/CompoundAccount';
 
 @Injectable()

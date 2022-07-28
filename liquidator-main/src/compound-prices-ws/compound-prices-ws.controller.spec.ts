@@ -9,7 +9,9 @@ describe('CompoundPricesWsController', () => {
       controllers: [CompoundPricesWsController],
     }).compile();
 
-    controller = module.get<CompoundPricesWsController>(CompoundPricesWsController);
+    controller = module.get<CompoundPricesWsController>(
+      CompoundPricesWsController,
+    );
   });
 
   it('should be defined', () => {
