@@ -12,6 +12,7 @@ export class CompoundPollerService {
   ) {}
 
   private readonly logger = new Logger(CompoundPollerService.name);
+  private activeCandidatesList: Array<string> = [];
   getHello(): string {
     return 'Hello World!';
   }
@@ -40,7 +41,7 @@ export class CompoundPollerService {
     };
   }
 
-  async fetchAccounts(init = false) {
+  async fetchAccounts() {
     const initTs = new Date().getTime();
     const options = {
       page_size: 100,
@@ -60,9 +61,17 @@ export class CompoundPollerService {
         'Fetch AccountService failed: ' + firstPage.error + firstPage.errors,
       );
     }
+    const accounts =
+      firstPage.data &&
+      firstPage.data.accounts &&
+      firstPage.data.accounts.map(
+        (i: Record<string, any>) => new CompoundAccount(i),
+      );
+    let candidateIds = accounts
+      .filter((account: CompoundAccount) => account.isCandidate())
+      .map((account) => account._id);
     this.amqpConnection.publish('liquidator-exchange', 'accounts-polled', {
       accounts: firstPage.data && firstPage.data.accounts,
-      init,
     });
 
     const pageCount =
@@ -81,25 +90,48 @@ export class CompoundPollerService {
     }
 
     const promiseExecution = async () => {
+      let promisesCandidateIds = [];
       for (const promise of promises) {
         try {
           const res = await promise;
-
+          const accounts =
+            res.data &&
+            res.data.accounts &&
+            res.data.accounts.map(
+              (i: Record<string, any>) => new CompoundAccount(i),
+            );
+          promisesCandidateIds = promisesCandidateIds.concat(
+            accounts
+              .filter((account: CompoundAccount) => account.isCandidate())
+              .map((account) => account._id),
+          );
           this.amqpConnection.publish(
             'liquidator-exchange',
             'accounts-polled',
             {
               accounts: res.data && res.data.accounts,
-              init,
             },
           );
         } catch (error) {
           this.logger.error(error.message);
         }
       }
+      return promisesCandidateIds;
     };
 
-    await promiseExecution();
+    candidateIds = candidateIds.concat(await promiseExecution());
+
+    const removeIds = this.activeCandidatesList.filter(
+      (x) => !candidateIds.includes(x),
+    );
+
+    if (removeIds.length > 0) {
+      this.amqpConnection.publish('liquidator-exchange', 'candidates-delete', {
+        ids: removeIds,
+      });
+    }
+    this.activeCandidatesList = candidateIds;
+
     this.logger.debug(
       ` fetchAccounts execution time: ${new Date().getTime() - initTs} ms`,
     );

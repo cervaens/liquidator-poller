@@ -20,16 +20,20 @@ export class CompoundAccountsService {
     private readonly amqpConnection: AmqpConnection,
   ) {}
 
-  private isInit = true;
-
   @RabbitSubscribe({
     exchange: 'liquidator-exchange',
     routingKey: 'candidates-list',
   })
-  public async updateAllCandidatesList(msg: Record<string, Array<string>>) {
-    this.allActiveCandidates = this.allActiveCandidates.concat(msg.ids);
-    this.allActiveCandidates = [...new Set(this.allActiveCandidates)];
-    this.logger.debug(this.allActiveCandidates.length);
+  public async updateAllCandidatesList(msg: Record<string, any>) {
+    if (msg.action === 'add') {
+      this.allActiveCandidates = this.allActiveCandidates.concat(msg.ids);
+      this.allActiveCandidates = [...new Set(this.allActiveCandidates)];
+    } else if (msg.action === 'delete') {
+      this.allActiveCandidates = this.allActiveCandidates.filter(
+        (el) => !msg.ids.includes(el),
+      );
+    }
+    this.logger.debug('New list length: ' + this.allActiveCandidates.length);
   }
 
   @RabbitSubscribe({
@@ -60,30 +64,30 @@ export class CompoundAccountsService {
       });
     }
 
-    // if (this.isInit || (res && res.result && res.result.nModified)) {
-    if (candidatesNew.length > 0) {
-      this.amqpConnection.publish('liquidator-exchange', 'candidates-new', {
-        accounts: candidatesNew,
-        init: msg.init,
-      });
-      this.isInit = false;
-      this.logger.debug(
-        candidatesNew.length + ' new Compound candidates were sent',
-      );
-    }
-
-    if (candidatesUpdated.length > 0) {
-      this.amqpConnection.publish('liquidator-exchange', 'candidates-updated', {
-        accounts: candidatesUpdated,
-        init: msg.init,
-      });
-      this.isInit = false;
-      this.logger.debug(
-        candidatesUpdated.length + ' Compound candidates were sent for update',
-      );
-    }
-
     // BulkWrite returns the nr docs modified and its the fastest to execute
-    await this.compoundAccountsModel.bulkWrite(queries);
+    const res = await this.compoundAccountsModel.bulkWrite(queries);
+    if (
+      candidatesNew.length > 0 ||
+      (res && res.result && res.result.nModified)
+    ) {
+      if (candidatesNew.length > 0) {
+        this.amqpConnection.publish('liquidator-exchange', 'candidates-new', {
+          accounts: candidatesNew,
+        });
+        this.logger.debug(
+          candidatesNew.length + ' new Compound candidates were sent',
+        );
+      }
+
+      if (candidatesUpdated.length > 0) {
+        this.amqpConnection.publish(
+          'liquidator-exchange',
+          'candidates-updated',
+          {
+            accounts: candidatesUpdated,
+          },
+        );
+      }
+    }
   }
 }

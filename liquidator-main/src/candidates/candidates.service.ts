@@ -1,17 +1,30 @@
 import { AmqpConnection, RabbitSubscribe } from '@golevelup/nestjs-rabbitmq';
 import { Injectable, Logger } from '@nestjs/common';
-// import { StandardAccount } from 'src/classes/StandardAccount';
+import { StandardAccount } from 'src/classes/StandardAccount';
 import { CompoundAccount } from 'src/mongodb/compound-accounts/classes/CompoundAccount';
 
 @Injectable()
 export class CandidatesService {
   constructor(private readonly amqpConnection: AmqpConnection) {}
-  private activeModuleCandidates: Record<string, Record<string, any>> = {};
+  private activeModuleCandidates: Record<string, CompoundAccount> = {};
   private activeAllCandidates: Array<string> = [];
   private readonly logger = new Logger(CandidatesService.name);
 
   private cToken: Record<string, any> = {};
   private symbolPricesUSD: Record<string, number> = {};
+
+  getCandidates(): Record<string, Record<string, any>> {
+    return this.activeModuleCandidates;
+  }
+
+  getCandidatesForLiquidation(): Array<CompoundAccount> {
+    return Object.values(this.activeModuleCandidates).filter(
+      (candidate: CompoundAccount) =>
+        candidate.profitUSD >
+          parseInt(process.env.LIQUIDATION_MIN_USD_PROFIT) &&
+        candidate.calculatedHealth < 1,
+    );
+  }
 
   @RabbitSubscribe({
     exchange: 'liquidator-exchange',
@@ -35,9 +48,6 @@ export class CandidatesService {
     queue: 'candidates-new',
   })
   public async newCandidates(msg: Record<string, Array<Record<string, any>>>) {
-    if (msg.init) {
-      this.activeModuleCandidates = {};
-    }
     const candidateIds = [];
     for (const account of msg.accounts) {
       const compoundAccount = new CompoundAccount(account);
@@ -49,7 +59,26 @@ export class CandidatesService {
 
     // Adding new candidates to global list
     this.amqpConnection.publish('liquidator-exchange', 'candidates-list', {
+      action: 'add',
       ids: candidateIds,
+    });
+  }
+
+  @RabbitSubscribe({
+    exchange: 'liquidator-exchange',
+    routingKey: 'candidates-delete',
+    queue: 'candidates-delete',
+  })
+  public async deleteCandidates(msg: Record<string, Array<string>>) {
+    for (const id of msg.ids) {
+      delete this.activeModuleCandidates[id];
+    }
+    this.logger.debug('Deleted ' + msg.ids.length + ' candidate(s)');
+
+    // Adding new candidates to global list
+    this.amqpConnection.publish('liquidator-exchange', 'candidates-list', {
+      action: 'delete',
+      ids: msg.ids,
     });
   }
 

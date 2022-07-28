@@ -11,6 +11,8 @@ export class CompoundAccount extends StandardAccount {
   public calculatedHealth: number;
   public liqCollateral: Record<string, any> = { valueUSD: 0 };
   public liqBorrow: Record<string, any> = { valueUSD: 0 };
+  private closeFactor = 0.5;
+  private liquidationIncentive = 1.08;
 
   constructor(json: Record<string, any>) {
     super(json);
@@ -86,5 +88,11 @@ export class CompoundAccount extends StandardAccount {
       }
     }
     this.calculatedHealth = totalDepositUSD / totalBorrowUSD;
+    this.profitUSD =
+      Math.min(
+        this.liqBorrow.valueUSD * this.closeFactor,
+        this.liqCollateral.valueUSD,
+      ) *
+      (this.liquidationIncentive - 1.0 - 0.0009 - 0.003);
   }
 }
