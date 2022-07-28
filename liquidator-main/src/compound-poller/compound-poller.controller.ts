@@ -4,6 +4,7 @@ import { CtokenController } from '../mongodb/ctoken/ctoken.controller';
 import { CompoundToken } from '../mongodb/ctoken/classes/CompoundToken';
 import { CompoundPricesWsService } from '../compound-prices-ws/compound-prices-ws.service';
 import { AppService } from 'src/app.service';
+import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
 @Controller('compound-poller')
 export class CompoundPollerController {
   constructor(
@@ -11,19 +12,20 @@ export class CompoundPollerController {
     private readonly ctokenController: CtokenController,
     private readonly compoundPrices: CompoundPricesWsService,
     @Inject(AppService) private appService: AppService,
+    private readonly amqpConnection: AmqpConnection,
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
-    setTimeout(async () => {
-      if (this.appService.amItheMaster()) {
-        const tokenSymbols = await this.pollCTokens();
-        await this.compoundPrices.pollAndStorePrices([
-          ...new Set(tokenSymbols),
-        ] as Array<string>);
+    const tokenSymbols = await this.pollCTokens();
+    this.compoundPrices.pollAndStorePrices([
+      ...new Set(tokenSymbols),
+    ] as Array<string>);
 
-        this.pollAccounts();
-      }
-    }, 5500);
+    // setTimeout(async () => {
+    //   if (this.appService.amItheMaster()) {
+    this.pollAccounts(true);
+    //   }
+    // }, 5500);
 
     setInterval(() => {
       if (this.appService.amItheMaster()) {
@@ -47,14 +49,10 @@ export class CompoundPollerController {
     return tokens.map((token: CompoundToken) => token.underlyingSymbol);
   }
 
-  async pollAccounts() {
+  async pollAccounts(init = false) {
     this.logger.debug('Calling Accounts endpoint');
-
-    await this.compoundPollerService.fetchAccounts();
-    return true;
-  }
-
-  async sendTestMsg() {
-    return true;
+    this.amqpConnection.publish('liquidator-exchange', 'fetch-accounts', {
+      init,
+    });
   }
 }

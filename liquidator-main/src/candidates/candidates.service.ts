@@ -7,8 +7,8 @@ import { CompoundAccount } from 'src/mongodb/compound-accounts/classes/CompoundA
 export class CandidatesService {
   constructor(private readonly amqpConnection: AmqpConnection) {}
   private activeModuleCandidates: Record<string, CompoundAccount> = {};
-  private activeAllCandidates: Array<string> = [];
   private readonly logger = new Logger(CandidatesService.name);
+  private lastInitTs = 0;
 
   private cToken: Record<string, any> = {};
   private symbolPricesUSD: Record<string, number> = {};
@@ -47,21 +47,30 @@ export class CandidatesService {
     routingKey: 'candidates-new',
     queue: 'candidates-new',
   })
-  public async newCandidates(msg: Record<string, Array<Record<string, any>>>) {
+  public async newCandidates(msg: Record<string, any>) {
     const candidateIds = [];
-    for (const account of msg.accounts) {
-      const compoundAccount = new CompoundAccount(account);
-      candidateIds.push(compoundAccount._id);
-      compoundAccount.updateAccount(this.cToken, this.symbolPricesUSD);
-      this.activeModuleCandidates[account.address] = compoundAccount;
+    if (msg.init && msg.initTs > this.lastInitTs) {
+      this.activeModuleCandidates = {};
+      this.lastInitTs = msg.initTs;
+      this.amqpConnection.publish('liquidator-exchange', 'candidates-list', {
+        action: 'deleteAll',
+      });
     }
-    this.logger.debug('Added ' + msg.accounts.length + ' new candidates');
+    if (!msg.init || msg.initTs === this.lastInitTs) {
+      for (const account of msg.accounts) {
+        const compoundAccount = new CompoundAccount(account);
+        candidateIds.push(compoundAccount._id);
+        compoundAccount.updateAccount(this.cToken, this.symbolPricesUSD);
+        this.activeModuleCandidates[account.address] = compoundAccount;
+      }
+      this.logger.debug('Added ' + msg.accounts.length + ' new candidates');
 
-    // Adding new candidates to global list
-    this.amqpConnection.publish('liquidator-exchange', 'candidates-list', {
-      action: 'add',
-      ids: candidateIds,
-    });
+      // Adding new candidates to global list
+      this.amqpConnection.publish('liquidator-exchange', 'candidates-list', {
+        action: 'add',
+        ids: candidateIds,
+      });
+    }
   }
 
   @RabbitSubscribe({

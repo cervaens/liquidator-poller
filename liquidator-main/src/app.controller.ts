@@ -4,9 +4,7 @@ import { CtokenController } from './mongodb/ctoken/ctoken.controller';
 
 @Controller()
 export class AppController {
-  constructor(private readonly appService: AppService) {
-    console.log('HERE');
-  }
+  constructor(private readonly appService: AppService) {}
 
   @Inject(CtokenController)
   private readonly ctokenController: CtokenController;

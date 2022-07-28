@@ -32,6 +32,9 @@ export class CompoundAccountsService {
       this.allActiveCandidates = this.allActiveCandidates.filter(
         (el) => !msg.ids.includes(el),
       );
+    } else if (msg.action === 'deleteAll') {
+      this.logger.debug('Deleting all candidates');
+      this.allActiveCandidates = this.allActiveCandidates = [];
     }
     this.logger.debug('New list length: ' + this.allActiveCandidates.length);
   }
@@ -50,9 +53,9 @@ export class CompoundAccountsService {
     for (const account of msg.accounts) {
       const compoundAccount = new CompoundAccount(account);
       if (compoundAccount.isCandidate()) {
-        this.allActiveCandidates.includes(compoundAccount._id)
-          ? candidatesUpdated.push(account)
-          : candidatesNew.push(account);
+        !this.allActiveCandidates.includes(compoundAccount._id) || msg.init
+          ? candidatesNew.push(account)
+          : candidatesUpdated.push(account);
       }
       // compoundAccount.updateAccount(this.cToken, this.symbolPricesUSD);
       queries.push({
@@ -73,6 +76,8 @@ export class CompoundAccountsService {
       if (candidatesNew.length > 0) {
         this.amqpConnection.publish('liquidator-exchange', 'candidates-new', {
           accounts: candidatesNew,
+          init: msg.init,
+          initTs: msg.initTs,
         });
         this.logger.debug(
           candidatesNew.length + ' new Compound candidates were sent',

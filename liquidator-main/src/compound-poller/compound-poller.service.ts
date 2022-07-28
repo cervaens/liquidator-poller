@@ -3,7 +3,7 @@ import { CompoundToken } from '../mongodb/ctoken/classes/CompoundToken';
 import { CompoundAccount } from '../mongodb/compound-accounts/classes/CompoundAccount';
 import { firstValueFrom } from 'rxjs';
 import { HttpService } from '@nestjs/axios';
-import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
+import { AmqpConnection, RabbitSubscribe } from '@golevelup/nestjs-rabbitmq';
 @Injectable()
 export class CompoundPollerService {
   constructor(
@@ -12,6 +12,7 @@ export class CompoundPollerService {
   ) {}
 
   private readonly logger = new Logger(CompoundPollerService.name);
+  // This one is only for delete candidates purpose (not very important)
   private activeCandidatesList: Array<string> = [];
   getHello(): string {
     return 'Hello World!';
@@ -41,7 +42,12 @@ export class CompoundPollerService {
     };
   }
 
-  async fetchAccounts() {
+  @RabbitSubscribe({
+    exchange: 'liquidator-exchange',
+    routingKey: 'fetch-accounts',
+    queue: 'fetchaccounts',
+  })
+  async fetchAccounts(msg: Record<string, boolean>) {
     const initTs = new Date().getTime();
     const options = {
       page_size: 100,
@@ -72,6 +78,8 @@ export class CompoundPollerService {
       .map((account) => account._id);
     this.amqpConnection.publish('liquidator-exchange', 'accounts-polled', {
       accounts: firstPage.data && firstPage.data.accounts,
+      init: msg.init,
+      initTs,
     });
 
     const pageCount =
@@ -110,6 +118,8 @@ export class CompoundPollerService {
             'accounts-polled',
             {
               accounts: res.data && res.data.accounts,
+              init: msg.init,
+              initTs,
             },
           );
         } catch (error) {
@@ -135,7 +145,6 @@ export class CompoundPollerService {
     this.logger.debug(
       ` fetchAccounts execution time: ${new Date().getTime() - initTs} ms`,
     );
-    return true;
   }
 
   async fetch(endpoint: string, withConfig: Record<string, any>) {
