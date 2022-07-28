@@ -64,6 +64,7 @@ import { CandidatesModule } from './candidates/candidates.module';
     CompoundPollerModule,
     'WEB3WS',
     'WEB3PROV',
+    AppService,
   ],
 })
 export class AppModule {}

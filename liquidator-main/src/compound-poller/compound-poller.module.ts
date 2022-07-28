@@ -3,6 +3,7 @@ import { CompoundPricesWsService } from 'src/compound-prices-ws/compound-prices-
 import { CompoundPollerController } from './compound-poller.controller';
 import { CompoundPollerService } from './compound-poller.service';
 import { CompoundPricesWsHelperService } from 'src/compound-prices-ws-helper/compound-prices-ws-helper.service';
+import { CompoundPricesWsController } from 'src/compound-prices-ws/compound-prices-ws.controller';
 
 @Module({
   imports: [],
@@ -11,7 +12,7 @@ import { CompoundPricesWsHelperService } from 'src/compound-prices-ws-helper/com
     CompoundPricesWsService,
     CompoundPricesWsHelperService,
   ],
-  controllers: [CompoundPollerController],
+  controllers: [CompoundPollerController, CompoundPricesWsController],
   exports: [],
 })
 export class CompoundPollerModule {}
