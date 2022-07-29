@@ -8,7 +8,7 @@ export class CandidatesService {
   constructor(private readonly amqpConnection: AmqpConnection) {}
   private activeModuleCandidates: Record<string, CompoundAccount> = {};
   private readonly logger = new Logger(CandidatesService.name);
-  private lastInitTs = 0;
+  private lastTimestamp = 0;
 
   private cToken: Record<string, any> = {};
   private symbolPricesUSD: Record<string, number> = {};
@@ -48,18 +48,24 @@ export class CandidatesService {
     queue: 'candidates-new',
   })
   public async newCandidates(msg: Record<string, any>) {
-    const candidateIds = [];
-    if (msg.init && msg.initTs > this.lastInitTs) {
+    const candidateIds = {};
+    if (msg.init && msg.timestamp > this.lastTimestamp) {
       this.activeModuleCandidates = {};
-      this.lastInitTs = msg.initTs;
+      this.lastTimestamp = msg.timestamp;
+      this.logger.debug(
+        'Asking to delete all candidates before: ' + msg.timestamp,
+      );
       this.amqpConnection.publish('liquidator-exchange', 'candidates-list', {
-        action: 'deleteAll',
+        action: 'deleteBelowTimestamp',
+        timestamp: msg.timestamp,
       });
     }
-    if (!msg.init || msg.initTs === this.lastInitTs) {
+    // This condition is to filter out account lists that come after an init
+    // from a poller initiated few secs before the init was called
+    if (msg.timestamp >= this.lastTimestamp) {
       for (const account of msg.accounts) {
         const compoundAccount = new CompoundAccount(account);
-        candidateIds.push(compoundAccount._id);
+        candidateIds[compoundAccount._id] = msg.timestamp;
         compoundAccount.updateAccount(this.cToken, this.symbolPricesUSD);
         this.activeModuleCandidates[account.address] = compoundAccount;
       }
@@ -67,29 +73,29 @@ export class CandidatesService {
 
       // Adding new candidates to global list
       this.amqpConnection.publish('liquidator-exchange', 'candidates-list', {
-        action: 'add',
+        action: 'insert',
         ids: candidateIds,
       });
     }
   }
 
-  @RabbitSubscribe({
-    exchange: 'liquidator-exchange',
-    routingKey: 'candidates-delete',
-    queue: 'candidates-delete',
-  })
-  public async deleteCandidates(msg: Record<string, Array<string>>) {
-    for (const id of msg.ids) {
-      delete this.activeModuleCandidates[id];
-    }
-    this.logger.debug('Deleted ' + msg.ids.length + ' candidate(s)');
+  // @RabbitSubscribe({
+  //   exchange: 'liquidator-exchange',
+  //   routingKey: 'candidates-delete',
+  //   queue: 'candidates-delete',
+  // })
+  // public async deleteCandidates(msg: Record<string, Array<string>>) {
+  //   for (const id of msg.ids) {
+  //     delete this.activeModuleCandidates[id];
+  //   }
+  //   this.logger.debug('Deleted ' + msg.ids.length + ' candidate(s)');
 
-    // Adding new candidates to global list
-    this.amqpConnection.publish('liquidator-exchange', 'candidates-list', {
-      action: 'delete',
-      ids: msg.ids,
-    });
-  }
+  //   // Adding new candidates to global list
+  //   this.amqpConnection.publish('liquidator-exchange', 'candidates-list', {
+  //     action: 'delete',
+  //     ids: msg.ids,
+  //   });
+  // }
 
   @RabbitSubscribe({
     exchange: 'liquidator-exchange',
@@ -98,14 +104,26 @@ export class CandidatesService {
   public async updateCandidates(
     msg: Record<string, Array<Record<string, any>>>,
   ) {
+    // const updateList = {};
     for (const account of msg.accounts) {
       const compoundAccount = new CompoundAccount(account);
       compoundAccount.updateAccount(this.cToken, this.symbolPricesUSD);
-      if (this.activeModuleCandidates[account.address]) {
-        this.activeModuleCandidates[account.address] = compoundAccount;
+      if (this.activeModuleCandidates[compoundAccount.address]) {
+        this.activeModuleCandidates[compoundAccount.address] = compoundAccount;
+        // updateList[compoundAccount._id] = msg.timestamp;
       }
     }
-    this.logger.debug('Updated ' + msg.accounts.length + ' candidates');
+
+    // if (Object.keys(updateList).length > 0) {
+    //   this.amqpConnection.publish('liquidator-exchange', 'candidates-list', {
+    //     action: 'insert',
+    //     ids: updateList,
+    //   });
+
+    // this.logger.debug(
+    //   'Updated ' + Object.keys(updateList).length + ' candidates',
+    // );
     // console.log(this.activeModuleCandidates);
+    // }
   }
 }

@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { CompoundToken } from '../mongodb/ctoken/classes/CompoundToken';
-import { CompoundAccount } from '../mongodb/compound-accounts/classes/CompoundAccount';
+// import { CompoundAccount } from '../mongodb/compound-accounts/classes/CompoundAccount';
 import { firstValueFrom } from 'rxjs';
 import { HttpService } from '@nestjs/axios';
 import { AmqpConnection, RabbitSubscribe } from '@golevelup/nestjs-rabbitmq';
@@ -12,10 +12,22 @@ export class CompoundPollerService {
   ) {}
 
   private readonly logger = new Logger(CompoundPollerService.name);
-  // This one is only for delete candidates purpose (not very important)
-  private activeCandidatesList: Array<string> = [];
-  getHello(): string {
-    return 'Hello World!';
+  // // This one is only for delete candidates purpose (not very important)
+  // private activeCandidatesList: Array<string> = [];
+  private initOngoing = false;
+
+  // Init is necessary so that the activeCandidateList is cleared
+  // to re-spread all candidates including the new joined app
+  @RabbitSubscribe({
+    exchange: 'liquidator-exchange',
+    routingKey: 'accounts-polling-init',
+  })
+  async setInitOngoing(msg: Record<string, boolean>) {
+    this.initOngoing = msg.initOngoing;
+  }
+
+  isInitOngoing(): boolean {
+    return this.initOngoing;
   }
 
   async sleep(millis: number) {
@@ -48,7 +60,16 @@ export class CompoundPollerService {
     queue: 'fetchaccounts',
   })
   async fetchAccounts(msg: Record<string, boolean>) {
-    const initTs = new Date().getTime();
+    const timestamp = new Date().getTime();
+    if (msg.init) {
+      this.amqpConnection.publish(
+        'liquidator-exchange',
+        'accounts-polling-init',
+        {
+          initOngoing: true,
+        },
+      );
+    }
     const options = {
       page_size: 100,
       // Adding this one which reduces the returned results in around 700 accounts
@@ -67,19 +88,19 @@ export class CompoundPollerService {
         'Fetch AccountService failed: ' + firstPage.error + firstPage.errors,
       );
     }
-    const accounts =
-      firstPage.data &&
-      firstPage.data.accounts &&
-      firstPage.data.accounts.map(
-        (i: Record<string, any>) => new CompoundAccount(i),
-      );
-    let candidateIds = accounts
-      .filter((account: CompoundAccount) => account.isCandidate())
-      .map((account) => account._id);
+    // const accounts =
+    //   firstPage.data &&
+    //   firstPage.data.accounts &&
+    //   firstPage.data.accounts.map(
+    //     (i: Record<string, any>) => new CompoundAccount(i),
+    //   );
+    // let candidateIds = accounts
+    //   .filter((account: CompoundAccount) => account.isCandidate())
+    //   .map((account) => account._id);
     this.amqpConnection.publish('liquidator-exchange', 'accounts-polled', {
       accounts: firstPage.data && firstPage.data.accounts,
       init: msg.init,
-      initTs,
+      timestamp,
     });
 
     const pageCount =
@@ -98,53 +119,63 @@ export class CompoundPollerService {
     }
 
     const promiseExecution = async () => {
-      let promisesCandidateIds = [];
+      // let promisesCandidateIds = [];
       for (const promise of promises) {
         try {
           const res = await promise;
-          const accounts =
-            res.data &&
-            res.data.accounts &&
-            res.data.accounts.map(
-              (i: Record<string, any>) => new CompoundAccount(i),
-            );
-          promisesCandidateIds = promisesCandidateIds.concat(
-            accounts
-              .filter((account: CompoundAccount) => account.isCandidate())
-              .map((account) => account._id),
-          );
+          // const accounts =
+          //   res.data &&
+          //   res.data.accounts &&
+          //   res.data.accounts.map(
+          //     (i: Record<string, any>) => new CompoundAccount(i),
+          //   );
+          // promisesCandidateIds = promisesCandidateIds.concat(
+          //   accounts
+          //     .filter((account: CompoundAccount) => account.isCandidate())
+          //     .map((account) => account._id),
+          // );
           this.amqpConnection.publish(
             'liquidator-exchange',
             'accounts-polled',
             {
               accounts: res.data && res.data.accounts,
               init: msg.init,
-              initTs,
+              timestamp,
             },
           );
         } catch (error) {
           this.logger.error(error.message);
         }
       }
-      return promisesCandidateIds;
+      // return promisesCandidateIds;
     };
 
-    candidateIds = candidateIds.concat(await promiseExecution());
+    await promiseExecution();
 
-    const removeIds = this.activeCandidatesList.filter(
-      (x) => !candidateIds.includes(x),
-    );
+    // const removeIds = this.activeCandidatesList.filter(
+    //   (x) => !candidateIds.includes(x),
+    // );
 
-    if (removeIds.length > 0) {
-      this.amqpConnection.publish('liquidator-exchange', 'candidates-delete', {
-        ids: removeIds,
-      });
-    }
-    this.activeCandidatesList = candidateIds;
+    // if (removeIds.length > 0) {
+    //   this.amqpConnection.publish('liquidator-exchange', 'candidates-delete', {
+    //     ids: removeIds,
+    //   });
+    // }
+    // this.activeCandidatesList = candidateIds;
 
     this.logger.debug(
-      ` fetchAccounts execution time: ${new Date().getTime() - initTs} ms`,
+      ` fetchAccounts execution time: ${new Date().getTime() - timestamp} ms`,
     );
+
+    if (msg.init) {
+      this.amqpConnection.publish(
+        'liquidator-exchange',
+        'accounts-polling-init',
+        {
+          initOngoing: false,
+        },
+      );
+    }
   }
 
   async fetch(endpoint: string, withConfig: Record<string, any>) {

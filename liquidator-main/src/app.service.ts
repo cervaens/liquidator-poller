@@ -37,7 +37,6 @@ export class AppService {
   sendImTheMaster() {
     this.iamTheMaster = true;
     this.amqpConnection.publish('liquidator-exchange', 'i-am-master', {});
-    this.logger.debug('Sending Im the master');
   }
 
   amItheMaster(): boolean {
@@ -50,6 +49,5 @@ export class AppService {
   })
   public async thereIsAMaster() {
     this.isThereAMaster = true;
-    this.logger.debug('There is a master');
   }
 }

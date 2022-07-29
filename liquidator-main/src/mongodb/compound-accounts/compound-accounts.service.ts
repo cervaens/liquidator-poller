@@ -13,30 +13,38 @@ import { AmqpConnection, RabbitSubscribe } from '@golevelup/nestjs-rabbitmq';
 @Injectable()
 export class CompoundAccountsService {
   private readonly logger = new Logger(CompoundAccountsService.name);
-  private allActiveCandidates: Array<string> = [];
+  private allActiveCandidates: Record<string, number> = {};
   constructor(
     @InjectModel(CompoundAccounts.name)
     private compoundAccountsModel: Model<CompoundAccountsDocument>,
     private readonly amqpConnection: AmqpConnection,
   ) {}
 
+  getAllActiveCandidates(): Record<string, number> {
+    return this.allActiveCandidates;
+  }
+
   @RabbitSubscribe({
     exchange: 'liquidator-exchange',
     routingKey: 'candidates-list',
   })
   public async updateAllCandidatesList(msg: Record<string, any>) {
-    if (msg.action === 'add') {
-      this.allActiveCandidates = this.allActiveCandidates.concat(msg.ids);
-      this.allActiveCandidates = [...new Set(this.allActiveCandidates)];
-    } else if (msg.action === 'delete') {
-      this.allActiveCandidates = this.allActiveCandidates.filter(
-        (el) => !msg.ids.includes(el),
-      );
-    } else if (msg.action === 'deleteAll') {
-      this.logger.debug('Deleting all candidates');
-      this.allActiveCandidates = this.allActiveCandidates = [];
+    const curNumberCandidates = Object.keys(this.allActiveCandidates).length;
+    if (msg.action === 'insert') {
+      this.allActiveCandidates = { ...this.allActiveCandidates, ...msg.ids };
+    } else if (msg.action === 'deleteBelowTimestamp') {
+      for (const id of Object.keys(this.allActiveCandidates)) {
+        if (this.allActiveCandidates[id] < msg.timestamp) {
+          delete this.allActiveCandidates[id];
+        }
+      }
     }
-    this.logger.debug('New list length: ' + this.allActiveCandidates.length);
+
+    if (curNumberCandidates !== Object.keys(this.allActiveCandidates).length) {
+      this.logger.debug(
+        'New list length: ' + Object.keys(this.allActiveCandidates).length,
+      );
+    }
   }
 
   @RabbitSubscribe({
@@ -53,11 +61,11 @@ export class CompoundAccountsService {
     for (const account of msg.accounts) {
       const compoundAccount = new CompoundAccount(account);
       if (compoundAccount.isCandidate()) {
-        !this.allActiveCandidates.includes(compoundAccount._id) || msg.init
+        !this.allActiveCandidates[compoundAccount._id] || msg.init
           ? candidatesNew.push(account)
           : candidatesUpdated.push(account);
       }
-      // compoundAccount.updateAccount(this.cToken, this.symbolPricesUSD);
+
       queries.push({
         updateOne: {
           filter: { _id: compoundAccount._id },
@@ -77,11 +85,11 @@ export class CompoundAccountsService {
         this.amqpConnection.publish('liquidator-exchange', 'candidates-new', {
           accounts: candidatesNew,
           init: msg.init,
-          initTs: msg.initTs,
+          timestamp: msg.timestamp,
         });
-        this.logger.debug(
-          candidatesNew.length + ' new Compound candidates were sent',
-        );
+        // this.logger.debug(
+        //   candidatesNew.length + ' new Compound candidates were sent',
+        // );
       }
 
       if (candidatesUpdated.length > 0) {
@@ -90,6 +98,7 @@ export class CompoundAccountsService {
           'candidates-updated',
           {
             accounts: candidatesUpdated,
+            timestamp: msg.timestamp,
           },
         );
       }

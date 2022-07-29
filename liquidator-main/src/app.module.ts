@@ -14,6 +14,7 @@ import { ConfigModule } from '@nestjs/config';
 import { web3Con, web3Ws } from './web3-provider/web3-provider.service';
 import { CompoundAccountsModule } from './mongodb/compound-accounts/compound-accounts.module';
 import { CandidatesModule } from './candidates/candidates.module';
+import { TxManagerModule } from './tx-manager/tx-manager.module';
 
 @Global()
 @Module({
@@ -41,6 +42,7 @@ import { CandidatesModule } from './candidates/candidates.module';
     HttpModule,
     CompoundAccountsModule,
     CandidatesModule,
+    TxManagerModule,
     // Web3ProviderModule,
   ],
   controllers: [AppController],

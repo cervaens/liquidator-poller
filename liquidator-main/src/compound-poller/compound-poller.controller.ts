@@ -34,7 +34,10 @@ export class CompoundPollerController {
     }, parseInt(process.env.COMPOUND_POLLING_SCHEDULE_CTOKENS));
 
     setInterval(() => {
-      if (this.appService.amItheMaster()) {
+      if (
+        this.appService.amItheMaster() &&
+        !this.compoundPollerService.isInitOngoing()
+      ) {
         this.pollAccounts();
       }
     }, parseInt(process.env.COMPOUND_POLLING_SCHEDULE_ACCOUNTS));
