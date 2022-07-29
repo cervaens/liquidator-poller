@@ -11,7 +11,11 @@ import { HttpModule } from '@nestjs/axios';
 import { ConfigModule } from '@nestjs/config';
 // import { Web3ProviderService } from './web3-provider/web3-provider.service';
 // import { Web3ProviderModule } from './web3-provider/web3-provider.module';
-import { web3Con, web3Ws } from './web3-provider/web3-provider.service';
+import {
+  web3Con,
+  Web3ProviderService,
+  web3Ws,
+} from './web3-provider/web3-provider.service';
 import { CompoundAccountsModule } from './mongodb/compound-accounts/compound-accounts.module';
 import { CandidatesModule } from './candidates/candidates.module';
 import { TxManagerModule } from './tx-manager/tx-manager.module';
@@ -58,6 +62,7 @@ import { TxManagerModule } from './tx-manager/tx-manager.module';
       provide: 'WEB3WS',
       useValue: web3Ws,
     },
+    Web3ProviderService,
   ],
   exports: [
     RabbitMQModule,
@@ -67,6 +72,7 @@ import { TxManagerModule } from './tx-manager/tx-manager.module';
     'WEB3WS',
     'WEB3PROV',
     AppService,
+    Web3ProviderService,
   ],
 })
 export class AppModule {}

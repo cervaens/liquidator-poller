@@ -38,6 +38,23 @@ export class CandidatesController {
     return this.candidatesService.getCandidates();
   }
 
+  @Get('liquidate')
+  liquidateCandidates(): Record<string, any> {
+    const cand = this.candidatesService.getCandidatesForLiquidation();
+    const liqCand = {
+      repayCToken:
+        cand[0].liqBorrow.address ||
+        '0x0000000000000000000000000000000000000000',
+      amount: cand[0].liqBorrow.units,
+      seizeCToken:
+        cand[0].liqCollateral.address ||
+        '0x0000000000000000000000000000000000000000',
+      borrower: cand[0].address,
+    };
+    this.amqpConnection.publish('liquidator-exchange', 'liquidate', liqCand);
+    return liqCand;
+  }
+
   @Get('ready-for-liquidation')
   getReadyForLiq(): Array<CompoundAccount> {
     return this.candidatesService.getCandidatesForLiquidation();

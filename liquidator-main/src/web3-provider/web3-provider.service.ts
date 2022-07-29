@@ -32,19 +32,27 @@ const HTTPProvider = (path) => {
 };
 
 export const web3Con = HTTPProvider(
-  `https://eth-mainnet.alchemyapi.io/v2/***REMOVED***`,
+  process.env.WEB3_HTTP_PROVIDER ||
+    `https://eth-mainnet.alchemyapi.io/v2/***REMOVED***`,
 );
 
 export const web3Ws = WSProvider(
-  `wss://eth-mainnet.alchemyapi.io/v2/***REMOVED***`,
+  process.env.WEB3_WSS_PROVIDER ||
+    `wss://eth-mainnet.alchemyapi.io/v2/***REMOVED***`,
 );
 
 @Injectable()
 export class Web3ProviderService {
-  public web3 = HTTPProvider(
-    `https://eth-mainnet.alchemyapi.io/v2/***REMOVED***`,
-  );
-
+  public web3: Web3;
+  constructor() {
+    this.web3 = HTTPProvider(
+      process.env.WEB3_HTTP_PROVIDER ||
+        `https://eth-mainnet.alchemyapi.io/v2/***REMOVED***`,
+    );
+  }
+  // public web3 = HTTPProvider(
+  //   `https://eth-mainnet.alchemyapi.io/v2/***REMOVED***`,
+  // );
   //   web3P() {
   //     return this.web3Provider;
   //   }
