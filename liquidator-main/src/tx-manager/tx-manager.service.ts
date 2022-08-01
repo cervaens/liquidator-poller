@@ -1,13 +1,14 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import Web3 from 'web3';
+import Big from 'big.js';
 
 import liquidatorAbi from './abis/FlashLiquidatorABI.json';
 import { AbiItem } from 'web3-utils';
 import { Contract } from 'web3-eth-contract';
-import { FeeMarketEIP1559Transaction } from '@ethereumjs/tx';
-import Web3Utils from 'web3-utils';
+
 import { RabbitSubscribe } from '@golevelup/nestjs-rabbitmq';
 import { Web3ProviderService } from 'src/web3-provider/web3-provider.service';
+import { WalletService } from './wallet/wallet.service';
 
 @Injectable()
 export class TxManagerService {
@@ -17,70 +18,16 @@ export class TxManagerService {
     process.env.LIQUIDATOR_ADDRESS ||
     '0x0a17FabeA4633ce714F1Fa4a2dcA62C3bAc4758d';
   private network: Record<string, any>;
+  private liquidations: Record<string, Record<string, any>>;
+
   constructor(
     @Inject('WEB3PROV') private conn: Web3,
     private readonly provider: Web3ProviderService,
+    private readonly wallet: WalletService,
   ) {}
 
   async onModuleInit(): Promise<void> {
     this.liquidatorContract = await this.initLiquidatorContract();
-
-    const chainID = await this.provider.web3.eth.getChainId();
-    switch (chainID) {
-      case 1:
-        this.network = {
-          chain: 'mainnet',
-          hardfork: 'london',
-          chainId: chainID,
-        };
-        break;
-      case 3:
-        this.network = {
-          chain: 'ropsten',
-          hardfork: 'london',
-          chainId: chainID,
-        };
-        break;
-      case 4:
-        this.network = {
-          chain: 'rinkeby',
-          hardfork: 'london',
-          chainId: chainID,
-        };
-        break;
-      case 31337:
-        this.network = {
-          chain: 'mainnet',
-          hardfork: 'london',
-          chainId: chainID,
-        };
-        // this.network = new Common({ chain: "rinkeby", hardfork: "london", chainId: chainID });
-        break;
-    }
-  }
-
-  _txFor(method, gasLimit = undefined, gasPrice = undefined) {
-    return {
-      to: this.address,
-      data: method.encodeABI(),
-      gasLimit: gasLimit,
-      gasPrice: gasPrice,
-    };
-  }
-
-  /**
-   * Convenience function that calls `provider.eth.getTransactionCount`
-   *
-   * @returns {Promise} the next unconfirmed (possibly pending) nonce (base 10)
-   */
-  async getLowestLiquidNonce() {
-    return this.provider.web3.eth.getTransactionCount(
-      process.env.ACCOUNT_ADDRESS_A,
-    );
-  }
-
-  async getGasPrice() {
-    return this.provider.web3.eth.getGasPrice();
   }
 
   @RabbitSubscribe({
@@ -97,18 +44,36 @@ export class TxManagerService {
       borrower,
     );
 
-    const gasLimit = 3000000;
-    const nonce = await this.getLowestLiquidNonce();
-    // const gasPrice = await this.getGasPrice();
-    const gasPrice = '3000000000';
-    const sentTx = this.signAndSend(
-      this._txFor(method, gasLimit, gasPrice),
-      nonce,
-    );
+    const gasLimit = new Big(1163000);
+    const nonce = await this.wallet.getLowestLiquidNonce();
+    const gasPrice = await this.wallet.getGasPrice();
+    // const gasPrice = '3000000000';
+    const tx = this.wallet._txFor(this.address, method, gasLimit, gasPrice);
+
+    let estimated;
+    try {
+      estimated = await this.wallet.estimateGas(tx);
+    } catch (e) {
+      this.logger.debug(
+        `Revert during gas estimation: ${e.name} ${e.message} for account  ${borrower}, repaying amount ${amount} of ${repayCToken}, seizing ${seizeCToken}`,
+      );
+      // console.log(e.name + " " + e.message);
+      // this._removeCandidate(borrowers[0]);
+      // this._tx = null;
+      // this._revenue = 0;
+      // return;
+    }
+
+    // TODO: sometimes when restarting app some messages in the queue will come immediately
+    // and somehow estimated is undefined, so for now the condition below falls back to zero
+    tx.gasLimit =
+      tx.gasLimit && tx.gasLimit.lt(estimated || 0) ? estimated : tx.gasLimit;
+
+    const sentTx = this.wallet.signAndSend(tx, nonce);
 
     sentTx.on('transactionHash', (hash) => {
       this.logger.debug(
-        `<https://${this.network.chain}.etherscan.io/tx/${hash}>`,
+        `<https://${this.wallet.network.chain}.etherscan.io/tx/${hash}>`,
       );
     });
     // After receiving receipt, log success and rebase
@@ -151,59 +116,6 @@ export class TxManagerService {
     });
 
     // console.log(sentTx);
-  }
-
-  signAndSend(tx, nonce) {
-    tx = { ...tx };
-    // this._gasPrices[nonce] = tx.gasPrice;
-
-    tx.nonce = Web3Utils.toHex(nonce);
-    tx.gasLimit = Web3Utils.toHex(tx.gasLimit.toFixed(0));
-    tx.gasPrice = Web3Utils.toHex(parseInt(tx.gasPrice));
-    return this._send(this._sign(tx));
-  }
-
-  /**
-   * Signs a transaction with the wallet's private key
-   * @private
-   *
-   * @param {Object} tx an object describing the transaction to sign
-   * @returns {String} the serialized signed transaction
-   *
-   * @example
-   * const tx = {
-   *  nonce: '0x00',
-   *  gasPrice: '0x09184e72a000',
-   *  gasLimit: Big("3000000"),
-   *  to: '0x0000...',
-   *  value: '0x00',
-   *  data: '0x7f74657374320...',
-   * };
-   * const signedTx = wallet._sign(tx);
-   */
-  _sign(tx) {
-    // Set tx.from here since it must be signed by its sender.
-    // i.e. this is the only valid value for tx.from
-    tx.from = process.env.ACCOUNT_ADDRESS_A;
-    // tx.value = 1;
-    // tx.chainId = "0x4";
-    // tx.gasLimit = "0x02625a00";
-    tx.type = '0x02';
-    tx.gas = 60000;
-
-    tx.maxPriorityFeePerGas = '0x9502f900';
-    tx.maxFeePerGas = '0xFF30622BB2'; // putting a very high fee as I got Transaction maxFeePerGas (2500000020) is too low for the next block, which has a baseFeePerGas of 7757457203
-    // we need to implement here a block-level base fee fetch: https://ethereum.stackexchange.com/questions/123453/error-transactions-maxfeepergas-0-is-less-than-the-blocks-basefeepergas-52
-    // Need to have the following LOCALLY as chain needs to go 31337
-    tx.chainId = '0x' + this.network.chainId.toString(16);
-    tx = FeeMarketEIP1559Transaction.fromTxData(tx, this.network);
-
-    const signedTx = tx.sign(Buffer.from(process.env.ACCOUNT_SECRET_A, 'hex'));
-    return '0x' + signedTx.serialize().toString('hex');
-  }
-
-  _send(signedTx) {
-    return this.provider.web3.eth.sendSignedTransaction(signedTx);
   }
 
   async initLiquidatorContract() {

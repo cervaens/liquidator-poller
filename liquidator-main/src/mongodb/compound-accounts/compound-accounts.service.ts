@@ -14,6 +14,7 @@ import { AmqpConnection, RabbitSubscribe } from '@golevelup/nestjs-rabbitmq';
 export class CompoundAccountsService {
   private readonly logger = new Logger(CompoundAccountsService.name);
   private allActiveCandidates: Record<string, number> = {};
+
   constructor(
     @InjectModel(CompoundAccounts.name)
     private compoundAccountsModel: Model<CompoundAccountsDocument>,
@@ -22,6 +23,14 @@ export class CompoundAccountsService {
 
   getAllActiveCandidates(): Record<string, number> {
     return this.allActiveCandidates;
+  }
+
+  @RabbitSubscribe({
+    exchange: 'liquidator-exchange',
+    routingKey: 'worker-joining',
+  })
+  public async dealWithNewWorker() {
+    this.allActiveCandidates = {};
   }
 
   @RabbitSubscribe({

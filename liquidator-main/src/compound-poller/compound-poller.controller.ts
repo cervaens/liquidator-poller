@@ -21,9 +21,17 @@ export class CompoundPollerController {
       ...new Set(tokenSymbols),
     ] as Array<string>);
 
-    // setTimeout(async () => {
-    //   if (this.appService.amItheMaster()) {
-    this.pollAccounts(true);
+    // At init the master will start a poll
+    if (this.appService.amItheMaster()) {
+      this.pollAccounts(true);
+    }
+    // Dont start a poll, jst set the allCandidates list to zero,
+    // so that all are "new" in the next poll
+    // This logic will go to app.controller as worker-joining
+    // this.amqpConnection.publish('liquidator-exchange', 'candidates-list', {
+    //   action: 'deleteBelowTimestamp',
+    //   timestamp: new Date().getTime(),
+    // });
     //   }
     // }, 5500);
 

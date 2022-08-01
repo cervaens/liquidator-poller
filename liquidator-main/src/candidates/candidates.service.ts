@@ -9,12 +9,25 @@ export class CandidatesService {
   private activeModuleCandidates: Record<string, CompoundAccount> = {};
   private readonly logger = new Logger(CandidatesService.name);
   private lastTimestamp = 0;
+  private nextInit = 0;
 
   private cToken: Record<string, any> = {};
   private symbolPricesUSD: Record<string, number> = {};
 
   getCandidates(): Record<string, Record<string, any>> {
     return this.activeModuleCandidates;
+  }
+
+  @RabbitSubscribe({
+    exchange: 'liquidator-exchange',
+    routingKey: 'worker-joining',
+  })
+  public async dealWithNewWorker(msg: Record<string, number>) {
+    this.nextInit = msg.timestamp;
+  }
+
+  getIsNextInit() {
+    return this.nextInit;
   }
 
   getCandidatesForLiquidation(): Array<CompoundAccount> {
@@ -49,34 +62,29 @@ export class CandidatesService {
   })
   public async newCandidates(msg: Record<string, any>) {
     const candidateIds = {};
-    if (msg.init && msg.timestamp > this.lastTimestamp) {
+    // We need to compare timestamp as worker might annouce joining during
+    // candidate distribution
+    if (this.nextInit && msg.timestamp > this.nextInit) {
       this.activeModuleCandidates = {};
-      this.lastTimestamp = msg.timestamp;
-      this.logger.debug(
-        'Asking to delete all candidates before: ' + msg.timestamp,
-      );
-      this.amqpConnection.publish('liquidator-exchange', 'candidates-list', {
-        action: 'deleteBelowTimestamp',
-        timestamp: msg.timestamp,
-      });
+      this.nextInit = 0;
     }
     // This condition is to filter out account lists that come after an init
     // from a poller initiated few secs before the init was called
-    if (msg.timestamp >= this.lastTimestamp) {
-      for (const account of msg.accounts) {
-        const compoundAccount = new CompoundAccount(account);
-        candidateIds[compoundAccount._id] = msg.timestamp;
-        compoundAccount.updateAccount(this.cToken, this.symbolPricesUSD);
-        this.activeModuleCandidates[account.address] = compoundAccount;
-      }
-      this.logger.debug('Added ' + msg.accounts.length + ' new candidates');
-
-      // Adding new candidates to global list
-      this.amqpConnection.publish('liquidator-exchange', 'candidates-list', {
-        action: 'insert',
-        ids: candidateIds,
-      });
+    // if (msg.timestamp >= this.lastTimestamp) {
+    for (const account of msg.accounts) {
+      const compoundAccount = new CompoundAccount(account);
+      candidateIds[compoundAccount._id] = msg.timestamp;
+      compoundAccount.updateAccount(this.cToken, this.symbolPricesUSD);
+      this.activeModuleCandidates[account.address] = compoundAccount;
     }
+    this.logger.debug('Added ' + msg.accounts.length + ' new candidates');
+
+    // Adding new candidates to global list
+    this.amqpConnection.publish('liquidator-exchange', 'candidates-list', {
+      action: 'insert',
+      ids: candidateIds,
+    });
+    // }
   }
 
   // @RabbitSubscribe({

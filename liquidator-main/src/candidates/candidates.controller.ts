@@ -18,19 +18,21 @@ export class CandidatesController {
     // so that we can identify disconnected workers that deprecated
     // their list of candidates
     setInterval(() => {
-      const time = new Date().getTime();
-      const candidateIds = {};
-      Object.keys(this.candidatesService.getCandidates()).forEach((id) => {
-        candidateIds[id] = time;
-      });
-      this.logger.debug(
-        'Nr. Candidates: ' +
-          Object.keys(this.candidatesService.getCandidates()).length,
-      );
-      this.amqpConnection.publish('liquidator-exchange', 'candidates-list', {
-        action: 'insert',
-        ids: candidateIds,
-      });
+      if (!this.candidatesService.getIsNextInit()) {
+        const time = new Date().getTime();
+        const candidateIds = {};
+        Object.keys(this.candidatesService.getCandidates()).forEach((id) => {
+          candidateIds[id] = time;
+        });
+        this.logger.debug(
+          'Nr. Candidates: ' +
+            Object.keys(this.candidatesService.getCandidates()).length,
+        );
+        this.amqpConnection.publish('liquidator-exchange', 'candidates-list', {
+          action: 'insert',
+          ids: candidateIds,
+        });
+      }
     }, this.candidatesTimeout - 500);
   }
   @Get()
@@ -40,15 +42,16 @@ export class CandidatesController {
 
   @Get('liquidate')
   liquidateCandidates(): Record<string, any> {
-    const cand = this.candidatesService.getCandidatesForLiquidation();
+    const candidates = this.candidatesService.getCandidatesForLiquidation();
+    const cand = candidates.filter(
+      (candidate) =>
+        candidate.address === '0x3fc33c9d7758bb59d3488c569a2bce0ffbd01366',
+    );
     const liqCand = {
-      repayCToken:
-        cand[0].liqBorrow.address ||
-        '0x0000000000000000000000000000000000000000',
-      amount: cand[0].liqBorrow.units,
-      seizeCToken:
-        cand[0].liqCollateral.address ||
-        '0x0000000000000000000000000000000000000000',
+      repayCToken: cand[0].liqBorrow.cTokenAddress,
+      // || '0x0000000000000000000000000000000000000000',
+      amount: cand[0].getLiqAmount(),
+      seizeCToken: cand[0].liqCollateral.cTokenAddress,
       borrower: cand[0].address,
     };
     this.amqpConnection.publish('liquidator-exchange', 'liquidate', liqCand);

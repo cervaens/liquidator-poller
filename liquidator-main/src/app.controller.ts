@@ -11,6 +11,7 @@ export class AppController {
   private readonly ctokenController: CtokenController;
 
   async onApplicationBootstrap(): Promise<void> {
+    this.appService.sendJoining();
     setInterval(() => {
       // Check if there's a master already
       const isThereAMaster = this.appService.getIsThereAMaster();

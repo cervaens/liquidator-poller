@@ -34,6 +34,12 @@ export class AppService {
     return this.iamTheMaster;
   }
 
+  sendJoining() {
+    this.amqpConnection.publish('liquidator-exchange', 'worker-joining', {
+      timestamp: new Date().getTime(),
+    });
+  }
+
   sendImTheMaster() {
     this.iamTheMaster = true;
     this.amqpConnection.publish('liquidator-exchange', 'i-am-master', {});

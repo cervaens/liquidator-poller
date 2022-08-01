@@ -53,6 +53,12 @@ export class CompoundAccount extends StandardAccount {
     );
   }
 
+  public getLiqAmount() {
+    return this.liqBorrow.valueUSD / 2 <= this.liqCollateral.valueUSD
+      ? this.liqBorrow.units * this.closeFactor
+      : this.liqCollateral.units;
+  }
+
   public updateAccount(cToken, symbolPricesUSD) {
     let totalBorrowUSD = 0;
     let totalDepositUSD = 0;
@@ -69,7 +75,10 @@ export class CompoundAccount extends StandardAccount {
         if (tokenValue > this.liqCollateral.valueUSD) {
           this.liqCollateral.valueUSD = tokenValue;
           this.liqCollateral.symbol = underSymbol;
-          this.liqCollateral.address = cToken[token.symbol].underlyingAddress;
+          this.liqCollateral.cTokenAddress =
+            '0x4ddc2d193948926d02f9b1fe9e1daa0718270ed5'
+              ? '0x0000000000000000000000000000000000000000'
+              : token.address;
           this.liqCollateral.units = token.supply_balance_underlying;
         }
       }
@@ -82,7 +91,10 @@ export class CompoundAccount extends StandardAccount {
         if (tokenValue > this.liqBorrow.valueUSD) {
           this.liqBorrow.valueUSD = tokenValue;
           this.liqBorrow.symbol = underSymbol;
-          this.liqBorrow.address = cToken[token.symbol].underlyingAddress;
+          this.liqBorrow.cTokenAddress =
+            '0x4ddc2d193948926d02f9b1fe9e1daa0718270ed5'
+              ? '0x0000000000000000000000000000000000000000'
+              : token.address;
           this.liqBorrow.units = token.borrow_balance_underlying;
         }
       }
