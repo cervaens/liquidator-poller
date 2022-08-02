@@ -3,20 +3,26 @@ import { Web3ProviderService } from 'src/web3-provider/web3-provider.service';
 import Web3 from 'web3';
 import { FeeMarketEIP1559Transaction } from '@ethereumjs/tx';
 import Web3Utils from 'web3-utils';
+import { AmqpConnection, RabbitSubscribe } from '@golevelup/nestjs-rabbitmq';
+import { AppService } from 'src/app.service';
 
 @Injectable()
 export class WalletService {
   private readonly logger = new Logger(WalletService.name);
+  private nonce: number;
 
   public network: Record<string, any>;
 
   constructor(
     @Inject('WEB3PROV') private conn: Web3,
     private readonly provider: Web3ProviderService,
+    private readonly amqpConnection: AmqpConnection,
+    @Inject(AppService) private appService: AppService,
   ) {}
 
   async onModuleInit(): Promise<void> {
     const chainID = await this.provider.web3.eth.getChainId();
+    this.nonce = await this.getLowestLiquidNonce();
     switch (chainID) {
       case 1:
         this.network = {
@@ -48,6 +54,43 @@ export class WalletService {
         // this.network = new Common({ chain: "rinkeby", hardfork: "london", chainId: chainID });
         break;
     }
+  }
+
+  @RabbitSubscribe({
+    exchange: 'liquidator-exchange',
+    routingKey: 'execute-tx',
+  })
+  async executeTx(tx: Record<string, any>) {
+    if (!this.appService.amItheMaster) {
+      return;
+    }
+    const sentTx = this.signAndSend(tx);
+
+    sentTx.on('transactionHash', (hash) => {
+      this.logger.debug(
+        `<https://${this.network.chain}.etherscan.io/tx/${hash}>`,
+      );
+    });
+    // After receiving receipt, log success and rebase
+    sentTx.on('receipt', (receipt) => {
+      this.logger.debug(` Successful at block ${receipt.blockNumber}!`);
+    });
+    // After receiving an error, check if it occurred on or off chain
+    sentTx.on('error', (err) => {
+      const errStr = String(err);
+      // Certain off-chain errors also indicate that we may need to rebase
+      // our nonce. Check those:
+      if (
+        errStr.includes('replacement transaction underpriced') ||
+        errStr.includes('already known')
+      ) {
+        this.logger.debug('Attempting rebase');
+      }
+      // Certain errors are expected (and handled naturally by structure
+      // of this queue) so we don't need to log them:
+      if (!errStr.includes('Transaction was not mined within '))
+        this.logger.debug('Off-chain ' + errStr);
+    });
   }
 
   /**
@@ -92,12 +135,14 @@ export class WalletService {
     return this.provider.web3.eth.getGasPrice();
   }
 
-  signAndSend(tx, nonce) {
+  signAndSend(tx) {
     tx = { ...tx };
     // this._gasPrices[nonce] = tx.gasPrice;
 
-    tx.nonce = Web3Utils.toHex(nonce);
-    tx.gasLimit = Web3Utils.toHex(tx.gasLimit.toFixed(0));
+    tx.nonce = Web3Utils.toHex(this.nonce);
+    this.logger.debug('Setting nonce: ' + this.nonce);
+    this.nonce += 1;
+    tx.gasLimit = Web3Utils.toHex(tx.gasLimit);
     tx.gasPrice = Web3Utils.toHex(parseInt(tx.gasPrice));
     return this._send(this._sign(tx));
   }
@@ -142,6 +187,12 @@ export class WalletService {
   }
 
   _send(signedTx) {
-    return this.provider.web3.eth.sendSignedTransaction(signedTx);
+    this.logger.debug(`Sending with nonce: ${this.nonce - 1}`);
+    return this.provider.web3.eth.sendSignedTransaction(
+      signedTx,
+      // (err, res) => {
+      //   console.log(err + res);
+      // },
+    );
   }
 }

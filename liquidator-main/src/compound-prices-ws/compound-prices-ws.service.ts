@@ -35,13 +35,13 @@ export class CompoundPricesWsService {
   }
 
   async subscribeToBlocks() {
-    this.web3Ws.eth.subscribe('newBlockHeaders', (err, result) => {
-      this.logger.debug(
-        `☑️ *Got New block* | Our timestamp: ${parseInt(
-          (new Date().getTime() / 1000).toString(),
-        )} block timestamp:  ${result.timestamp} blocknumber: ${result.number}`,
-      );
-    });
+    // this.web3Ws.eth.subscribe('newBlockHeaders', (err, result) => {
+    //   this.logger.debug(
+    //     `☑️ *Got New block* | Our timestamp: ${parseInt(
+    //       (new Date().getTime() / 1000).toString(),
+    //     )} block timestamp:  ${result.timestamp} blocknumber: ${result.number}`,
+    //   );
+    // });
   }
 
   async unSubscribeWSs() {

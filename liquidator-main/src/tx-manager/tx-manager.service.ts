@@ -6,7 +6,7 @@ import liquidatorAbi from './abis/FlashLiquidatorABI.json';
 import { AbiItem } from 'web3-utils';
 import { Contract } from 'web3-eth-contract';
 
-import { RabbitSubscribe } from '@golevelup/nestjs-rabbitmq';
+import { AmqpConnection, RabbitSubscribe } from '@golevelup/nestjs-rabbitmq';
 import { Web3ProviderService } from 'src/web3-provider/web3-provider.service';
 import { WalletService } from './wallet/wallet.service';
 
@@ -17,13 +17,14 @@ export class TxManagerService {
   private address: string =
     process.env.LIQUIDATOR_ADDRESS ||
     '0x0a17FabeA4633ce714F1Fa4a2dcA62C3bAc4758d';
-  private network: Record<string, any>;
-  private liquidations: Record<string, Record<string, any>>;
+  private liquidationsStatus: Record<string, Record<string, any>> = {};
+  private nonce: number;
 
   constructor(
     @Inject('WEB3PROV') private conn: Web3,
     private readonly provider: Web3ProviderService,
     private readonly wallet: WalletService,
+    private readonly amqpConnection: AmqpConnection,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -32,11 +33,100 @@ export class TxManagerService {
 
   @RabbitSubscribe({
     exchange: 'liquidator-exchange',
+    routingKey: 'liquidate-many',
+    queue: 'liquidate-many',
+  })
+  async liquidateMany(msg: Array<Record<string, any>>) {
+    const now = new Date().getTime();
+
+    // const promises = [];
+
+    for (const candidate of msg) {
+      const { repayCToken, amount, seizeCToken, borrower } = candidate;
+      if (
+        this.liquidationsStatus[borrower] &&
+        this.liquidationsStatus[borrower].timestamp > now - 3600000
+      ) {
+        return;
+      }
+      this.logger.debug('Liquidating account: ' + borrower);
+      // TODO: ENABLE THIS IN PROD
+      // this.liquidationsStatus[borrower] = { status: 'ongoing', timestamp: now };
+      const method = this.liquidatorContract.methods.flashSwap(
+        repayCToken,
+        parseInt(amount).toString(),
+        seizeCToken,
+        borrower,
+      );
+
+      const gasLimit = 1163000;
+
+      const gasPrice = await this.wallet.getGasPrice();
+      // const gasPrice = '3000000000';
+      const tx = this.wallet._txFor(this.address, method, gasLimit, gasPrice);
+
+      this.wallet
+        .estimateGas(tx)
+        .then((estimated) => {
+          tx.gasLimit =
+            tx.gasLimit && tx.gasLimit < (estimated || 0)
+              ? estimated
+              : tx.gasLimit;
+
+          this.amqpConnection.publish('liquidator-exchange', 'execute-tx', tx);
+          // const sentTx = this.wallet.signAndSend(tx, this.wallet.nonce);
+
+          // sentTx.on('transactionHash', (hash) => {
+          //   this.logger.debug(
+          //     `<https://${this.wallet.network.chain}.etherscan.io/tx/${hash}>`,
+          //   );
+          // });
+          // // After receiving receipt, log success and rebase
+          // sentTx.on('receipt', (receipt) => {
+          //   this.logger.debug(` Successful at block ${receipt.blockNumber}!`);
+          // });
+          // // After receiving an error, check if it occurred on or off chain
+          // sentTx.on('error', (err) => {
+          //   const errStr = String(err);
+          //   // Certain off-chain errors also indicate that we may need to rebase
+          //   // our nonce. Check those:
+          //   if (
+          //     errStr.includes('replacement transaction underpriced') ||
+          //     errStr.includes('already known')
+          //   ) {
+          //     this.logger.debug('Attempting rebase');
+          //   }
+          //   // Certain errors are expected (and handled naturally by structure
+          //   // of this queue) so we don't need to log them:
+          //   if (!errStr.includes('Transaction was not mined within '))
+          //     this.logger.debug('Off-chain ' + errStr);
+          // });
+        })
+        .catch((e) => {
+          this.logger.debug(
+            `Revert during gas estimation: ${e.name} ${e.message} for account  ${candidate.borrower}, repaying amount ${candidate.amount} of ${candidate.repayCToken}, seizing ${candidate.seizeCToken}`,
+          );
+        });
+      // );
+    }
+  }
+
+  @RabbitSubscribe({
+    exchange: 'liquidator-exchange',
     routingKey: 'liquidate',
     queue: 'liquidate',
   })
   async liquidate(msg: Record<string, any>) {
+    const now = new Date().getTime();
     const { repayCToken, amount, seizeCToken, borrower } = msg;
+    if (
+      this.liquidationsStatus[borrower] &&
+      this.liquidationsStatus[borrower].timestamp > now - 3600000
+    ) {
+      return;
+    }
+    this.logger.debug('Liquidating account: ' + borrower);
+    this.liquidationsStatus[borrower] = { status: 'ongoing', timestamp: now };
     const method = this.liquidatorContract.methods.flashSwap(
       repayCToken,
       parseInt(amount).toString(),
@@ -61,15 +151,17 @@ export class TxManagerService {
       // this._removeCandidate(borrowers[0]);
       // this._tx = null;
       // this._revenue = 0;
-      // return;
+      return;
     }
 
     // TODO: sometimes when restarting app some messages in the queue will come immediately
     // and somehow estimated is undefined, so for now the condition below falls back to zero
     tx.gasLimit =
-      tx.gasLimit && tx.gasLimit.lt(estimated || 0) ? estimated : tx.gasLimit;
+      tx.gasLimit && tx.gasLimit.lt(estimated || 0)
+        ? new Big(estimated)
+        : tx.gasLimit;
 
-    const sentTx = this.wallet.signAndSend(tx, nonce);
+    const sentTx = this.wallet.signAndSend(tx);
 
     sentTx.on('transactionHash', (hash) => {
       this.logger.debug(

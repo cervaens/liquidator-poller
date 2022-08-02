@@ -43,19 +43,36 @@ export class CandidatesController {
   @Get('liquidate')
   liquidateCandidates(): Record<string, any> {
     const candidates = this.candidatesService.getCandidatesForLiquidation();
-    const cand = candidates.filter(
-      (candidate) =>
-        candidate.address === '0x3fc33c9d7758bb59d3488c569a2bce0ffbd01366',
+    // const cand = candidates.filter(
+    //   (candidate) =>
+    //     candidate.address === '0x3fc33c9d7758bb59d3488c569a2bce0ffbd01366',
+    // );
+    const candidatesArray = [];
+    this.logger.debug(`Liquidating ${candidates.length} accounts`);
+    for (let i = 0; i < candidates.length; i++) {
+      const liqCand = {
+        repayCToken: candidates[i].liqBorrow.cTokenAddress,
+        amount: candidates[i].getLiqAmount(),
+        seizeCToken: candidates[i].liqCollateral.cTokenAddress,
+        borrower: candidates[i].address,
+      };
+      candidatesArray.push(liqCand);
+      // if (candidatesArray.length === 10) {
+      //   this.amqpConnection.publish(
+      //     'liquidator-exchange',
+      //     'liquidate-many',
+      //     candidatesArray,
+      //   );
+      //   candidatesArray = [];
+      // }
+      // this.amqpConnection.publish('liquidator-exchange', 'liquidate', liqCand);
+    }
+    this.amqpConnection.publish(
+      'liquidator-exchange',
+      'liquidate-many',
+      candidatesArray,
     );
-    const liqCand = {
-      repayCToken: cand[0].liqBorrow.cTokenAddress,
-      // || '0x0000000000000000000000000000000000000000',
-      amount: cand[0].getLiqAmount(),
-      seizeCToken: cand[0].liqCollateral.cTokenAddress,
-      borrower: cand[0].address,
-    };
-    this.amqpConnection.publish('liquidator-exchange', 'liquidate', liqCand);
-    return liqCand;
+    return candidates;
   }
 
   @Get('ready-for-liquidation')

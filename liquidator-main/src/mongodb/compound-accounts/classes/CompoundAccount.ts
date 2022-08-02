@@ -55,7 +55,7 @@ export class CompoundAccount extends StandardAccount {
 
   public getLiqAmount() {
     return this.liqBorrow.valueUSD / 2 <= this.liqCollateral.valueUSD
-      ? this.liqBorrow.units * this.closeFactor
+      ? this.liqBorrow.units * this.closeFactor * 10 ** this.liqBorrow.decimals
       : this.liqCollateral.units;
   }
 
@@ -65,6 +65,7 @@ export class CompoundAccount extends StandardAccount {
 
     for (const token of this.tokens) {
       const underSymbol = cToken[token.symbol].underlyingSymbol;
+      const decimals = cToken[token.symbol].decimals;
       if (token.supply_balance_underlying > 0) {
         const colFactor = cToken[token.symbol].collateralFactor;
         const tokenValue =
@@ -76,10 +77,11 @@ export class CompoundAccount extends StandardAccount {
           this.liqCollateral.valueUSD = tokenValue;
           this.liqCollateral.symbol = underSymbol;
           this.liqCollateral.cTokenAddress =
-            '0x4ddc2d193948926d02f9b1fe9e1daa0718270ed5'
+            token.address === '0x4ddc2d193948926d02f9b1fe9e1daa0718270ed5'
               ? '0x0000000000000000000000000000000000000000'
               : token.address;
           this.liqCollateral.units = token.supply_balance_underlying;
+          this.liqCollateral.decimals = decimals;
         }
       }
       if (token.borrow_balance_underlying > 0) {
@@ -92,10 +94,11 @@ export class CompoundAccount extends StandardAccount {
           this.liqBorrow.valueUSD = tokenValue;
           this.liqBorrow.symbol = underSymbol;
           this.liqBorrow.cTokenAddress =
-            '0x4ddc2d193948926d02f9b1fe9e1daa0718270ed5'
+            token.address === '0x4ddc2d193948926d02f9b1fe9e1daa0718270ed5'
               ? '0x0000000000000000000000000000000000000000'
               : token.address;
           this.liqBorrow.units = token.borrow_balance_underlying;
+          this.liqBorrow.decimals = decimals;
         }
       }
     }
