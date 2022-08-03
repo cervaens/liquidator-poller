@@ -10,7 +10,7 @@ import { AppService } from 'src/app.service';
 export class WalletService {
   private readonly logger = new Logger(WalletService.name);
   private nonce: number;
-
+  private nonceErrored = 0;
   public network: Record<string, any>;
 
   constructor(
@@ -64,33 +64,8 @@ export class WalletService {
     if (!this.appService.amItheMaster) {
       return;
     }
-    const sentTx = this.signAndSend(tx);
 
-    sentTx.on('transactionHash', (hash) => {
-      this.logger.debug(
-        `<https://${this.network.chain}.etherscan.io/tx/${hash}>`,
-      );
-    });
-    // After receiving receipt, log success and rebase
-    sentTx.on('receipt', (receipt) => {
-      this.logger.debug(` Successful at block ${receipt.blockNumber}!`);
-    });
-    // After receiving an error, check if it occurred on or off chain
-    sentTx.on('error', (err) => {
-      const errStr = String(err);
-      // Certain off-chain errors also indicate that we may need to rebase
-      // our nonce. Check those:
-      if (
-        errStr.includes('replacement transaction underpriced') ||
-        errStr.includes('already known')
-      ) {
-        this.logger.debug('Attempting rebase');
-      }
-      // Certain errors are expected (and handled naturally by structure
-      // of this queue) so we don't need to log them:
-      if (!errStr.includes('Transaction was not mined within '))
-        this.logger.debug('Off-chain ' + errStr);
-    });
+    this.signAndSend(tx);
   }
 
   /**
@@ -102,7 +77,7 @@ export class WalletService {
    * @returns {Promise<Number>} estimated amount of gas that the tx will require
    *
    */
-  estimateGas(tx, nonce = null, anon = false) {
+  estimateGas(tx) {
     // tx = { ...tx };
     tx.from = process.env.ACCOUNT_ADDRESS_A;
     // if (nonce !== null) tx.nonce = Web3Utils.toHex(nonce);
@@ -136,15 +111,53 @@ export class WalletService {
   }
 
   signAndSend(tx) {
-    tx = { ...tx };
-    // this._gasPrices[nonce] = tx.gasPrice;
-
     tx.nonce = Web3Utils.toHex(this.nonce);
     this.logger.debug('Setting nonce: ' + this.nonce);
     this.nonce += 1;
     tx.gasLimit = Web3Utils.toHex(tx.gasLimit);
     tx.gasPrice = Web3Utils.toHex(parseInt(tx.gasPrice));
-    return this._send(this._sign(tx));
+
+    const sentTx = this._send(this._sign(tx));
+
+    sentTx.on('transactionHash', (hash) => {
+      this.logger.debug(
+        `<https://${this.network.chain}.etherscan.io/tx/${hash}>`,
+      );
+    });
+    // After receiving receipt, log success and rebase
+    sentTx.on('receipt', (receipt) => {
+      this.logger.debug(` Successful at block ${receipt.blockNumber}!`);
+    });
+    // After receiving an error, check if it occurred on or off chain
+    sentTx.on('error', (err) => {
+      const errStr = String(err);
+      // Certain off-chain errors also indicate that we may need to rebase
+      // our nonce. Check those:
+      const str = errStr.match(
+        /Nonce too high. Expected nonce to be(.*)but got ([0-9]+)/,
+      );
+      if (str) {
+        const parsedNonce = parseInt(str[2]);
+        // Reducing nonce in case of error and replay tx
+        if (parsedNonce > this.nonceErrored) {
+          this.nonce = parsedNonce;
+          this.nonceErrored = this.nonce;
+        }
+        this.logger.debug(
+          'Off-chain ' + errStr + ' errored nonce: ' + this.nonceErrored,
+        );
+        this.signAndSend(tx);
+      } else if (
+        errStr.includes('replacement transaction underpriced') ||
+        errStr.includes('already known')
+      ) {
+        this.logger.debug('Attempting rebase');
+      }
+      // Certain errors are expected (and handled naturally by structure
+      // of this queue) so we don't need to log them:
+      else if (!errStr.includes('Transaction was not mined within '))
+        this.logger.debug('Off-chain ' + errStr);
+    });
   }
 
   /**
@@ -187,7 +200,6 @@ export class WalletService {
   }
 
   _send(signedTx) {
-    this.logger.debug(`Sending with nonce: ${this.nonce - 1}`);
     return this.provider.web3.eth.sendSignedTransaction(
       signedTx,
       // (err, res) => {

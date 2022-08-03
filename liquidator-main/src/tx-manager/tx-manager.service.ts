@@ -74,33 +74,6 @@ export class TxManagerService {
               : tx.gasLimit;
 
           this.amqpConnection.publish('liquidator-exchange', 'execute-tx', tx);
-          // const sentTx = this.wallet.signAndSend(tx, this.wallet.nonce);
-
-          // sentTx.on('transactionHash', (hash) => {
-          //   this.logger.debug(
-          //     `<https://${this.wallet.network.chain}.etherscan.io/tx/${hash}>`,
-          //   );
-          // });
-          // // After receiving receipt, log success and rebase
-          // sentTx.on('receipt', (receipt) => {
-          //   this.logger.debug(` Successful at block ${receipt.blockNumber}!`);
-          // });
-          // // After receiving an error, check if it occurred on or off chain
-          // sentTx.on('error', (err) => {
-          //   const errStr = String(err);
-          //   // Certain off-chain errors also indicate that we may need to rebase
-          //   // our nonce. Check those:
-          //   if (
-          //     errStr.includes('replacement transaction underpriced') ||
-          //     errStr.includes('already known')
-          //   ) {
-          //     this.logger.debug('Attempting rebase');
-          //   }
-          //   // Certain errors are expected (and handled naturally by structure
-          //   // of this queue) so we don't need to log them:
-          //   if (!errStr.includes('Transaction was not mined within '))
-          //     this.logger.debug('Off-chain ' + errStr);
-          // });
         })
         .catch((e) => {
           this.logger.debug(
@@ -109,105 +82,6 @@ export class TxManagerService {
         });
       // );
     }
-  }
-
-  @RabbitSubscribe({
-    exchange: 'liquidator-exchange',
-    routingKey: 'liquidate',
-    queue: 'liquidate',
-  })
-  async liquidate(msg: Record<string, any>) {
-    const now = new Date().getTime();
-    const { repayCToken, amount, seizeCToken, borrower } = msg;
-    if (
-      this.liquidationsStatus[borrower] &&
-      this.liquidationsStatus[borrower].timestamp > now - 3600000
-    ) {
-      return;
-    }
-    this.logger.debug('Liquidating account: ' + borrower);
-    this.liquidationsStatus[borrower] = { status: 'ongoing', timestamp: now };
-    const method = this.liquidatorContract.methods.flashSwap(
-      repayCToken,
-      parseInt(amount).toString(),
-      seizeCToken,
-      borrower,
-    );
-
-    const gasLimit = new Big(1163000);
-    const nonce = await this.wallet.getLowestLiquidNonce();
-    const gasPrice = await this.wallet.getGasPrice();
-    // const gasPrice = '3000000000';
-    const tx = this.wallet._txFor(this.address, method, gasLimit, gasPrice);
-
-    let estimated;
-    try {
-      estimated = await this.wallet.estimateGas(tx);
-    } catch (e) {
-      this.logger.debug(
-        `Revert during gas estimation: ${e.name} ${e.message} for account  ${borrower}, repaying amount ${amount} of ${repayCToken}, seizing ${seizeCToken}`,
-      );
-      // console.log(e.name + " " + e.message);
-      // this._removeCandidate(borrowers[0]);
-      // this._tx = null;
-      // this._revenue = 0;
-      return;
-    }
-
-    // TODO: sometimes when restarting app some messages in the queue will come immediately
-    // and somehow estimated is undefined, so for now the condition below falls back to zero
-    tx.gasLimit =
-      tx.gasLimit && tx.gasLimit.lt(estimated || 0)
-        ? new Big(estimated)
-        : tx.gasLimit;
-
-    const sentTx = this.wallet.signAndSend(tx);
-
-    sentTx.on('transactionHash', (hash) => {
-      this.logger.debug(
-        `<https://${this.wallet.network.chain}.etherscan.io/tx/${hash}>`,
-      );
-    });
-    // After receiving receipt, log success and rebase
-    sentTx.on('receipt', (receipt) => {
-      // sentTx.removeAllListeners();
-      this.logger.debug(` Successful at block ${receipt.blockNumber}!`);
-      // this.rebase();
-    });
-    // After receiving an error, check if it occurred on or off chain
-    sentTx.on('error', (err) => {
-      // sentTx.removeAllListeners();
-      // If it occurred on-chain, receipt will be defined.
-      // Treat it the same as the successful receipt case.
-      // if (receipt !== undefined) {
-      //   this.logger.debug(label + 'Reverted');
-      //   this.rebase();
-
-      //   // Escape hatch
-      //   this._revertCount++;
-      //   if (this._revertCount >= this._revertTolerance) {
-      //     this.logger.debug('TxQueue saw too many reverts. Shutting down.');
-      //     process.exit();
-      //   }
-      //   return;
-      // }
-      const errStr = String(err);
-      // Certain off-chain errors also indicate that we may need to rebase
-      // our nonce. Check those:
-      if (
-        errStr.includes('replacement transaction underpriced') ||
-        errStr.includes('already known')
-      ) {
-        this.logger.debug('Attempting rebase');
-        // this.rebase();
-      }
-      // Certain errors are expected (and handled naturally by structure
-      // of this queue) so we don't need to log them:
-      if (!errStr.includes('Transaction was not mined within '))
-        this.logger.debug('Off-chain ' + errStr);
-    });
-
-    // console.log(sentTx);
   }
 
   async initLiquidatorContract() {
