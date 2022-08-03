@@ -175,10 +175,8 @@ export class WalletService {
    * @example
    * const tx = {
    *  nonce: '0x00',
-   *  gasPrice: '0x09184e72a000',
    *  gasLimit: Big("3000000"),
    *  to: '0x0000...',
-   *  value: '0x00',
    *  data: '0x7f74657374320...',
    * };
    * const signedTx = wallet._sign(tx);
@@ -187,15 +185,12 @@ export class WalletService {
     // Set tx.from here since it must be signed by its sender.
     // i.e. this is the only valid value for tx.from
     tx.from = process.env.ACCOUNT_ADDRESS_A;
-    // tx.value = 1;
-    // tx.chainId = "0x4";
-    // tx.gasLimit = "0x02625a00";
     tx.type = '0x02';
-    tx.gas = 60000;
 
-    tx.maxPriorityFeePerGas = '0x9502f900';
-    tx.maxFeePerGas = '0xFF30622BB2'; // putting a very high fee as I got Transaction maxFeePerGas (2500000020) is too low for the next block, which has a baseFeePerGas of 7757457203
+    tx.maxPriorityFeePerGas = '0x5D21DBA00'; // 12500000000 WEI, 12.5 GWEI for eth 1600 and gas 400000 gives around 8USDs
+    // putting a very high fee as I got Transaction maxFeePerGas (2500000020) is too low for the next block, which has a baseFeePerGas of 7757457203
     // we need to implement here a block-level base fee fetch: https://ethereum.stackexchange.com/questions/123453/error-transactions-maxfeepergas-0-is-less-than-the-blocks-basefeepergas-52
+    tx.maxFeePerGas = '0x6FC23AC00'; // 30000000000 or 30 GWEI for eth 1600 and gas 400000 gives around 19.2USDs
     // Need to have the following LOCALLY as chain needs to go 31337
     tx.chainId = '0x' + this.network.chainId.toString(16);
     tx = FeeMarketEIP1559Transaction.fromTxData(tx, this.network);

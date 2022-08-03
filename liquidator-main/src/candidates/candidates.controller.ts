@@ -57,7 +57,7 @@ export class CandidatesController {
         borrower: candidates[i].address,
       };
       candidatesArray.push(liqCand);
-      if (candidatesArray.length === 20) {
+      if (candidatesArray.length === 10) {
         this.amqpConnection.publish(
           'liquidator-exchange',
           'liquidate-many',
