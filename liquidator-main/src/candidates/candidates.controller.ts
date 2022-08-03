@@ -47,7 +47,7 @@ export class CandidatesController {
     //   (candidate) =>
     //     candidate.address === '0x3fc33c9d7758bb59d3488c569a2bce0ffbd01366',
     // );
-    const candidatesArray = [];
+    let candidatesArray = [];
     this.logger.debug(`Liquidating ${candidates.length} accounts`);
     for (let i = 0; i < candidates.length; i++) {
       const liqCand = {
@@ -57,15 +57,14 @@ export class CandidatesController {
         borrower: candidates[i].address,
       };
       candidatesArray.push(liqCand);
-      // if (candidatesArray.length === 10) {
-      //   this.amqpConnection.publish(
-      //     'liquidator-exchange',
-      //     'liquidate-many',
-      //     candidatesArray,
-      //   );
-      //   candidatesArray = [];
-      // }
-      // this.amqpConnection.publish('liquidator-exchange', 'liquidate', liqCand);
+      if (candidatesArray.length === 20) {
+        this.amqpConnection.publish(
+          'liquidator-exchange',
+          'liquidate-many',
+          candidatesArray,
+        );
+        candidatesArray = [];
+      }
     }
     this.amqpConnection.publish(
       'liquidator-exchange',

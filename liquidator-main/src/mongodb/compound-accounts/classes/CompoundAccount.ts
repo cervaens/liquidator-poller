@@ -76,10 +76,9 @@ export class CompoundAccount extends StandardAccount {
         if (tokenValue > this.liqCollateral.valueUSD) {
           this.liqCollateral.valueUSD = tokenValue;
           this.liqCollateral.symbol = underSymbol;
-          this.liqCollateral.cTokenAddress =
-            token.address === '0x4ddc2d193948926d02f9b1fe9e1daa0718270ed5'
-              ? '0x0000000000000000000000000000000000000000'
-              : token.address;
+          // From Preethi:  if tokenPay is WETH then 0x4Ddc2D193948926D02f9B1fE9e1daa0718270ED5
+          //  should be passed instead of 0
+          this.liqCollateral.cTokenAddress = token.address;
           this.liqCollateral.units = token.supply_balance_underlying;
           this.liqCollateral.decimals = decimals;
         }

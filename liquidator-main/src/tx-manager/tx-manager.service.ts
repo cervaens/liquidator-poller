@@ -1,6 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import Web3 from 'web3';
-import Big from 'big.js';
 
 import liquidatorAbi from './abis/FlashLiquidatorABI.json';
 import { AbiItem } from 'web3-utils';
@@ -61,9 +60,9 @@ export class TxManagerService {
 
       const gasLimit = 1163000;
 
-      const gasPrice = await this.wallet.getGasPrice();
+      // const gasPrice = await this.wallet.getGasPrice();
       // const gasPrice = '3000000000';
-      const tx = this.wallet._txFor(this.address, method, gasLimit, gasPrice);
+      const tx = this.wallet._txFor(this.address, method, gasLimit);
 
       this.wallet
         .estimateGas(tx)

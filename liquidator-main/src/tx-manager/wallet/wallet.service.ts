@@ -11,6 +11,7 @@ export class WalletService {
   private readonly logger = new Logger(WalletService.name);
   private nonce: number;
   private nonceErrored = 0;
+  private lastParsedNonce = 0;
   public network: Record<string, any>;
 
   constructor(
@@ -91,7 +92,7 @@ export class WalletService {
       to,
       data: method.encodeABI(),
       gasLimit: gasLimit,
-      gasPrice: gasPrice,
+      // gasPrice: gasPrice,
     };
   }
 
@@ -115,7 +116,7 @@ export class WalletService {
     this.logger.debug('Setting nonce: ' + this.nonce);
     this.nonce += 1;
     tx.gasLimit = Web3Utils.toHex(tx.gasLimit);
-    tx.gasPrice = Web3Utils.toHex(parseInt(tx.gasPrice));
+    // tx.gasPrice = Web3Utils.toHex(parseInt(tx.gasPrice));
 
     const sentTx = this._send(this._sign(tx));
 
@@ -141,7 +142,11 @@ export class WalletService {
         // Reducing nonce in case of error and replay tx
         if (parsedNonce > this.nonceErrored) {
           this.nonce = parsedNonce;
+          this.lastParsedNonce = parsedNonce;
           this.nonceErrored = this.nonce;
+        } else if (parsedNonce < this.lastParsedNonce) {
+          this.nonce = parsedNonce;
+          this.lastParsedNonce = parsedNonce;
         }
         this.logger.debug(
           'Off-chain ' + errStr + ' errored nonce: ' + this.nonceErrored,
