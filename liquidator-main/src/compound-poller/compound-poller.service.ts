@@ -71,7 +71,7 @@ export class CompoundPollerService {
       );
     }
     const options = {
-      page_size: 100,
+      page_size: 50,
       // Adding this one which reduces the returned results in around 700 accounts
       'max_health[value]':
         process.env.COMPOUND_POLLING_ACCOUNT_MAX_HEALTH || 1.3,

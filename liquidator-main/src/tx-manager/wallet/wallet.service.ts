@@ -87,7 +87,7 @@ export class WalletService {
     return this.provider.web3.eth.estimateGas(tx);
   }
 
-  _txFor(to, method, gasLimit = undefined, gasPrice = undefined) {
+  _txFor(to, method, gasLimit = undefined) {
     return {
       to,
       data: method.encodeABI(),

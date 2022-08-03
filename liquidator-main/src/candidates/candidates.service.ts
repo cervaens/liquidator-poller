@@ -31,12 +31,19 @@ export class CandidatesService {
   }
 
   getCandidatesForLiquidation(): Array<CompoundAccount> {
-    return Object.values(this.activeModuleCandidates).filter(
-      (candidate: CompoundAccount) =>
+    const candidatesToLiquidate = [];
+    for (const candidate of Object.values(this.activeModuleCandidates)) {
+      candidate.updateAccount(this.cToken, this.symbolPricesUSD);
+      if (
         candidate.profitUSD >
           parseInt(process.env.LIQUIDATION_MIN_USD_PROFIT) &&
-        candidate.calculatedHealth < 1,
-    );
+        candidate.calculatedHealth < 1
+      ) {
+        candidatesToLiquidate.push(candidate);
+      }
+    }
+
+    return candidatesToLiquidate;
   }
 
   @RabbitSubscribe({
@@ -87,6 +94,17 @@ export class CandidatesService {
     // }
   }
 
+  @RabbitSubscribe({
+    exchange: 'liquidator-exchange',
+    routingKey: 'prices-updated',
+  })
+  public async pricesUpdated(msg: Array<Record<string, any>>) {
+    for (const priceObj of msg) {
+      this.symbolPricesUSD[priceObj.underlyingSymbol] = priceObj.price;
+    }
+    this.liquidateCandidates();
+  }
+
   // @RabbitSubscribe({
   //   exchange: 'liquidator-exchange',
   //   routingKey: 'candidates-delete',
@@ -121,17 +139,40 @@ export class CandidatesService {
         // updateList[compoundAccount._id] = msg.timestamp;
       }
     }
+  }
 
-    // if (Object.keys(updateList).length > 0) {
-    //   this.amqpConnection.publish('liquidator-exchange', 'candidates-list', {
-    //     action: 'insert',
-    //     ids: updateList,
-    //   });
+  @RabbitSubscribe({
+    exchange: 'liquidator-exchange',
+    routingKey: 'trigger-liquidations',
+  })
+  liquidateCandidates() {
+    const candidates = this.getCandidatesForLiquidation();
 
-    // this.logger.debug(
-    //   'Updated ' + Object.keys(updateList).length + ' candidates',
-    // );
-    // console.log(this.activeModuleCandidates);
-    // }
+    let candidatesArray = [];
+    this.logger.debug(`Liquidating ${candidates.length} accounts`);
+    for (let i = 0; i < candidates.length; i++) {
+      const liqCand = {
+        repayCToken: candidates[i].liqBorrow.cTokenAddress,
+        amount: candidates[i].getLiqAmount(),
+        seizeCToken: candidates[i].liqCollateral.cTokenAddress,
+        borrower: candidates[i].address,
+      };
+      candidatesArray.push(liqCand);
+      if (candidatesArray.length === 10) {
+        this.amqpConnection.publish(
+          'liquidator-exchange',
+          'liquidate-many',
+          candidatesArray,
+        );
+        candidatesArray = [];
+      }
+    }
+    if (candidatesArray.length > 0) {
+      this.amqpConnection.publish(
+        'liquidator-exchange',
+        'liquidate-many',
+        candidatesArray,
+      );
+    }
   }
 }

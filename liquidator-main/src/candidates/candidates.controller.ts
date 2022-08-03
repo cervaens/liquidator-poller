@@ -41,37 +41,13 @@ export class CandidatesController {
   }
 
   @Get('liquidate')
-  liquidateCandidates(): Record<string, any> {
-    const candidates = this.candidatesService.getCandidatesForLiquidation();
-    // const cand = candidates.filter(
-    //   (candidate) =>
-    //     candidate.address === '0x3fc33c9d7758bb59d3488c569a2bce0ffbd01366',
-    // );
-    let candidatesArray = [];
-    this.logger.debug(`Liquidating ${candidates.length} accounts`);
-    for (let i = 0; i < candidates.length; i++) {
-      const liqCand = {
-        repayCToken: candidates[i].liqBorrow.cTokenAddress,
-        amount: candidates[i].getLiqAmount(),
-        seizeCToken: candidates[i].liqCollateral.cTokenAddress,
-        borrower: candidates[i].address,
-      };
-      candidatesArray.push(liqCand);
-      if (candidatesArray.length === 10) {
-        this.amqpConnection.publish(
-          'liquidator-exchange',
-          'liquidate-many',
-          candidatesArray,
-        );
-        candidatesArray = [];
-      }
-    }
+  liquidateCandidates(): string {
     this.amqpConnection.publish(
       'liquidator-exchange',
-      'liquidate-many',
-      candidatesArray,
+      'trigger-liquidations',
+      {},
     );
-    return candidates;
+    return 'Triggered liquidations';
   }
 
   @Get('ready-for-liquidation')

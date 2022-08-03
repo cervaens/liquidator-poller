@@ -9,7 +9,7 @@ import { RabbitSubscribe } from '@golevelup/nestjs-rabbitmq';
 @Injectable()
 export class CompoundPricesWsService {
   private readonly logger = new Logger(CompoundPricesWsService.name);
-  private addressFromHash: Record<string, string> = {};
+  private cTokenFromHash: Record<string, Record<string, any>> = {};
 
   constructor(
     private readonly amqpConnection: AmqpConnection,
@@ -70,10 +70,12 @@ export class CompoundPricesWsService {
 
       let extraUpdate = null;
 
-      if (!this.addressFromHash[tx.topics[1]]) {
+      if (!this.cTokenFromHash[tx.topics[1]]) {
         const tokenInfo = await this.helper.getTokenInfo(tx.topics[1]);
-        this.addressFromHash[tx.topics[1]] =
-          tokenInfo && tokenInfo.cToken && tokenInfo.cToken.toLowerCase();
+        this.cTokenFromHash[tx.topics[1]] = {
+          address: tokenInfo.address,
+          underlyingSymbol: tokenInfo.underlyingSymbol,
+        };
         extraUpdate = {
           tokenHash: tx.topics[1],
         };
@@ -81,7 +83,7 @@ export class CompoundPricesWsService {
 
       const priceObj = this.helper.logToObject(tx);
       msgPrices.push({
-        address: this.addressFromHash[tx.topics[1]],
+        underlyingSymbol: this.cTokenFromHash[tx.topics[1]].underlyingSymbol,
         price: parseInt(priceObj.price),
       });
 
@@ -99,7 +101,7 @@ export class CompoundPricesWsService {
       }
 
       await this.ctoken.updateCtokenPriceFromAddressOrSymbol(
-        this.addressFromHash[tx.topics[1]],
+        this.cTokenFromHash[tx.topics[1]].address,
         null,
         parseInt(priceObj.price),
         extraUpdate,
@@ -107,7 +109,7 @@ export class CompoundPricesWsService {
 
       this.logger.debug(
         `☑️ *Got Prices* | Address: ${
-          this.addressFromHash[tx.topics[1]]
+          this.cTokenFromHash[tx.topics[1]].underlyingSymbol
         } Price: ${priceObj.price}`,
       );
     });
@@ -132,7 +134,10 @@ export class CompoundPricesWsService {
       await this.ctoken.getCtokensWithQuery({}, { tokenHash: 1, address: 1 })
     ).forEach((doc) => {
       if (doc.tokenHash) {
-        this.addressFromHash[doc.tokenHash] = doc.address;
+        this.cTokenFromHash[doc.tokenHash] = {
+          address: doc.address,
+          underlyingSymbol: doc.underlyingSymbol,
+        };
       }
     });
   }

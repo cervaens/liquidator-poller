@@ -50,7 +50,7 @@ export class TxManagerService {
       }
       this.logger.debug('Liquidating account: ' + borrower);
       // TODO: ENABLE THIS IN PROD
-      // this.liquidationsStatus[borrower] = { status: 'ongoing', timestamp: now };
+      this.liquidationsStatus[borrower] = { status: 'ongoing', timestamp: now };
       const method = this.liquidatorContract.methods.flashSwap(
         repayCToken,
         parseInt(amount).toString(),
@@ -81,6 +81,23 @@ export class TxManagerService {
         });
       // );
     }
+    this.amqpConnection.publish(
+      'liquidator-exchange',
+      'liquidations-called',
+      this.liquidationsStatus,
+    );
+  }
+
+  @RabbitSubscribe({
+    exchange: 'liquidator-exchange',
+    routingKey: 'liquidations-called',
+  })
+  async updateLiquidationsList(msg: Record<string, any>) {
+    this.liquidationsStatus;
+    this.liquidationsStatus = { ...this.liquidationsStatus, ...msg };
+    this.logger.debug(
+      'Current nr liqs: ' + Object.keys(this.liquidationsStatus).length,
+    );
   }
 
   async initLiquidatorContract() {
