@@ -75,9 +75,7 @@ export class CandidatesService {
       this.activeModuleCandidates = {};
       this.nextInit = 0;
     }
-    // This condition is to filter out account lists that come after an init
-    // from a poller initiated few secs before the init was called
-    // if (msg.timestamp >= this.lastTimestamp) {
+
     for (const account of msg.accounts) {
       const compoundAccount = new CompoundAccount(account);
       candidateIds[compoundAccount._id] = msg.timestamp;

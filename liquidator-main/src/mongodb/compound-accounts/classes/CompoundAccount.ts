@@ -92,10 +92,7 @@ export class CompoundAccount extends StandardAccount {
         if (tokenValue > this.liqBorrow.valueUSD) {
           this.liqBorrow.valueUSD = tokenValue;
           this.liqBorrow.symbol = underSymbol;
-          this.liqBorrow.cTokenAddress =
-            token.address === '0x4ddc2d193948926d02f9b1fe9e1daa0718270ed5'
-              ? '0x0000000000000000000000000000000000000000'
-              : token.address;
+          this.liqBorrow.cTokenAddress = token.address;
           this.liqBorrow.units = token.borrow_balance_underlying;
           this.liqBorrow.decimals = decimals;
         }

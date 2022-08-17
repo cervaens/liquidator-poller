@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import Web3 from 'web3';
 
-import liquidatorAbi from './abis/FlashLiquidatorABI.json';
+import liquidatorAbi from './abis/Liquidator.json';
 import { AbiItem } from 'web3-utils';
 import { Contract } from 'web3-eth-contract';
 
@@ -15,7 +15,7 @@ export class TxManagerService {
   private liquidatorContract: Contract;
   private address: string =
     process.env.LIQUIDATOR_ADDRESS ||
-    '0x0a17FabeA4633ce714F1Fa4a2dcA62C3bAc4758d';
+    '0xCBBe2A5c3A22BE749D5DDF24e9534f98951983e2';
   private liquidationsStatus: Record<string, Record<string, any>> = {};
   private nonce: number;
 
@@ -51,11 +51,11 @@ export class TxManagerService {
       this.logger.debug('Liquidating account: ' + borrower);
       // TODO: ENABLE THIS IN PROD
       this.liquidationsStatus[borrower] = { status: 'ongoing', timestamp: now };
-      const method = this.liquidatorContract.methods.flashSwap(
-        repayCToken,
-        parseInt(amount).toString(),
-        seizeCToken,
+      const method = this.liquidatorContract.methods.liquidate(
         borrower,
+        repayCToken,
+        // parseInt(amount).toString(),
+        seizeCToken,
       );
 
       const gasLimit = 1163000;
