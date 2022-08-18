@@ -34,6 +34,7 @@ export class TransactionsService {
         effectiveGasPrice: msg.receipt.effectiveGasPrice,
         blockNumber: msg.receipt.blockNumber,
         costInEth,
+        estimatedProfitUSD: msg.profitUSD,
       })
       .setOptions({ upsert: true });
   }
@@ -53,13 +54,17 @@ export class TransactionsService {
       msg.tx.data.slice(10),
     );
 
-    await this.transactionsModel.insertMany({
-      _id: msg.hash,
-      borrower,
-      repayToken,
-      seizeToken,
-      createdDate: new Date(),
-      sentDate: msg.sentDate,
-    });
+    await this.transactionsModel
+      .insertMany({
+        _id: msg.hash,
+        borrower,
+        repayToken,
+        seizeToken,
+        createdDate: new Date(),
+        sentDate: msg.sentDate,
+      })
+      .catch((err) => {
+        this.logger.error('Couldnt insert transaction: ' + err);
+      });
   }
 }

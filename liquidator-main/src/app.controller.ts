@@ -21,14 +21,14 @@ export class AppController {
 
       // But if there's no master become the master
       if (!isThereAMaster) {
-        this.appService.sendImTheMaster();
-        this.logger.debug('Sending Im the master');
+        this.appService.sendImTheMaster(true);
+        this.logger.debug('Sending Im the new master');
       }
-    }, 5500);
+    }, parseInt(process.env.WAIT_TIME_FOR_OTHER_WORKERS));
 
     setInterval(() => {
       if (this.appService.amItheMaster()) {
-        this.appService.sendImTheMaster();
+        this.appService.sendImTheMaster(false);
       }
     }, 2500);
   }

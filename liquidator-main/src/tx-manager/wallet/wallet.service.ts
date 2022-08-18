@@ -59,14 +59,22 @@ export class WalletService {
 
   @RabbitSubscribe({
     exchange: 'liquidator-exchange',
+    routingKey: 'i-am-master',
+  })
+  public async thereIsAMaster(msg: Record<string, boolean>) {
+    if (msg.isNew && this.appService.amItheMaster()) {
+      this.nonce = await this.getLowestLiquidNonce();
+    }
+  }
+
+  @RabbitSubscribe({
+    exchange: 'liquidator-exchange',
     routingKey: 'execute-tx',
   })
-  async executeTx(tx: Record<string, any>) {
-    if (!this.appService.amItheMaster) {
-      return;
+  async executeTx(msg: Record<string, any>) {
+    if (this.appService.amItheMaster()) {
+      this.signAndSend(msg.tx, msg.profitUSD);
     }
-
-    this.signAndSend(tx);
   }
 
   /**
@@ -111,7 +119,7 @@ export class WalletService {
     return this.provider.web3.eth.getGasPrice();
   }
 
-  signAndSend(tx) {
+  signAndSend(tx, profitUSD) {
     tx.nonce = Web3Utils.toHex(this.nonce);
     this.logger.debug('Setting nonce: ' + this.nonce);
     this.nonce += 1;
@@ -136,6 +144,7 @@ export class WalletService {
       this.logger.debug(` Successful at block ${receipt.blockNumber}!`);
       this.amqpConnection.publish('liquidator-exchange', 'tx-processed', {
         receipt,
+        profitUSD,
       });
     });
     // After receiving an error, check if it occurred on or off chain
@@ -160,7 +169,7 @@ export class WalletService {
         this.logger.debug(
           'Off-chain ' + errStr + ' errored nonce: ' + this.nonceErrored,
         );
-        this.signAndSend(tx);
+        this.signAndSend(tx, profitUSD);
       } else if (
         errStr.includes('replacement transaction underpriced') ||
         errStr.includes('already known')
@@ -175,6 +184,7 @@ export class WalletService {
       this.amqpConnection.publish('liquidator-exchange', 'tx-processed', {
         tx,
         errStr,
+        profitUSD,
       });
     });
   }

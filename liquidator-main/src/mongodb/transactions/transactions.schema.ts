@@ -37,6 +37,9 @@ export class Transactions {
 
   @Prop()
   blockNumber: number;
+
+  @Prop()
+  estimatedProfitUSD: number;
 }
 
 export const TransactionsSchema = SchemaFactory.createForClass(Transactions);

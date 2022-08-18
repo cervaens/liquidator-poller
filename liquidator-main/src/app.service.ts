@@ -8,9 +8,6 @@ export class AppService {
 
   private isThereAMaster = false;
   private iamTheMaster = false;
-  getHello(): string {
-    return 'Hello World!';
-  }
 
   getIsThereAMaster(): boolean {
     return this.isThereAMaster;
@@ -32,9 +29,11 @@ export class AppService {
     });
   }
 
-  sendImTheMaster() {
+  sendImTheMaster(isNew: boolean) {
     this.iamTheMaster = true;
-    this.amqpConnection.publish('liquidator-exchange', 'i-am-master', {});
+    this.amqpConnection.publish('liquidator-exchange', 'i-am-master', {
+      isNew,
+    });
   }
 
   amItheMaster(): boolean {

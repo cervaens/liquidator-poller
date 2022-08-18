@@ -41,7 +41,7 @@ export class TxManagerService {
     // const promises = [];
 
     for (const candidate of msg) {
-      const { repayCToken, amount, seizeCToken, borrower } = candidate;
+      const { repayCToken, profitUSD, seizeCToken, borrower } = candidate;
       if (
         this.liquidationsStatus[borrower] &&
         this.liquidationsStatus[borrower].timestamp > now - 3600000
@@ -72,7 +72,10 @@ export class TxManagerService {
               ? estimated
               : tx.gasLimit;
 
-          this.amqpConnection.publish('liquidator-exchange', 'execute-tx', tx);
+          this.amqpConnection.publish('liquidator-exchange', 'execute-tx', {
+            tx,
+            profitUSD,
+          });
         })
         .catch((e) => {
           this.logger.debug(

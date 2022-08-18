@@ -76,6 +76,7 @@ export class CompoundPricesWsHelperService {
   }
 
   async getTokensPrice(tokens: Array<Record<string, any>>) {
+    this.logger.debug('Getting Token prices');
     const tokenPrices = {};
     const promises: Record<string, Promise<any>> = {};
 

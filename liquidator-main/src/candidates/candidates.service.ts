@@ -149,13 +149,14 @@ export class CandidatesService {
     const candidates = this.getCandidatesForLiquidation();
 
     let candidatesArray = [];
-    this.logger.debug(`Liquidating ${candidates.length} accounts`);
+    this.logger.debug(`Checking ${candidates.length} accounts for liquidation`);
     for (let i = 0; i < candidates.length; i++) {
       const liqCand = {
         repayCToken: candidates[i].liqBorrow.cTokenAddress,
         amount: candidates[i].getLiqAmount(),
         seizeCToken: candidates[i].liqCollateral.cTokenAddress,
         borrower: candidates[i].address,
+        profitUSD: candidates[i].profitUSD,
       };
       candidatesArray.push(liqCand);
       if (candidatesArray.length === 10) {

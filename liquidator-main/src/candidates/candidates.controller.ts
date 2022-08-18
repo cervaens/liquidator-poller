@@ -30,7 +30,21 @@ export class CandidatesController {
           ids: candidateIds,
         });
       }
-    }, this.candidatesTimeout - 500);
+    }, this.candidatesTimeout);
+
+    // Cleaning all candidates list as some workers might have disconnected
+    // or some candidates are not anymore
+    setInterval(() => {
+      // Have to comment the following as if its the master going down
+      // it will take sometime before other worker becomes master
+      // if (this.appService.amItheMaster()) {
+      const timestamp = new Date().getTime() - this.candidatesTimeout - 2000;
+      this.amqpConnection.publish('liquidator-exchange', 'candidates-list', {
+        action: 'deleteBelowTimestamp',
+        timestamp,
+      });
+      // }
+    }, this.candidatesTimeout);
   }
   @Get()
   getCandidates(): Record<string, Record<string, any>> {
