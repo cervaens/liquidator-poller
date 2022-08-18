@@ -80,7 +80,7 @@ export class WalletService {
    */
   estimateGas(tx) {
     // tx = { ...tx };
-    tx.from = process.env.ACCOUNT_ADDRESS_A;
+    tx.from = process.env.ACCOUNT_ADDRESS_B;
     // if (nonce !== null) tx.nonce = Web3Utils.toHex(nonce);
     // delete tx["gasPrice"];
     // delete tx["gasLimit"];
@@ -103,7 +103,7 @@ export class WalletService {
    */
   async getLowestLiquidNonce() {
     return this.provider.web3.eth.getTransactionCount(
-      process.env.ACCOUNT_ADDRESS_A,
+      process.env.ACCOUNT_ADDRESS_B,
     );
   }
 
@@ -119,15 +119,24 @@ export class WalletService {
     // tx.gasPrice = Web3Utils.toHex(parseInt(tx.gasPrice));
 
     const sentTx = this._send(this._sign(tx));
+    const sentDate = new Date();
 
     sentTx.on('transactionHash', (hash) => {
       this.logger.debug(
         `<https://${this.network.chain}.etherscan.io/tx/${hash}>`,
       );
+      this.amqpConnection.publish('liquidator-exchange', 'tx-created', {
+        tx,
+        sentDate,
+        hash,
+      });
     });
     // After receiving receipt, log success and rebase
     sentTx.on('receipt', (receipt) => {
       this.logger.debug(` Successful at block ${receipt.blockNumber}!`);
+      this.amqpConnection.publish('liquidator-exchange', 'tx-processed', {
+        receipt,
+      });
     });
     // After receiving an error, check if it occurred on or off chain
     sentTx.on('error', (err) => {
@@ -160,8 +169,13 @@ export class WalletService {
       }
       // Certain errors are expected (and handled naturally by structure
       // of this queue) so we don't need to log them:
-      else if (!errStr.includes('Transaction was not mined within '))
+      else if (!errStr.includes('Transaction was not mined within ')) {
         this.logger.debug('Off-chain ' + errStr);
+      }
+      this.amqpConnection.publish('liquidator-exchange', 'tx-processed', {
+        tx,
+        errStr,
+      });
     });
   }
 
@@ -184,7 +198,7 @@ export class WalletService {
   _sign(tx) {
     // Set tx.from here since it must be signed by its sender.
     // i.e. this is the only valid value for tx.from
-    tx.from = process.env.ACCOUNT_ADDRESS_A;
+    tx.from = process.env.ACCOUNT_ADDRESS_B;
     tx.type = '0x02';
 
     tx.maxPriorityFeePerGas = '0x5D21DBA00'; // 12500000000 WEI, 12.5 GWEI for eth 1600 and gas 400000 gives around 8USDs
@@ -195,7 +209,7 @@ export class WalletService {
     tx.chainId = '0x' + this.network.chainId.toString(16);
     tx = FeeMarketEIP1559Transaction.fromTxData(tx, this.network);
 
-    const signedTx = tx.sign(Buffer.from(process.env.ACCOUNT_SECRET_A, 'hex'));
+    const signedTx = tx.sign(Buffer.from(process.env.ACCOUNT_SECRET_B, 'hex'));
     return '0x' + signedTx.serialize().toString('hex');
   }
 

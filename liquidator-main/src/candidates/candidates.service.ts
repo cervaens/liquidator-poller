@@ -8,11 +8,10 @@ export class CandidatesService {
   constructor(private readonly amqpConnection: AmqpConnection) {}
   private activeModuleCandidates: Record<string, CompoundAccount> = {};
   private readonly logger = new Logger(CandidatesService.name);
-  private lastTimestamp = 0;
   private nextInit = 0;
 
   private cToken: Record<string, any> = {};
-  private symbolPricesUSD: Record<string, number> = {};
+  private uAddressPricesUSD: Record<string, number> = {};
 
   getCandidates(): Record<string, Record<string, any>> {
     return this.activeModuleCandidates;
@@ -33,7 +32,7 @@ export class CandidatesService {
   getCandidatesForLiquidation(): Array<CompoundAccount> {
     const candidatesToLiquidate = [];
     for (const candidate of Object.values(this.activeModuleCandidates)) {
-      candidate.updateAccount(this.cToken, this.symbolPricesUSD);
+      candidate.updateAccount(this.cToken, this.uAddressPricesUSD);
       if (
         candidate.profitUSD >
           parseInt(process.env.LIQUIDATION_MIN_USD_PROFIT) &&
@@ -59,7 +58,7 @@ export class CandidatesService {
     routingKey: 'prices-polled',
   })
   public async updatePricesHandler(msg: Record<string, number>) {
-    this.symbolPricesUSD = msg;
+    this.uAddressPricesUSD = msg;
   }
 
   @RabbitSubscribe({
@@ -79,7 +78,7 @@ export class CandidatesService {
     for (const account of msg.accounts) {
       const compoundAccount = new CompoundAccount(account);
       candidateIds[compoundAccount._id] = msg.timestamp;
-      compoundAccount.updateAccount(this.cToken, this.symbolPricesUSD);
+      compoundAccount.updateAccount(this.cToken, this.uAddressPricesUSD);
       this.activeModuleCandidates[account.address] = compoundAccount;
     }
     this.logger.debug('Added ' + msg.accounts.length + ' new candidates');
@@ -89,6 +88,9 @@ export class CandidatesService {
       action: 'insert',
       ids: candidateIds,
     });
+    this.logger.debug(
+      'Nr. Candidates: ' + Object.keys(this.getCandidates()).length,
+    );
     // }
   }
 
@@ -98,7 +100,7 @@ export class CandidatesService {
   })
   public async pricesUpdated(msg: Array<Record<string, any>>) {
     for (const priceObj of msg) {
-      this.symbolPricesUSD[priceObj.underlyingSymbol] = priceObj.price;
+      this.uAddressPricesUSD[priceObj.underlyingAddress] = priceObj.price;
     }
     this.liquidateCandidates();
   }
@@ -131,7 +133,7 @@ export class CandidatesService {
     // const updateList = {};
     for (const account of msg.accounts) {
       const compoundAccount = new CompoundAccount(account);
-      compoundAccount.updateAccount(this.cToken, this.symbolPricesUSD);
+      compoundAccount.updateAccount(this.cToken, this.uAddressPricesUSD);
       if (this.activeModuleCandidates[compoundAccount.address]) {
         this.activeModuleCandidates[compoundAccount.address] = compoundAccount;
         // updateList[compoundAccount._id] = msg.timestamp;

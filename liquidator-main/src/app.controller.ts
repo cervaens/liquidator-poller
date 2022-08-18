@@ -24,7 +24,7 @@ export class AppController {
         this.appService.sendImTheMaster();
         this.logger.debug('Sending Im the master');
       }
-    }, 2500);
+    }, 5500);
 
     setInterval(() => {
       if (this.appService.amItheMaster()) {

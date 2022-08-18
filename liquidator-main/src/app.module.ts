@@ -17,6 +17,7 @@ import {
   web3Ws,
 } from './web3-provider/web3-provider.service';
 import { CompoundAccountsModule } from './mongodb/compound-accounts/compound-accounts.module';
+import { TransactionsModule } from './mongodb/transactions/transactions.module';
 import { CandidatesModule } from './candidates/candidates.module';
 import { TxManagerModule } from './tx-manager/tx-manager.module';
 
@@ -47,6 +48,7 @@ import { TxManagerModule } from './tx-manager/tx-manager.module';
     CompoundAccountsModule,
     CandidatesModule,
     TxManagerModule,
+    TransactionsModule,
     // Web3ProviderModule,
   ],
   controllers: [AppController],

@@ -73,7 +73,9 @@ export class CompoundPricesWsService {
       if (!this.cTokenFromHash[tx.topics[1]]) {
         const tokenInfo = await this.helper.getTokenInfo(tx.topics[1]);
         this.cTokenFromHash[tx.topics[1]] = {
-          address: tokenInfo.address,
+          address: tokenInfo.cToken && tokenInfo.cToken.toLowerCase(),
+          underlyingAddress:
+            tokenInfo.underlying && tokenInfo.underlying.toLowerCase(),
           underlyingSymbol: tokenInfo.underlyingSymbol,
         };
         extraUpdate = {
@@ -83,7 +85,7 @@ export class CompoundPricesWsService {
 
       const priceObj = this.helper.logToObject(tx);
       msgPrices.push({
-        underlyingSymbol: this.cTokenFromHash[tx.topics[1]].underlyingSymbol,
+        underlyingAddress: this.cTokenFromHash[tx.topics[1]].underlyingAddress,
         price: parseInt(priceObj.price),
       });
 
@@ -109,7 +111,7 @@ export class CompoundPricesWsService {
 
       this.logger.debug(
         `☑️ *Got Prices* | Address: ${
-          this.cTokenFromHash[tx.topics[1]].underlyingSymbol
+          this.cTokenFromHash[tx.topics[1]].underlyingAddress
         } Price: ${priceObj.price}`,
       );
     });
@@ -119,7 +121,7 @@ export class CompoundPricesWsService {
     exchange: 'liquidator-exchange',
     routingKey: 'poll-prices',
   })
-  public async pollAndStorePrices(tokens: Array<string>) {
+  public async pollAndStorePrices(tokens: Array<Record<string, any>>) {
     const tokenPrices = await this.helper.getTokensPrice(tokens);
     await this.ctoken.updateCtokensPrices(tokenPrices);
   }
@@ -131,12 +133,18 @@ export class CompoundPricesWsService {
    */
   async onModuleInit(): Promise<void> {
     (
-      await this.ctoken.getCtokensWithQuery({}, { tokenHash: 1, address: 1 })
+      await this.ctoken.getCtokensWithQuery(
+        {},
+        { tokenHash: 1, address: 1, underlyingSymbol: 1, underlyingAddress: 1 },
+      )
     ).forEach((doc) => {
       if (doc.tokenHash) {
         this.cTokenFromHash[doc.tokenHash] = {
           address: doc.address,
-          underlyingSymbol: doc.underlyingSymbol,
+          underlyingAddress: doc.underlyingAddress,
+          underlyingSymbol:
+            doc.underlyingSymbol ||
+            '0x0000000000000000000000000000000000000000',
         };
       }
     });

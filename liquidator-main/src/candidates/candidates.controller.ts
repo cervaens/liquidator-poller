@@ -24,10 +24,7 @@ export class CandidatesController {
         Object.keys(this.candidatesService.getCandidates()).forEach((id) => {
           candidateIds[id] = time;
         });
-        this.logger.debug(
-          'Nr. Candidates: ' +
-            Object.keys(this.candidatesService.getCandidates()).length,
-        );
+
         this.amqpConnection.publish('liquidator-exchange', 'candidates-list', {
           action: 'insert',
           ids: candidateIds,

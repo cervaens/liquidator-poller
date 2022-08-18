@@ -59,17 +59,19 @@ export class CompoundAccount extends StandardAccount {
       : this.liqCollateral.units;
   }
 
-  public updateAccount(cToken, symbolPricesUSD) {
+  public updateAccount(cToken, uAddressPricesUSD) {
     let totalBorrowUSD = 0;
     let totalDepositUSD = 0;
 
     for (const token of this.tokens) {
       const underSymbol = cToken[token.symbol].underlyingSymbol;
+      const underlyingAddress = cToken[token.symbol].underlyingAddress;
       const decimals = cToken[token.symbol].decimals;
       if (token.supply_balance_underlying > 0) {
         const colFactor = cToken[token.symbol].collateralFactor;
         const tokenValue =
-          (token.supply_balance_underlying * symbolPricesUSD[underSymbol]) /
+          (token.supply_balance_underlying *
+            uAddressPricesUSD[underlyingAddress]) /
           10 ** 6;
         totalDepositUSD += colFactor * tokenValue;
 
@@ -85,7 +87,8 @@ export class CompoundAccount extends StandardAccount {
       }
       if (token.borrow_balance_underlying > 0) {
         const tokenValue =
-          (token.borrow_balance_underlying * symbolPricesUSD[underSymbol]) /
+          (token.borrow_balance_underlying *
+            uAddressPricesUSD[underlyingAddress]) /
           10 ** 6;
 
         totalBorrowUSD += tokenValue;

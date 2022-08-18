@@ -15,7 +15,10 @@ export class CompoundToken {
     this.symbol = json.symbol;
     this.exchangeRate = json.exchange_rate.value;
     this.collateralFactor = json.collateral_factor.value;
-    this.underlyingAddress = json.underlying_address;
+    this.underlyingAddress =
+      json.underlying_symbol === 'ETH'
+        ? '0x0000000000000000000000000000000000000000'
+        : json.underlying_address;
     this.underlyingSymbol = json.underlying_symbol;
     this.decimals = this.getDecimals();
   }

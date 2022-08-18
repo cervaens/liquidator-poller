@@ -56,8 +56,8 @@ export class CtokenController {
     for (const token of Object.keys(tokenPrices)) {
       promises.push(
         this.updateCtokenPriceFromAddressOrSymbol(
-          null,
           token,
+          null,
           parseInt(tokenPrices[token]),
           null,
         ),

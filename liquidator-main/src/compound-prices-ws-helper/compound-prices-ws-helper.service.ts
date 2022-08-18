@@ -75,21 +75,24 @@ export class CompoundPricesWsHelperService {
     return await this.uniswapAnchorContract.methods.price(tokenSymbol).call();
   }
 
-  async getTokensPrice(tokens: Array<string>) {
+  async getTokensPrice(tokens: Array<Record<string, any>>) {
     const tokenPrices = {};
     const promises: Record<string, Promise<any>> = {};
 
     for (const token of tokens) {
+      if (tokenPrices[token.underlyingSymbol]) {
+        continue;
+      }
       // Compound considers stable coins as 1 dollar
-      if (token.match('USDC|USDT|TUSD|USDP')) {
-        tokenPrices[token] = '1000000';
-      } else if (token === 'WBTC') {
-        promises[token] = this.uniswapAnchorContract.methods
+      if (token.underlyingSymbol.match('USDC|USDT|TUSD|USDP')) {
+        tokenPrices[token.underlyingSymbol] = '1000000';
+      } else if (token.underlyingSymbol === 'WBTC') {
+        promises[token.underlyingAddress] = this.uniswapAnchorContract.methods
           .price('BTC')
           .call();
       } else {
-        promises[token] = this.uniswapAnchorContract.methods
-          .price(token)
+        promises[token.underlyingAddress] = this.uniswapAnchorContract.methods
+          .price(token.underlyingSymbol)
           .call();
       }
     }
@@ -98,7 +101,7 @@ export class CompoundPricesWsHelperService {
       for (const token of Object.keys(promises)) {
         try {
           const res = await promises[token];
-          tokenPrices[token] = res;
+          tokenPrices[token] = parseInt(res);
         } catch (error) {
           this.logger.error(error.message);
         }

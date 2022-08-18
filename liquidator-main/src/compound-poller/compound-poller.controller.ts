@@ -16,10 +16,8 @@ export class CompoundPollerController {
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
-    const tokenSymbols = await this.pollCTokens();
-    this.compoundPrices.pollAndStorePrices([
-      ...new Set(tokenSymbols),
-    ] as Array<string>);
+    const tokenUAddresses = await this.pollCTokens();
+    this.compoundPrices.pollAndStorePrices(tokenUAddresses);
 
     // At init the master will start a poll
     if (this.appService.amItheMaster()) {
@@ -57,7 +55,10 @@ export class CompoundPollerController {
     const { tokens }: Record<string, any> =
       await this.compoundPollerService.fetchCtokens({});
     await this.ctokenController.createMany(tokens);
-    return tokens.map((token: CompoundToken) => token.underlyingSymbol);
+    return tokens.map((token: CompoundToken) => ({
+      underlyingAddress: token.underlyingAddress,
+      underlyingSymbol: token.underlyingSymbol,
+    }));
   }
 
   async pollAccounts(init = false) {
