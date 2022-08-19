@@ -2,7 +2,6 @@ import { Module, Global } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 // import { ScheduleModule } from '@nestjs/schedule';
-import { TaskSchedulerService } from './task-scheduler/task-scheduler.service';
 import { RabbitMQModule } from '@golevelup/nestjs-rabbitmq';
 import { MongooseModule } from '@nestjs/mongoose';
 import { CtokensModule } from './mongodb/ctoken/ctoken.module';
@@ -54,7 +53,6 @@ import { TxManagerModule } from './tx-manager/tx-manager.module';
   controllers: [AppController],
   providers: [
     AppService,
-    TaskSchedulerService,
     // Web3ProviderService,
     {
       provide: 'WEB3PROV',

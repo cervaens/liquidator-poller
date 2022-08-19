@@ -42,7 +42,7 @@ export class CandidatesService {
       }
     }
 
-    return candidatesToLiquidate;
+    return candidatesToLiquidate.sort((a, b) => b.profitUSD - a.profitUSD);
   }
 
   @RabbitSubscribe({

@@ -14,7 +14,6 @@ export class CompoundPricesWsService {
   constructor(
     private readonly amqpConnection: AmqpConnection,
     private readonly ctoken: CtokenController,
-    // @Inject('WEB3') private conn: Web3,
     @Inject('WEB3WS') private web3Ws: Web3,
     private helper: CompoundPricesWsHelperService,
   ) {
