@@ -1,6 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Web3ProviderService } from 'src/web3-provider/web3-provider.service';
-import Web3 from 'web3';
 import { FeeMarketEIP1559Transaction } from '@ethereumjs/tx';
 import Web3Utils from 'web3-utils';
 import { AmqpConnection, RabbitSubscribe } from '@golevelup/nestjs-rabbitmq';
@@ -15,7 +14,6 @@ export class WalletService {
   public network: Record<string, any>;
 
   constructor(
-    @Inject('WEB3PROV') private conn: Web3,
     private readonly provider: Web3ProviderService,
     private readonly amqpConnection: AmqpConnection,
     @Inject(AppService) private appService: AppService,

@@ -1,10 +1,9 @@
-import { Injectable, Logger, Inject } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
-// import { Web3ProviderService } from './web3-provider/web3-provider.service';
-import Web3 from 'web3';
 import { CompoundPricesWsHelperService } from '../compound-prices-ws-helper/compound-prices-ws-helper.service';
 import { CtokenController } from 'src/mongodb/ctoken/ctoken.controller';
 import { RabbitSubscribe } from '@golevelup/nestjs-rabbitmq';
+import { Web3ProviderService } from 'src/web3-provider/web3-provider.service';
 
 @Injectable()
 export class CompoundPricesWsService {
@@ -14,10 +13,10 @@ export class CompoundPricesWsService {
   constructor(
     private readonly amqpConnection: AmqpConnection,
     private readonly ctoken: CtokenController,
-    @Inject('WEB3WS') private web3Ws: Web3,
+    private readonly provider: Web3ProviderService,
     private helper: CompoundPricesWsHelperService,
   ) {
-    // web3Ws.eth
+    // provider.web3Ws.eth
     //   .subscribe('pendingTransactions', function (error, result) {
     //     if (!error) console.log(result);
     //   })
@@ -34,7 +33,7 @@ export class CompoundPricesWsService {
   }
 
   async subscribeToBlocks() {
-    // this.web3Ws.eth.subscribe('newBlockHeaders', (err, result) => {
+    // this.provider.web3Ws.eth.subscribe('newBlockHeaders', (err, result) => {
     //   this.logger.debug(
     //     `☑️ *Got New block* | Our timestamp: ${parseInt(
     //       (new Date().getTime() / 1000).toString(),
@@ -44,7 +43,7 @@ export class CompoundPricesWsService {
   }
 
   async unSubscribeWSs() {
-    this.web3Ws.eth.clearSubscriptions((error, result) => {
+    this.provider.web3Ws.eth.clearSubscriptions((error, result) => {
       this.logger.debug('Unsubscribed: ' + result);
     });
   }
@@ -64,7 +63,7 @@ export class CompoundPricesWsService {
       ],
     };
     let msgPrices = [];
-    this.web3Ws.eth.subscribe('logs', options, async (err, tx) => {
+    this.provider.web3Ws.eth.subscribe('logs', options, async (err, tx) => {
       if (err) return;
 
       let extraUpdate = null;

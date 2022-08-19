@@ -1,5 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import Web3 from 'web3';
+import AWSHttpProvider from '@aws/web3-http-provider';
+import AWSWebsocketProvider from '@aws/web3-ws-provider';
 
 const WSProvider = (url) => {
   const WSoptions = {
@@ -43,17 +45,37 @@ export const web3Ws = WSProvider(
 
 @Injectable()
 export class Web3ProviderService {
+  private readonly logger = new Logger(Web3ProviderService.name);
   public web3: Web3;
+  public web3Ws: Web3;
   constructor() {
-    this.web3 = HTTPProvider(
-      process.env.WEB3_HTTP_PROVIDER ||
-        `https://eth-mainnet.alchemyapi.io/v2/***REMOVED***`,
-    );
+    switch (process.env.WEB3_PROVIDER) {
+      case 'AWS':
+        this.web3 = new Web3(
+          new AWSHttpProvider(process.env.AMB_HTTP_ENDPOINT),
+        );
+        this.web3Ws = new Web3(
+          new AWSWebsocketProvider(process.env.AMB_WS_ENDPOINT),
+        );
+        break;
+      default:
+        this.web3 = HTTPProvider(
+          process.env.WEB3_HTTP_PROVIDER ||
+            `https://eth-mainnet.alchemyapi.io/v2/***REMOVED***`,
+        );
+        this.web3Ws = WSProvider(
+          process.env.WEB3_WSS_PROVIDER ||
+            `wss://eth-mainnet.alchemyapi.io/v2/***REMOVED***`,
+        );
+        break;
+    }
+    this.web3.eth
+      .getNodeInfo()
+      .then((str) => this.logger.debug('Web3 provider connected: ' + str));
+    this.web3Ws.eth
+      .getNodeInfo()
+      .then((str) =>
+        this.logger.debug('Web3 websocket provider connected: ' + str),
+      );
   }
-  // public web3 = HTTPProvider(
-  //   `https://eth-mainnet.alchemyapi.io/v2/***REMOVED***`,
-  // );
-  //   web3P() {
-  //     return this.web3Provider;
-  //   }
 }

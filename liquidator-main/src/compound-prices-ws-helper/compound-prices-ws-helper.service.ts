@@ -1,10 +1,9 @@
-import { Injectable, Logger, Inject } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
-// import { Web3ProviderService } from './web3-provider/web3-provider.service';
-import Web3 from 'web3';
 import { CtokenController } from 'src/mongodb/ctoken/ctoken.controller';
 import uniswapAnchorAbi from './abis/uniswapAnchoredView_ABI.json';
 import { AbiItem } from 'web3-utils';
+import { Web3ProviderService } from 'src/web3-provider/web3-provider.service';
 
 @Injectable()
 export class CompoundPricesWsHelperService {
@@ -13,7 +12,7 @@ export class CompoundPricesWsHelperService {
   constructor(
     private readonly amqpConnection: AmqpConnection,
     private readonly ctoken: CtokenController,
-    @Inject('WEB3PROV') private conWeb3: Web3,
+    private readonly provider: Web3ProviderService,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -47,7 +46,7 @@ export class CompoundPricesWsHelperService {
     if (
       tx.topics[0] === process.env.COMPOUND_UNISWAPANCHORVIEW_PRICEUPDATED_TOPIC
     ) {
-      result = this.conWeb3.eth.abi.decodeLog(
+      result = this.provider.web3.eth.abi.decodeLog(
         this.priceUpdatedInput,
         tx.data,
         tx.topics,
@@ -56,7 +55,7 @@ export class CompoundPricesWsHelperService {
       tx.topics[0] ===
       process.env.COMPOUND_UNISWAPANCHORVIEW_ANCHORPRICEUPDATED_TOPIC
     ) {
-      result = this.conWeb3.eth.abi.decodeLog(
+      result = this.provider.web3.eth.abi.decodeLog(
         this.anchorPriceUpdatedInput,
         tx.data,
         tx.topics,
@@ -122,7 +121,7 @@ export class CompoundPricesWsHelperService {
     // init new web3 with our infura key
 
     try {
-      return new this.conWeb3.eth.Contract(
+      return new this.provider.web3.eth.Contract(
         uniswapAnchorAbi as AbiItem[],
         process.env.COMPOUND_UNISWAPANCHORVIEW_ADDRESS ||
           '0x65c816077C29b557BEE980ae3cC2dCE80204A0C5',
