@@ -6,6 +6,7 @@ import { Contract } from 'web3-eth-contract';
 import { AmqpConnection, RabbitSubscribe } from '@golevelup/nestjs-rabbitmq';
 import { Web3ProviderService } from 'src/web3-provider/web3-provider.service';
 import { WalletService } from './wallet/wallet.service';
+import { AppService } from 'src/app.service';
 
 @Injectable()
 export class TxManagerService {
@@ -21,10 +22,12 @@ export class TxManagerService {
     private readonly provider: Web3ProviderService,
     private readonly wallet: WalletService,
     private readonly amqpConnection: AmqpConnection,
+    private readonly appService: AppService,
   ) {}
 
   async onModuleInit(): Promise<void> {
     this.liquidatorContract = await this.initLiquidatorContract();
+    await this.subscribeToLiquidatorEvents();
   }
 
   @RabbitSubscribe({
@@ -111,5 +114,63 @@ export class TxManagerService {
     } catch (err) {
       this.logger.debug('Error starting liquidator contract');
     }
+  }
+
+  async subscribeToLiquidatorEvents() {
+    // init new web3 with our infura key
+
+    const options = {
+      address: this.address,
+    };
+
+    const input = [
+      {
+        name: 'borrower',
+        type: 'address',
+      },
+      {
+        name: 'repayCToken',
+        type: 'address',
+      },
+      {
+        name: 'seizeCToken',
+        type: 'address',
+      },
+      {
+        name: 'loanAmount',
+        type: 'uint256',
+      },
+      {
+        name: 'seizeAmount',
+        type: 'uint256',
+      },
+      {
+        name: 'profit',
+        type: 'uint256',
+      },
+    ];
+
+    this.provider.web3Ws.eth.subscribe('logs', options, async (err, tx) => {
+      if (err) return;
+
+      if (this.appService.amItheMaster()) {
+        try {
+          const decoded = this.provider.web3.eth.abi.decodeLog(
+            input,
+            tx.data,
+            tx.topics,
+          );
+
+          this.amqpConnection.publish('liquidator-exchange', 'got-event', {
+            transactionHash: tx.transactionHash,
+            loanAmount: decoded.loanAmount,
+            profit: decoded.profit,
+            seizeAmount: decoded.seizeAmount,
+          });
+        } catch (err) {
+          this.logger.debug('Err: ' + err);
+        }
+      }
+    });
   }
 }

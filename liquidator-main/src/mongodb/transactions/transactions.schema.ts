@@ -40,6 +40,15 @@ export class Transactions {
 
   @Prop()
   estimatedProfitUSD: number;
+
+  @Prop()
+  profit: number;
+
+  @Prop()
+  seizeAmount: number;
+
+  @Prop()
+  loanAmount: number;
 }
 
 export const TransactionsSchema = SchemaFactory.createForClass(Transactions);

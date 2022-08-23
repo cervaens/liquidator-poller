@@ -67,4 +67,20 @@ export class TransactionsService {
         this.logger.error('Couldnt insert transaction: ' + err);
       });
   }
+
+  @RabbitSubscribe({
+    exchange: 'liquidator-exchange',
+    routingKey: 'got-event',
+    queue: 'got-event',
+  })
+  public async updateFromEvent(msg: Record<string, any>) {
+    this.logger.debug(
+      'Updating transaction in DB from event tx: ' + msg.transactionHash,
+    );
+    await this.transactionsModel.findByIdAndUpdate(msg.transactionHash, {
+      loanAmount: msg.loanAmount,
+      profit: msg.profit,
+      seizeAmount: msg.seizeAmount,
+    });
+  }
 }
