@@ -88,15 +88,7 @@ export class CompoundPollerService {
         'Fetch AccountService failed: ' + firstPage.error + firstPage.errors,
       );
     }
-    // const accounts =
-    //   firstPage.data &&
-    //   firstPage.data.accounts &&
-    //   firstPage.data.accounts.map(
-    //     (i: Record<string, any>) => new CompoundAccount(i),
-    //   );
-    // let candidateIds = accounts
-    //   .filter((account: CompoundAccount) => account.isCandidate())
-    //   .map((account) => account._id);
+
     this.amqpConnection.publish('liquidator-exchange', 'accounts-polled', {
       accounts: firstPage.data && firstPage.data.accounts,
       init: msg.init,
@@ -123,17 +115,7 @@ export class CompoundPollerService {
       for (const promise of promises) {
         try {
           const res = await promise;
-          // const accounts =
-          //   res.data &&
-          //   res.data.accounts &&
-          //   res.data.accounts.map(
-          //     (i: Record<string, any>) => new CompoundAccount(i),
-          //   );
-          // promisesCandidateIds = promisesCandidateIds.concat(
-          //   accounts
-          //     .filter((account: CompoundAccount) => account.isCandidate())
-          //     .map((account) => account._id),
-          // );
+
           this.amqpConnection.publish(
             'liquidator-exchange',
             'accounts-polled',

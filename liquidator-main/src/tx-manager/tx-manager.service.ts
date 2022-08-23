@@ -58,7 +58,7 @@ export class TxManagerService {
         seizeCToken,
       );
 
-      const gasLimit = 1163000;
+      const gasLimit = 1000000;
 
       // const gasPrice = await this.wallet.getGasPrice();
       // const gasPrice = '3000000000';
@@ -98,6 +98,18 @@ export class TxManagerService {
   async updateLiquidationsList(msg: Record<string, any>) {
     this.liquidationsStatus;
     this.liquidationsStatus = { ...this.liquidationsStatus, ...msg };
+    this.logger.debug(
+      'Current nr liqs: ' + Object.keys(this.liquidationsStatus).length,
+    );
+  }
+
+  @RabbitSubscribe({
+    exchange: 'liquidator-exchange',
+    routingKey: 'liquidations-clear',
+  })
+  async clearLiquidationsList() {
+    this.liquidationsStatus;
+    this.liquidationsStatus = {};
     this.logger.debug(
       'Current nr liqs: ' + Object.keys(this.liquidationsStatus).length,
     );

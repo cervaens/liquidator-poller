@@ -59,54 +59,93 @@ export class CompoundAccount extends StandardAccount {
       : this.liqCollateral.units;
   }
 
-  public updateAccount(cToken, uAddressPricesUSD) {
+  public updateAccount(
+    cToken: Record<string, any>,
+    uAddressPricesUSD: Record<string, any>,
+  ) {
+    if (
+      Object.keys(cToken).length === 0 ||
+      Object.keys(uAddressPricesUSD).length === 0
+    ) {
+      return;
+    }
     let totalBorrowUSD = 0;
     let totalDepositUSD = 0;
+    const top2Collateral = [];
+    const top2Borrow = [];
 
     for (const token of this.tokens) {
       const underSymbol = cToken[token.symbol].underlyingSymbol;
       const underlyingAddress = cToken[token.symbol].underlyingAddress;
       const decimals = cToken[token.symbol].decimals;
+
       if (token.supply_balance_underlying > 0) {
         const colFactor = cToken[token.symbol].collateralFactor;
-        const tokenValue =
+        const valueUSD =
           (token.supply_balance_underlying *
             uAddressPricesUSD[underlyingAddress]) /
           10 ** 6;
-        totalDepositUSD += colFactor * tokenValue;
+        totalDepositUSD += colFactor * valueUSD;
 
-        if (tokenValue > this.liqCollateral.valueUSD) {
-          this.liqCollateral.valueUSD = tokenValue;
-          this.liqCollateral.symbol = underSymbol;
-          // From Preethi:  if tokenPay is WETH then 0x4Ddc2D193948926D02f9B1fE9e1daa0718270ED5
-          //  should be passed instead of 0
-          this.liqCollateral.cTokenAddress = token.address;
-          this.liqCollateral.units = token.supply_balance_underlying;
-          this.liqCollateral.decimals = decimals;
+        const collateralObj = {
+          valueUSD,
+          symbol: underSymbol,
+          cTokenAddress: token.address,
+          units: token.supply_balance_underlying,
+          decimals,
+        };
+        if (!top2Collateral[0] || valueUSD > top2Collateral[0].valueUSD) {
+          top2Collateral.unshift(collateralObj);
+        } else if (
+          !top2Collateral[1] ||
+          valueUSD > top2Collateral[1].valueUSD
+        ) {
+          top2Collateral.push(collateralObj);
         }
       }
       if (token.borrow_balance_underlying > 0) {
-        const tokenValue =
+        const valueUSD =
           (token.borrow_balance_underlying *
             uAddressPricesUSD[underlyingAddress]) /
           10 ** 6;
 
-        totalBorrowUSD += tokenValue;
-        if (tokenValue > this.liqBorrow.valueUSD) {
-          this.liqBorrow.valueUSD = tokenValue;
-          this.liqBorrow.symbol = underSymbol;
-          this.liqBorrow.cTokenAddress = token.address;
-          this.liqBorrow.units = token.borrow_balance_underlying;
-          this.liqBorrow.decimals = decimals;
+        totalBorrowUSD += valueUSD;
+
+        const borrowObj = {
+          valueUSD,
+          symbol: underSymbol,
+          cTokenAddress: token.address,
+          units: token.borrow_balance_underlying,
+          decimals,
+        };
+        if (!top2Borrow[0] || valueUSD > top2Borrow[0].valueUSD) {
+          top2Borrow.unshift(borrowObj);
+        } else if (!top2Borrow[1] || valueUSD > top2Borrow[1].valueUSD) {
+          top2Borrow.push(borrowObj);
         }
       }
     }
+
+    const ableToPickBest =
+      top2Collateral[0].cTokenAddress !== top2Borrow[0].cTokenAddress;
+    const repayIdx =
+      !ableToPickBest &&
+      top2Borrow[1] &&
+      top2Borrow[1].valueUSD > (top2Collateral[1] && top2Collateral[1].valueUSD)
+        ? 1
+        : 0;
+
+    const seizeIdx = Number(ableToPickBest ? 0 : !repayIdx);
+
+    this.liqBorrow = top2Borrow[repayIdx] || {};
+    this.liqCollateral = top2Collateral[seizeIdx] || {};
+
     this.calculatedHealth = totalDepositUSD / totalBorrowUSD;
     this.profitUSD =
       Math.min(
         this.liqBorrow.valueUSD * this.closeFactor,
         this.liqCollateral.valueUSD,
       ) *
-      (this.liquidationIncentive - 1.0 - 0.0009 - 0.003);
+        (this.liquidationIncentive - 1.0 - 0.0009 - 0.003) || -1;
   }
 }

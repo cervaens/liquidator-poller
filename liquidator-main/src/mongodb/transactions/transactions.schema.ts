@@ -30,6 +30,9 @@ export class Transactions {
   gasUsed: number;
 
   @Prop()
+  gasLimit: number;
+
+  @Prop()
   costInEth: number;
 
   @Prop()
@@ -42,13 +45,13 @@ export class Transactions {
   estimatedProfitUSD: number;
 
   @Prop()
-  profit: number;
+  profit: string;
 
   @Prop()
-  seizeAmount: number;
+  seizeAmount: string;
 
   @Prop()
-  loanAmount: number;
+  loanAmount: string;
 }
 
 export const TransactionsSchema = SchemaFactory.createForClass(Transactions);

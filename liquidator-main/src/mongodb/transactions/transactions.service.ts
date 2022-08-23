@@ -27,7 +27,13 @@ export class TransactionsService {
 
     const costInEth =
       msg.receipt.gasUsed * msg.receipt.effectiveGasPrice * 10 ** -18;
-    await this.transactionsModel
+
+    this.logger.debug(
+      'Updating transaction in DB from transaction processed: ' +
+        msg.receipt.transactionHash,
+    );
+
+    const ret = await this.transactionsModel
       .findByIdAndUpdate(msg.receipt.transactionHash, {
         receiptDate: new Date(),
         gasUsed: msg.receipt.gasUsed,
@@ -36,7 +42,10 @@ export class TransactionsService {
         costInEth,
         estimatedProfitUSD: msg.profitUSD,
       })
-      .setOptions({ upsert: true });
+      .setOptions({ upsert: true })
+      .catch((err) => {
+        this.logger.error('Couldnt update transaction: ' + err);
+      });
   }
 
   @RabbitSubscribe({
@@ -55,14 +64,15 @@ export class TransactionsService {
     );
 
     await this.transactionsModel
-      .insertMany({
-        _id: msg.hash,
+      .findByIdAndUpdate(msg.hash, {
         borrower,
         repayToken,
         seizeToken,
         createdDate: new Date(),
         sentDate: msg.sentDate,
+        gasLimit: msg.tx.gasLimit,
       })
+      .setOptions({ upsert: true })
       .catch((err) => {
         this.logger.error('Couldnt insert transaction: ' + err);
       });
@@ -75,12 +85,17 @@ export class TransactionsService {
   })
   public async updateFromEvent(msg: Record<string, any>) {
     this.logger.debug(
-      'Updating transaction in DB from event tx: ' + msg.transactionHash,
+      'Updating transaction in DB from event tx: ' + JSON.stringify(msg),
     );
-    await this.transactionsModel.findByIdAndUpdate(msg.transactionHash, {
-      loanAmount: msg.loanAmount,
-      profit: msg.profit,
-      seizeAmount: msg.seizeAmount,
-    });
+    const ret = await this.transactionsModel
+      .findByIdAndUpdate(msg.transactionHash, {
+        loanAmount: msg.loanAmount,
+        profit: msg.profit,
+        seizeAmount: msg.seizeAmount,
+      })
+      .setOptions({ upsert: true })
+      .catch((err) => {
+        this.logger.error('Couldnt update from event: ' + err);
+      });
   }
 }

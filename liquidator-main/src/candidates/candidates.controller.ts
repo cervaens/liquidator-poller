@@ -1,5 +1,5 @@
 import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
-import { Controller, Get, Logger } from '@nestjs/common';
+import { Controller, Get, Logger, Query } from '@nestjs/common';
 import { CompoundAccount } from 'src/mongodb/compound-accounts/classes/CompoundAccount';
 import { CandidatesService } from './candidates.service';
 
@@ -52,7 +52,14 @@ export class CandidatesController {
   }
 
   @Get('liquidate')
-  liquidateCandidates(): string {
+  liquidateCandidates(@Query() query: Record<string, any>): string {
+    if (query.force === 'true') {
+      this.amqpConnection.publish(
+        'liquidator-exchange',
+        'liquidations-clear',
+        {},
+      );
+    }
     this.amqpConnection.publish(
       'liquidator-exchange',
       'trigger-liquidations',
