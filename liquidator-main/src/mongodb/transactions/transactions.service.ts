@@ -33,7 +33,7 @@ export class TransactionsService {
         msg.receipt.transactionHash,
     );
 
-    const ret = await this.transactionsModel
+    await this.transactionsModel
       .findByIdAndUpdate(msg.receipt.transactionHash, {
         receiptDate: new Date(),
         gasUsed: msg.receipt.gasUsed,
@@ -87,7 +87,7 @@ export class TransactionsService {
     this.logger.debug(
       'Updating transaction in DB from event tx: ' + JSON.stringify(msg),
     );
-    const ret = await this.transactionsModel
+    await this.transactionsModel
       .findByIdAndUpdate(msg.transactionHash, {
         loanAmount: msg.loanAmount,
         profit: msg.profit,

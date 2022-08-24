@@ -51,7 +51,7 @@ export class CompoundAccountsService {
 
     if (curNumberCandidates !== Object.keys(this.allActiveCandidates).length) {
       this.logger.debug(
-        'New list length: ' + Object.keys(this.allActiveCandidates).length,
+        'Total nr. candidates: ' + Object.keys(this.allActiveCandidates).length,
       );
     }
   }

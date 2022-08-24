@@ -81,7 +81,7 @@ export class CandidatesService {
       compoundAccount.updateAccount(this.cToken, this.uAddressPricesUSD);
       this.activeModuleCandidates[account.address] = compoundAccount;
     }
-    this.logger.debug('Added ' + msg.accounts.length + ' new candidates');
+    // this.logger.debug('Added ' + msg.accounts.length + ' new candidates');
 
     // Adding new candidates to global list
     this.amqpConnection.publish('liquidator-exchange', 'candidates-list', {
@@ -89,7 +89,7 @@ export class CandidatesService {
       ids: candidateIds,
     });
     this.logger.debug(
-      'Nr. Candidates: ' + Object.keys(this.getCandidates()).length,
+      'Worker nr. candidates: ' + Object.keys(this.getCandidates()).length,
     );
     // }
   }

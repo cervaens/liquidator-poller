@@ -58,7 +58,7 @@ export class TxManagerService {
         seizeCToken,
       );
 
-      const gasLimit = 1000000;
+      const gasLimit = 2000000;
 
       // const gasPrice = await this.wallet.getGasPrice();
       // const gasPrice = '3000000000';
