@@ -1,6 +1,0 @@
-{
-    "jira-plugin.workingProject": "",
-    "search.exclude": {
-        "**/dist": true
-    }
-}
