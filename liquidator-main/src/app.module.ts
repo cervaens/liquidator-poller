@@ -37,7 +37,10 @@ import { TxManagerModule } from './tx-manager/tx-manager.module';
           type: 'topic',
         },
       ],
-      uri: ['amqp://localhost:5673', 'amqp://localhost:5672'],
+      uri: JSON.parse(process.env.RABBIT_MQ_URI_ARRAY) || [
+        'amqp://localhost:5673',
+        'amqp://localhost:5672',
+      ],
       connectionInitOptions: { wait: false, timeout: 3000 },
       connectionManagerOptions: {
         reconnectTimeInSeconds: 0.0001,
