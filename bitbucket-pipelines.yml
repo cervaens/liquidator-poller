@@ -29,6 +29,9 @@ definitions:
           - yarn install
           - echo "Testing"
           - yarn run test
+        artifacts:
+          # keep all files from this build step and make available for next step
+          - node_modules/**
 
     # DEFINE Code Analysis
     - step: &analyze
