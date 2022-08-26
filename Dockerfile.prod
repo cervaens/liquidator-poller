@@ -6,6 +6,7 @@ WORKDIR /usr/src/app
 
 # Bundle app source
 COPY dist .
+COPY node_modules ./node_modules
 
 # Start the server using the production build
 CMD [ "node", "main.js" ]

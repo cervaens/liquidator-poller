@@ -65,6 +65,7 @@ definitions:
         artifacts:
           # keep all files from this build step and make available for next step
           - dist/**
+          - node_modules/**
 
     # DEFINE upload Step
     - step: &upload-image
