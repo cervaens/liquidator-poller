@@ -9,7 +9,9 @@ describe('CompoundPricesWsHelperService', () => {
       providers: [CompoundPricesWsHelperService],
     }).compile();
 
-    service = module.get<CompoundPricesWsHelperService>(CompoundPricesWsHelperService);
+    service = module.get<CompoundPricesWsHelperService>(
+      CompoundPricesWsHelperService,
+    );
   });
 
   it('should be defined', () => {

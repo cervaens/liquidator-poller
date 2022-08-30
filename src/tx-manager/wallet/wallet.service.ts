@@ -4,6 +4,8 @@ import { FeeMarketEIP1559Transaction } from '@ethereumjs/tx';
 import Web3Utils from 'web3-utils';
 import { AmqpConnection, RabbitSubscribe } from '@golevelup/nestjs-rabbitmq';
 import { AppService } from 'src/app.service';
+import tokenBalanceABI from '../abis/tokenBalance.json';
+import { AbiItem } from 'web3-utils';
 
 @Injectable()
 export class WalletService {
@@ -12,6 +14,9 @@ export class WalletService {
   private nonceErrored = 0;
   private lastParsedNonce = 0;
   public network: Record<string, any>;
+  private walletAddress = process.env.ACCOUNT_ADDRESS_B;
+  private walletSecret = process.env.ACCOUNT_SECRET_B;
+  private tokenContract = {};
 
   constructor(
     private readonly provider: Web3ProviderService,
@@ -67,6 +72,19 @@ export class WalletService {
 
   @RabbitSubscribe({
     exchange: 'liquidator-exchange',
+    routingKey: 'get-token-wallet-balance',
+    queue: 'get-token-wallet-balance',
+  })
+  public async checkTokenBalance(msg: Record<string, string>) {
+    const balance = await this.getTokenBalance(msg.tokenAddress);
+    this.amqpConnection.publish('liquidator-exchange', 'token-wallet-balance', {
+      token: msg.token,
+      balance,
+    });
+  }
+
+  @RabbitSubscribe({
+    exchange: 'liquidator-exchange',
     routingKey: 'execute-tx',
   })
   async executeTx(msg: Record<string, any>) {
@@ -86,7 +104,7 @@ export class WalletService {
    */
   estimateGas(tx) {
     // tx = { ...tx };
-    tx.from = process.env.ACCOUNT_ADDRESS_B;
+    tx.from = this.walletAddress;
     // if (nonce !== null) tx.nonce = Web3Utils.toHex(nonce);
     // delete tx["gasPrice"];
     // delete tx["gasLimit"];
@@ -102,15 +120,27 @@ export class WalletService {
     };
   }
 
+  async getTokenBalance(tokenAddress: string) {
+    if (!this.tokenContract[tokenAddress]) {
+      this.tokenContract[tokenAddress] = new this.provider.web3.eth.Contract(
+        tokenBalanceABI as AbiItem[],
+        tokenAddress,
+      );
+    }
+    return (
+      this.tokenContract[tokenAddress] &&
+      this.tokenContract[tokenAddress].methods
+        .balanceOf('0xc47795a89a34723172b267f7faf01113aca7119d') //this.walletAddress)
+        .call()
+    );
+  }
   /**
    * Convenience function that calls `provider.eth.getTransactionCount`
    *
    * @returns {Promise} the next unconfirmed (possibly pending) nonce (base 10)
    */
   async getLowestLiquidNonce() {
-    return this.provider.web3.eth.getTransactionCount(
-      process.env.ACCOUNT_ADDRESS_B,
-    );
+    return this.provider.web3.eth.getTransactionCount(this.walletAddress);
   }
 
   async getGasPrice() {
@@ -206,7 +236,7 @@ export class WalletService {
   _sign(tx) {
     // Set tx.from here since it must be signed by its sender.
     // i.e. this is the only valid value for tx.from
-    tx.from = process.env.ACCOUNT_ADDRESS_B;
+    tx.from = this.walletAddress;
     tx.type = '0x02';
 
     tx.maxPriorityFeePerGas = '0x5D21DBA00'; // 12500000000 WEI, 12.5 GWEI for eth 1600 and gas 400000 gives around 8USDs
@@ -217,7 +247,7 @@ export class WalletService {
     tx.chainId = '0x' + this.network.chainId.toString(16);
     tx = FeeMarketEIP1559Transaction.fromTxData(tx, this.network);
 
-    const signedTx = tx.sign(Buffer.from(process.env.ACCOUNT_SECRET_B, 'hex'));
+    const signedTx = tx.sign(Buffer.from(this.walletSecret, 'hex'));
     return '0x' + signedTx.serialize().toString('hex');
   }
 
