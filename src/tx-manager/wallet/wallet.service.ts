@@ -130,7 +130,7 @@ export class WalletService {
     return (
       this.tokenContract[tokenAddress] &&
       this.tokenContract[tokenAddress].methods
-        .balanceOf('0xc47795a89a34723172b267f7faf01113aca7119d') //this.walletAddress)
+        .balanceOf(this.walletAddress)
         .call()
     );
   }
