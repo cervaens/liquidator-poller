@@ -15,8 +15,10 @@ export class CompoundPollerController {
     private readonly amqpConnection: AmqpConnection,
   ) {}
 
+  private tokens = [];
   async onApplicationBootstrap(): Promise<void> {
     const tokenUAddresses = await this.pollCTokens();
+    await this.pollCethWalletBalance();
     this.compoundPrices.pollAndStorePrices(tokenUAddresses);
 
     // At init the master will start a poll
@@ -41,15 +43,20 @@ export class CompoundPollerController {
         this.pollAccounts();
       }
     }, parseInt(process.env.COMPOUND_POLLING_SCHEDULE_ACCOUNTS));
+
+    setInterval(() => {
+      if (this.appService.amItheMaster()) {
+        this.pollCethWalletBalance();
+      }
+    }, parseInt(process.env.COMPOUND_POLLING_SCHEDULE_CETH_WALLET_BALANCE));
   }
 
   private readonly logger = new Logger(CompoundPollerController.name);
   async pollCTokens() {
     this.logger.debug('Calling Ctokens endpoint');
-    const { tokens }: Record<string, any> =
-      await this.compoundPollerService.fetchCtokens({});
-    await this.ctokenController.createMany(tokens);
-    return tokens.map((token: CompoundToken) => ({
+    this.tokens = (await this.compoundPollerService.fetchCtokens({})).tokens;
+    await this.ctokenController.createMany(this.tokens);
+    return this.tokens.map((token: CompoundToken) => ({
       underlyingAddress: token.underlyingAddress,
       underlyingSymbol: token.underlyingSymbol,
     }));
@@ -60,5 +67,18 @@ export class CompoundPollerController {
     this.amqpConnection.publish('liquidator-exchange', 'fetch-accounts', {
       init,
     });
+  }
+
+  async pollCethWalletBalance() {
+    this.logger.debug('Checking cETH wallet balance');
+    const cEth = this.tokens.filter((token) => token.symbol === 'cETH');
+    this.amqpConnection.publish(
+      'liquidator-exchange',
+      'get-token-wallet-balance',
+      {
+        token: cEth[0].symbol,
+        tokenAddress: cEth[0].address,
+      },
+    );
   }
 }

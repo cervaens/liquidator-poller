@@ -36,9 +36,9 @@ export class CompoundPollerService {
 
   async fetchCtokens(withConfig: Record<string, any>) {
     const json = await this.fetch('ctoken', withConfig);
-    const tokens = json.data.cToken.map(
-      (i: Record<string, any>) => new CompoundToken(i),
-    );
+    const tokens =
+      json.data &&
+      json.data.cToken.map((i: Record<string, any>) => new CompoundToken(i));
 
     const tokenObj = {};
     for (const token of tokens) {

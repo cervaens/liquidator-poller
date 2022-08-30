@@ -126,8 +126,14 @@ export class CompoundAccount extends StandardAccount {
       }
     }
 
-    const ableToPickBest =
-      top2Collateral[0].cTokenAddress !== top2Borrow[0].cTokenAddress;
+    const ableToPickBest = !(
+      top2Collateral[0].cTokenAddress === top2Borrow[0].cTokenAddress &&
+      top2Collateral[0].cTokenAddress === cToken.cETH.address &&
+      top2Borrow[0].units * this.closeFactor >=
+        ((parseInt(cToken.cETH.walletBalance) || 0) *
+          cToken.cETH.exchangeRate) /
+          10 ** cToken.cETH.decimals
+    );
     const repayIdx =
       !ableToPickBest &&
       top2Borrow[1] &&

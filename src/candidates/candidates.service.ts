@@ -25,6 +25,15 @@ export class CandidatesService {
     this.nextInit = msg.timestamp;
   }
 
+  @RabbitSubscribe({
+    exchange: 'liquidator-exchange',
+    routingKey: 'token-wallet-balance',
+  })
+  public async updateTokenBalances(msg: Record<string, number>) {
+    this.cToken[msg.token].walletBalance = msg.balance;
+    this.logger.debug('Got token balance: ' + JSON.stringify(msg));
+  }
+
   getIsNextInit() {
     return this.nextInit;
   }

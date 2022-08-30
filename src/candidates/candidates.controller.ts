@@ -1,5 +1,5 @@
 import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
-import { Controller, Get, Logger, Query } from '@nestjs/common';
+import { Controller, Get, Logger, Param, Query } from '@nestjs/common';
 import { CompoundAccount } from 'src/mongodb/compound-accounts/classes/CompoundAccount';
 import { CandidatesService } from './candidates.service';
 
@@ -66,6 +66,27 @@ export class CandidatesController {
       {},
     );
     return 'Triggered liquidations';
+  }
+
+  @Get('liquidate/:account')
+  liquidateCandidate(@Param() params): string {
+    const candidates = this.candidatesService.getCandidates();
+
+    this.logger.debug(`Liquidating ${params.account}`);
+
+    const liqCand = {
+      repayCToken: candidates[params.account].liqBorrow.cTokenAddress,
+      amount: candidates[params.account].getLiqAmount(),
+      seizeCToken: candidates[params.account].liqCollateral.cTokenAddress,
+      borrower: candidates[params.account].address,
+      profitUSD: candidates[params.account].profitUSD,
+    };
+
+    this.amqpConnection.publish('liquidator-exchange', 'liquidate-many', [
+      liqCand,
+    ]);
+
+    return `Liquidating ${params.account}`;
   }
 
   @Get('ready-for-liquidation')

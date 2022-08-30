@@ -14,7 +14,7 @@ export class TxManagerService {
   private liquidatorContract: Contract;
   private address: string =
     process.env.LIQUIDATOR_ADDRESS ||
-    '0xb932C8342106776E73E39D695F3FFC3A9624eCE0';
+    '0xCa1D199b6F53Af7387ac543Af8e8a34455BBe5E0';
   private liquidationsStatus: Record<string, Record<string, any>> = {};
   private nonce: number;
 

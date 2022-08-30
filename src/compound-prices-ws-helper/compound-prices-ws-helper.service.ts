@@ -85,7 +85,7 @@ export class CompoundPricesWsHelperService {
       }
       // Compound considers stable coins as 1 dollar
       if (token.underlyingSymbol.match('USDC|USDT|TUSD|USDP')) {
-        tokenPrices[token.underlyingSymbol] = '1000000';
+        tokenPrices[token.underlyingAddress] = '1000000';
       } else if (token.underlyingSymbol === 'WBTC') {
         promises[token.underlyingAddress] = this.uniswapAnchorContract.methods
           .price('BTC')
