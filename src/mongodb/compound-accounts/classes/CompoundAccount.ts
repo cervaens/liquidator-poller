@@ -54,9 +54,16 @@ export class CompoundAccount extends StandardAccount {
   }
 
   public getLiqAmount() {
-    return this.liqBorrow.valueUSD / 2 <= this.liqCollateral.valueUSD
-      ? this.liqBorrow.units * this.closeFactor * 10 ** this.liqBorrow.decimals
-      : this.liqCollateral.units;
+    return this.liqBorrow.valueUSD * this.closeFactor <=
+      this.liqCollateral.valueUSD
+      ? this.liqBorrow.units_underlying *
+          this.closeFactor *
+          10 ** this.liqBorrow.decimals_underlying
+      : (this.liqBorrow.units_underlying *
+          this.closeFactor *
+          10 ** this.liqBorrow.decimals_underlying *
+          this.liqCollateral.valueUSD) /
+          this.liqBorrow.valueUSD;
   }
 
   public updateAccount(
@@ -77,7 +84,7 @@ export class CompoundAccount extends StandardAccount {
     for (const token of this.tokens) {
       const underSymbol = cToken[token.symbol].underlyingSymbol;
       const underlyingAddress = cToken[token.symbol].underlyingAddress;
-      const decimals = cToken[token.symbol].decimals;
+      const decimals_underlying = cToken[token.symbol].decimals_underlying;
 
       if (token.supply_balance_underlying > 0) {
         const colFactor = cToken[token.symbol].collateralFactor;
@@ -89,10 +96,10 @@ export class CompoundAccount extends StandardAccount {
 
         const collateralObj = {
           valueUSD,
-          symbol: underSymbol,
+          symbol_underlying: underSymbol,
           cTokenAddress: token.address,
-          units: token.supply_balance_underlying,
-          decimals,
+          units_underlying: token.supply_balance_underlying,
+          decimals_underlying,
         };
         if (!top2Collateral[0] || valueUSD > top2Collateral[0].valueUSD) {
           top2Collateral.unshift(collateralObj);
@@ -100,7 +107,7 @@ export class CompoundAccount extends StandardAccount {
           !top2Collateral[1] ||
           valueUSD > top2Collateral[1].valueUSD
         ) {
-          top2Collateral.push(collateralObj);
+          top2Collateral[1] = collateralObj;
         }
       }
       if (token.borrow_balance_underlying > 0) {
@@ -113,15 +120,15 @@ export class CompoundAccount extends StandardAccount {
 
         const borrowObj = {
           valueUSD,
-          symbol: underSymbol,
+          symbol_underlying: underSymbol,
           cTokenAddress: token.address,
-          units: token.borrow_balance_underlying,
-          decimals,
+          units_underlying: token.borrow_balance_underlying,
+          decimals_underlying,
         };
         if (!top2Borrow[0] || valueUSD > top2Borrow[0].valueUSD) {
           top2Borrow.unshift(borrowObj);
         } else if (!top2Borrow[1] || valueUSD > top2Borrow[1].valueUSD) {
-          top2Borrow.push(borrowObj);
+          top2Borrow[1] = borrowObj;
         }
       }
     }
@@ -129,7 +136,7 @@ export class CompoundAccount extends StandardAccount {
     const ableToPickBest = !(
       top2Collateral[0].cTokenAddress === top2Borrow[0].cTokenAddress &&
       top2Collateral[0].cTokenAddress === cToken.cETH.address &&
-      top2Borrow[0].units * this.closeFactor >=
+      top2Borrow[0].units_underlying * this.closeFactor >=
         ((parseInt(cToken.cETH.walletBalance) || 0) *
           cToken.cETH.exchangeRate) /
           10 ** cToken.cETH.decimals

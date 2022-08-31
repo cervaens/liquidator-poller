@@ -48,7 +48,14 @@ export class TxManagerService {
       ) {
         return;
       }
-      this.logger.debug('Liquidating account: ' + borrower);
+      this.logger.debug(
+        `Liquidating account 
+        Borrower ${borrower}
+        Repaying ${repayCToken} with amount ${candidate.amount}
+        Seizing  ${seizeCToken} for estimated profit of ${parseFloat(
+          profitUSD,
+        ).toFixed(2)} USD`,
+      );
       // TODO: ENABLE THIS IN PROD
       this.liquidationsStatus[borrower] = { status: 'ongoing', timestamp: now };
       const method = this.liquidatorContract.methods.liquidate(

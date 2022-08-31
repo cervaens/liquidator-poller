@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { CompoundToken } from '../mongodb/ctoken/classes/CompoundToken';
-// import { CompoundAccount } from '../mongodb/compound-accounts/classes/CompoundAccount';
 import { firstValueFrom } from 'rxjs';
 import { HttpService } from '@nestjs/axios';
 import { AmqpConnection, RabbitSubscribe } from '@golevelup/nestjs-rabbitmq';
@@ -37,8 +36,11 @@ export class CompoundPollerService {
   async fetchCtokens(withConfig: Record<string, any>) {
     const json = await this.fetch('ctoken', withConfig);
     const tokens =
-      json.data &&
-      json.data.cToken.map((i: Record<string, any>) => new CompoundToken(i));
+      (json.data &&
+        json.data.cToken.map(
+          (i: Record<string, any>) => new CompoundToken(i),
+        )) ||
+      [];
 
     const tokenObj = {};
     for (const token of tokens) {
