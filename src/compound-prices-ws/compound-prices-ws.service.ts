@@ -43,6 +43,7 @@ export class CompoundPricesWsService {
   }
 
   async unSubscribeWSs() {
+    this.logger.debug('Unsubscribing Websocket...');
     this.provider.web3Ws.eth.clearSubscriptions((error, result) => {
       this.logger.debug('Unsubscribed: ' + result);
     });
@@ -63,8 +64,13 @@ export class CompoundPricesWsService {
       ],
     };
     let msgPrices = [];
+    this.logger.debug(
+      'Subscribing to Uniswap Anchorview events... ' + JSON.stringify(options),
+    );
     this.provider.web3Ws.eth.subscribe('logs', options, async (err, tx) => {
-      if (err) return;
+      if (err) {
+        this.logger.debug(`☑️ *Got Prices* | ERROR: ${err}`);
+      }
 
       let extraUpdate = null;
 
@@ -100,12 +106,16 @@ export class CompoundPricesWsService {
         }, 200);
       }
 
-      await this.ctoken.updateCtokenPriceFromAddressOrSymbol(
-        this.cTokenFromHash[tx.topics[1]].address,
-        null,
-        parseInt(priceObj.price),
-        extraUpdate,
-      );
+      try {
+        await this.ctoken.updateCtokenPriceFromAddressOrSymbol(
+          this.cTokenFromHash[tx.topics[1]].address,
+          null,
+          parseInt(priceObj.price),
+          extraUpdate,
+        );
+      } catch (err) {
+        this.logger.debug("Couldn't update price in DB." + err);
+      }
 
       this.logger.debug(
         `☑️ *Got Prices* | Address: ${
