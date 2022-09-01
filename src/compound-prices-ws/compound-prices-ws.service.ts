@@ -64,9 +64,7 @@ export class CompoundPricesWsService {
       ],
     };
     let msgPrices = [];
-    this.logger.debug(
-      'Subscribing to Uniswap Anchorview events... ' + JSON.stringify(options),
-    );
+    this.logger.debug('Subscribing to Uniswap Anchorview events... ');
     this.provider.web3Ws.eth.subscribe('logs', options, async (err, tx) => {
       if (err) {
         this.logger.debug(`☑️ *Got Prices* | ERROR: ${err}`);
