@@ -11,9 +11,9 @@ import { ConfigModule } from '@nestjs/config';
 // import { Web3ProviderService } from './web3-provider/web3-provider.service';
 // import { Web3ProviderModule } from './web3-provider/web3-provider.module';
 import {
-  web3Con,
+  // web3Con,
   Web3ProviderService,
-  web3Ws,
+  // web3Ws,
 } from './web3-provider/web3-provider.service';
 import { CompoundAccountsModule } from './mongodb/compound-accounts/compound-accounts.module';
 import { TransactionsModule } from './mongodb/transactions/transactions.module';
@@ -59,15 +59,14 @@ import { TxManagerModule } from './tx-manager/tx-manager.module';
   controllers: [AppController],
   providers: [
     AppService,
-    // Web3ProviderService,
-    {
-      provide: 'WEB3PROV',
-      useValue: web3Con,
-    },
-    {
-      provide: 'WEB3WS',
-      useValue: web3Ws,
-    },
+    // {
+    //   provide: 'WEB3PROV',
+    //   useValue: web3Con,
+    // },
+    // {
+    //   provide: 'WEB3WS',
+    //   useValue: web3Ws,
+    // },
     Web3ProviderService,
   ],
   exports: [
@@ -75,8 +74,8 @@ import { TxManagerModule } from './tx-manager/tx-manager.module';
     HttpModule,
     CtokensModule,
     CompoundPollerModule,
-    'WEB3WS',
-    'WEB3PROV',
+    // 'WEB3WS',
+    // 'WEB3PROV',
     AppService,
     Web3ProviderService,
   ],
