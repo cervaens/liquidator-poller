@@ -3,29 +3,29 @@ import Web3 from 'web3';
 import AWSHttpProvider from '@aws/web3-http-provider';
 import AWSWebsocketProvider from '@aws/web3-ws-provider';
 
+const WSoptions = {
+  timeout: 3600000, // ms -- 60 min
+
+  //  Useful if requests result are large
+  clientConfig: {
+    maxReceivedFrameSize: 100000000, // bytes - default: 1MiB
+    maxReceivedMessageSize: 100000000, // bytes - default: 8MiB
+
+    // Useful to keep a connection alive
+    keepalive: true,
+    keepaliveInterval: 60000, // ms
+  },
+
+  // Enable auto reconnection
+  reconnect: {
+    auto: true,
+    delay: 5000, // ms
+    maxAttempts: 1024,
+    onTimeout: true,
+  },
+};
+
 const WSProvider = (url) => {
-  const WSoptions = {
-    timeout: 3600000, // ms -- 60 min
-
-    //  Useful if requests result are large
-    clientConfig: {
-      maxReceivedFrameSize: 100000000, // bytes - default: 1MiB
-      maxReceivedMessageSize: 100000000, // bytes - default: 8MiB
-
-      // Useful to keep a connection alive
-      keepalive: true,
-      keepaliveInterval: 60000, // ms
-    },
-
-    // Enable auto reconnection
-    reconnect: {
-      auto: true,
-      delay: 5000, // ms
-      maxAttempts: 1024,
-      onTimeout: true,
-    },
-  };
-
   return new Web3(new Web3.providers.WebsocketProvider(url, WSoptions));
 };
 
@@ -55,15 +55,10 @@ export class Web3ProviderService {
           new AWSHttpProvider(process.env.AMB_HTTP_ENDPOINT),
         );
         this.web3Ws = new Web3(
-          new AWSWebsocketProvider(process.env.AMB_WS_ENDPOINT, {
-            reconnect: {
-              auto: true,
-              onTimeout: true,
-            },
-            timeout: 30000,
-          })
-            .on('error', (e) => console.error('WS Error', e))
-            .on('end', (e) => console.error('WS End', e)),
+          new AWSWebsocketProvider(process.env.AMB_WS_ENDPOINT, WSoptions).on(
+            'close',
+            (e) => console.error('WS End', e),
+          ),
         );
         break;
       default:
