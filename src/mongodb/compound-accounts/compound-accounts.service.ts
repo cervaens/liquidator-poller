@@ -68,7 +68,9 @@ export class CompoundAccountsService {
     const candidatesUpdated = [];
     const candidatesNew = [];
     if (msg && !msg.accounts) {
-      this.logger.error('Message for accounts-polled incorrect: ' + msg);
+      this.logger.error(
+        'Message for accounts-polled incorrect: ' + JSON.stringify(msg),
+      );
       return;
     }
     for (const account of msg.accounts) {
