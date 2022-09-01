@@ -13,13 +13,13 @@ const WSoptions = {
 
     // Useful to keep a connection alive
     keepalive: true,
-    keepaliveInterval: 60000, // ms
+    keepaliveInterval: 2000, // ms
   },
 
   // Enable auto reconnection
   reconnect: {
     auto: true,
-    delay: 5000, // ms
+    delay: 1000, // ms
     maxAttempts: 1024,
     onTimeout: true,
   },
