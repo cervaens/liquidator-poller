@@ -13,7 +13,7 @@ export class CompoundPricesWsService {
   constructor(
     private readonly amqpConnection: AmqpConnection,
     private readonly ctoken: CtokenController,
-    private readonly provider: Web3ProviderService,
+    private provider: Web3ProviderService,
     private helper: CompoundPricesWsHelperService,
   ) {
     // provider.web3Ws.eth

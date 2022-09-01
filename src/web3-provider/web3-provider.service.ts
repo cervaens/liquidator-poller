@@ -55,7 +55,15 @@ export class Web3ProviderService {
           new AWSHttpProvider(process.env.AMB_HTTP_ENDPOINT),
         );
         this.web3Ws = new Web3(
-          new AWSWebsocketProvider(process.env.AMB_WS_ENDPOINT),
+          new AWSWebsocketProvider(process.env.AMB_WS_ENDPOINT, {
+            reconnect: {
+              auto: true,
+              onTimeout: true,
+            },
+            timeout: 30000,
+          })
+            .on('error', (e) => console.error('WS Error', e))
+            .on('end', (e) => console.error('WS End', e)),
         );
         break;
       default:
@@ -69,6 +77,7 @@ export class Web3ProviderService {
         );
         break;
     }
+
     this.web3.eth
       .getNodeInfo()
       .then((str) => this.logger.debug('Web3 provider connected: ' + str));
