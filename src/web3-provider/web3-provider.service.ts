@@ -4,24 +4,26 @@ import AWSHttpProvider from '@aws/web3-http-provider';
 import AWSWebsocketProvider from '@aws/web3-ws-provider';
 
 const WSoptions = {
-  timeout: 3600000, // ms -- 60 min
+  timeout: 5000, // ms -- 60 min
 
   //  Useful if requests result are large
   clientConfig: {
-    maxReceivedFrameSize: 100000000, // bytes - default: 1MiB
-    maxReceivedMessageSize: 100000000, // bytes - default: 8MiB
+    maxReceivedFrameSize: 10000000000, // bytes - default: 1MiB
+    maxReceivedMessageSize: 10000000000, // bytes - default: 8MiB
 
     // Useful to keep a connection alive
     keepalive: true,
-    keepaliveInterval: 2000, // ms
+    keepaliveInterval: 1000, // ms
+    dropConnectionOnKeepaliveTimeout: true,
+    keepaliveGracePeriod: 4000, // ms
   },
 
   // Enable auto reconnection
   reconnect: {
     auto: true,
     delay: 1000, // ms
-    maxAttempts: 1024,
-    onTimeout: true,
+    // maxAttempts: 1024,
+    onTimeout: false,
   },
 };
 
