@@ -1,0 +1,38 @@
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: default
+  name: liquidator-service
+spec:
+  type: LoadBalancer
+  ports:
+    - port: 3000
+      targetPort: 3000
+  selector:
+    app: liquidator
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: default
+  name: liquidator-deployment
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: liquidator
+  template:
+    metadata:
+      labels:
+        app: liquidator
+    spec:
+      imagePullSecrets:
+        - name: aws-registry
+      containers:
+        - name: liquidator-poller
+          image: 082576982398.dkr.ecr.ca-central-1.amazonaws.com/liquidator-poller
+          ports:
+            - containerPort: 3000
+          envFrom:
+            - secretRef:
+                name: prod-secrets
