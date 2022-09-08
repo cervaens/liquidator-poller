@@ -1,0 +1,81 @@
+spec:
+  ports:
+  - port: 15672
+    protocol: TCP
+    targetPort: 15672
+    name: ui
+  - port: 5672
+    protocol: TCP
+    targetPort: 5672
+    name: amqp
+  - port: 15692
+    protocol: TCP
+    targetPort: 15692
+    name: other
+  selector:
+    run: rabbitmq
+status:
+  loadBalancer: {}
+---
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  labels:
+    run: rabbitmq
+  name: rabbitmq
+spec:
+  containers:
+  - image: rabbitmq:management
+    name: rabbitmq
+    ports:
+    - containerPort: 15672
+    resources: {}
+  dnsPolicy: ClusterFirst
+  restartPolicy: Always
+status: {}
+---
+---
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  name: rabbitmq-backup
+spec:
+  ports:
+  - port: 15672
+    protocol: TCP
+    targetPort: 15672
+    name: ui
+  - port: 5672
+    protocol: TCP
+    targetPort: 5672
+    name: amqp
+  - port: 15692
+    protocol: TCP
+    targetPort: 15692
+    name: other
+  selector:
+    run: rabbitmq-backup
+status:
+  loadBalancer: {}
+---
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  labels:
+    run: rabbitmq-backup
+  name: rabbitmq-backup
+spec:
+  containers:
+  - image: rabbitmq:management
+    name: rabbitmq
+    ports:
+    - containerPort: 15672
+    resources: {}
+  dnsPolicy: ClusterFirst
+  restartPolicy: Always
+status: {}

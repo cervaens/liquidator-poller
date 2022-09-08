@@ -70,6 +70,20 @@ definitions:
           - dist/**
           - node_modules/**
 
+    # DEFINE RELEASE and bump VERSION 
+    - step: &release
+        name: "Release and bump version"
+        caches:
+          - node
+        script:
+          # Run Test
+          #- npm run test
+          # Do Release w/ debug on
+          - npx semantic-release@19
+        artifacts: # defining the artifacts to be passed to each future step.
+          - CHANGELOG.md
+          - package.json
+
     # DEFINE upload Step
     - step: &upload-image
         name: "Upload Docker image"
@@ -77,6 +91,10 @@ definitions:
         caches:
           - node
         script:
+          - echo "Declare Package VERSION"
+          - apt-get install jq -y
+          - declare -x VERSION=$(jq -r '.version' package.json)
+          - echo "$VERSION"
           - echo "Creating docker image"
           - docker build -f Dockerfile.prod ./ -t $AWS_ECR_REPOSITORY
           - pipe: "atlassian/aws-ecr-push-image:1.1.0"
@@ -85,6 +103,7 @@ definitions:
                 AWS_SECRET_ACCESS_KEY: $AWS_SECRET_ACCESS_KEY
                 AWS_DEFAULT_REGION: $AWS_DEFAULT_REGION
                 IMAGE_NAME: $AWS_ECR_REPOSITORY
+                TAGS: $VERSION
 
     # DEFINE Build Step
     - step: &deploy-docker
@@ -112,25 +131,18 @@ definitions:
           - tar -xzvf markdown2confluence_3.0.2_linux_x86_64.tar.gz -C /usr/local/bin/ markdown2confluence
           - markdown2confluence -u $CONFLUENCE_USER -p $CONFLUENCE_PASSWORD -e $CONFLUENCE_ENDPOINT -s 'ARCH' --parent 'Repositories' -t 'alkemi-earn-api' -d README.md
 
-    # DEFINE RELEASE and bump VERSION 
-    - step: &release
-        name: "Release and bump version"
-        caches:
-          - node
-        script:
-          # Install quietly
-          - yarn install
-          # Run Test
-          # - npm run test
-          # Do Release w/ debug on
-          - npx semantic-release@17
-        artifacts: # defining the artifacts to be passed to each future step.
-          - CHANGELOG.md
-          - package.json
-
 pipelines:
 
   branches:
+    development:
+      # Runs only on development Branch
+      - parallel:
+          - step: *lint
+          #- step: *test
+          #- step: *analyze
+          #- step: *github
+      - step: *build-app
+      - step: *release
     master:
       # Runs only on Master Branch
       - parallel:
