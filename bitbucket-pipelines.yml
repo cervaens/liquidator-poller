@@ -92,6 +92,7 @@ definitions:
           - node
         script:
           - echo "Declare Package VERSION"
+          - apt-get update
           - apt-get install jq -y
           - declare -x VERSION=$(jq -r '.version' package.json)
           - echo "$VERSION"
