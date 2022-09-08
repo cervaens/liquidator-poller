@@ -70,6 +70,22 @@ definitions:
           - dist/**
           - node_modules/**
 
+    # DEFINE RELEASE and bump VERSION 
+    - step: &release
+        name: "Release and bump version"
+        caches:
+          - node
+        script:
+          # Install quietly
+          - yarn install
+          # Run Test
+          #- npm run test
+          # Do Release w/ debug on
+          - npx semantic-release@19
+        artifacts: # defining the artifacts to be passed to each future step.
+          - CHANGELOG.md
+          - package.json
+
     # DEFINE upload Step
     - step: &upload-image
         name: "Upload Docker image"
@@ -77,6 +93,10 @@ definitions:
         caches:
           - node
         script:
+          - echo "Declare Package VERSION"
+          - apt-get install jq -y
+          - declare -x VERSION=$(jq -r '.version' package.json)
+          - echo "$VERSION"
           - echo "Creating docker image"
           - docker build -f Dockerfile.prod ./ -t $AWS_ECR_REPOSITORY
           - pipe: "atlassian/aws-ecr-push-image:1.1.0"
@@ -85,6 +105,7 @@ definitions:
                 AWS_SECRET_ACCESS_KEY: $AWS_SECRET_ACCESS_KEY
                 AWS_DEFAULT_REGION: $AWS_DEFAULT_REGION
                 IMAGE_NAME: $AWS_ECR_REPOSITORY
+                TAGS: $VERSION
 
     # DEFINE Build Step
     - step: &deploy-docker
@@ -131,6 +152,15 @@ definitions:
 pipelines:
 
   branches:
+    development:
+      # Runs only on development Branch
+      - parallel:
+          - step: *lint
+          #- step: *test
+          #- step: *analyze
+          #- step: *github
+      - step: *build-app
+      - step: *release
     master:
       # Runs only on Master Branch
       - parallel:
