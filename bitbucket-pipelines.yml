@@ -76,8 +76,8 @@ definitions:
         caches:
           - node
         script:
-          # Run Test
-          #- npm run test
+          # Run install
+          - yarn install
           # Do Release w/ debug on
           - npx semantic-release@19
         artifacts: # defining the artifacts to be passed to each future step.
