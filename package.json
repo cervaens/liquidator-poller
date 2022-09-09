@@ -47,6 +47,8 @@
     "@nestjs/testing": "^8.0.0",
     "@semantic-release/changelog": "semantic-release/changelog",
     "@semantic-release/commit-analyzer": "semantic-release/commit-analyzer",
+    "@semantic-release/git": "10.0.1",
+    "@semantic-release/npm": "semantic-release/npm",
     "@semantic-release/release-notes-generator": "semantic-release/release-notes-generator",
     "@types/cron": "2.0.0",
     "@types/express": "^4.17.13",
@@ -84,5 +86,26 @@
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"
+  },
+  "release": {
+    "branches": [
+      "development"
+    ],
+    "repositoryUrl": "git@bitbucket.org:project-alkemi/liquidator-poller.git",
+    "plugins": [
+      "@semantic-release/commit-analyzer",
+      "@semantic-release/release-notes-generator",
+      "@semantic-release/npm",
+      [
+        "@semantic-release/git",
+        {
+          "assets": [
+            "package.json",
+            "CHANGELOG.md"
+          ],
+          "message": "chore(release): ${nextRelease.version} [skip ci] \n\n${nextRelease.notes}"
+        }
+      ]
+    ]
   }
 }
