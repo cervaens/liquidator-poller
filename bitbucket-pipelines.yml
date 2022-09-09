@@ -79,7 +79,7 @@ definitions:
           # Run Test
           #- npm run test
           # Do Release w/ debug on
-          - npx semantic-release@19
+          - npx semantic-release@17
         artifacts: # defining the artifacts to be passed to each future step.
           - CHANGELOG.md
           - package.json
@@ -106,9 +106,10 @@ definitions:
                 IMAGE_NAME: $AWS_ECR_REPOSITORY
                 TAGS: $VERSION
 
-    # DEFINE Build Step
-    - step: &deploy-docker
-        name: "Deploy Docker image"
+    # DEFINE Deployment step
+    - step: &deploy-kubernetes
+        name: "Deploy to kubernetes cluster"
+        trigger: manual
 
         caches:
           - node
@@ -120,7 +121,7 @@ definitions:
                 SERVER: $SERVER_IP
                 SSH_KEY: $SSH_KEY
                 MODE: script
-                COMMAND: deployment.sh
+                COMMAND: deployment.sh $VERSION
 
     # DEFINE Update Docs to Confluence Step
     - step: &docs
@@ -153,3 +154,4 @@ pipelines:
           #- step: *github
       - step: *build-app
       - step: *upload-image
+      - step: *deploy-kubernetes
