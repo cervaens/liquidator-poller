@@ -115,13 +115,15 @@ definitions:
           - node
         script:
           - echo "Deploying to EC2"
-          - pipe: "atlassian/ssh-run:0.2.4"
+          - pipe: "atlassian/ssh-run:0.4.1"
             variables:
                 SSH_USER: ubuntu
                 SERVER: $SERVER_IP
                 SSH_KEY: $SSH_KEY
                 MODE: script
-                COMMAND: deployment.sh $VERSION
+                COMMAND: kubernetes/deployment.sh
+                EXTRA_ARGS: 
+                  - '${VERSION}'
 
     # DEFINE Update Docs to Confluence Step
     - step: &docs
