@@ -90,7 +90,6 @@
     "branches": [
       "development"
     ],
-    "repositoryUrl": "git@bitbucket.org:project-alkemi/liquidator-poller.git",
     "plugins": [
       "@semantic-release/commit-analyzer",
       "@semantic-release/release-notes-generator",

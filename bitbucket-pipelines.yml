@@ -73,6 +73,7 @@ definitions:
     # DEFINE RELEASE and bump VERSION 
     - step: &release
         name: "Release and bump version"
+        trigger: manual
         caches:
           - node
         script:
