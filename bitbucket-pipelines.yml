@@ -115,12 +115,15 @@ definitions:
           - node
         script:
           - echo "Deploying to EC2"
+          - echo "Installing envsubst"
+          - apt-get update && apt-get install gettext-base
+          - envsubst < kubernetes/deployment.sh > deploy-out.sh
           - pipe: "atlassian/ssh-run:0.4.1"
             variables:
                 SSH_USER: ubuntu
                 SERVER: $SERVER_IP
                 MODE: script
-                COMMAND: kubernetes/deployment.sh
+                COMMAND: deploy-out.sh
                 ENV_VARS: >-
                   VERSION=${VERSION}
 
@@ -146,6 +149,7 @@ pipelines:
           #- step: *github
       - step: *build-app
       - step: *release
+      - step: *upload-image
     master:
       # Runs only on Master Branch
       - parallel:
