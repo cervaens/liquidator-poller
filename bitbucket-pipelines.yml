@@ -115,6 +115,9 @@ definitions:
           - node
         script:
           - echo "Deploying to EC2"
+          - echo "Installing envsubst"
+          - declare -x VERSION=1111
+          - apt-get update && apt-get install gettext-base
           - envsubst < kubernetes/deployment.sh > deploy-out.sh
           - pipe: "atlassian/ssh-run:0.4.1"
             variables:
@@ -140,14 +143,14 @@ pipelines:
   branches:
     development:
       # Runs only on development Branch
-      - parallel:
-          - step: *lint
+     # - parallel:
+      #    - step: *lint
           #- step: *test
           #- step: *analyze
           #- step: *github
-      - step: *build-app
-      - step: *release
-      - step: *upload-image
+      #- step: *build-app
+      #- step: *release
+      #- step: *upload-image
       - step: *deploy-kubernetes
     master:
       # Runs only on Master Branch
