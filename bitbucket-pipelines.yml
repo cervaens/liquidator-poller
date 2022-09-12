@@ -121,8 +121,8 @@ definitions:
                 SERVER: $SERVER_IP
                 MODE: script
                 COMMAND: kubernetes/deployment.sh
-                EXTRA_ARGS: 
-                  - $VERSION
+                ENV_VARS: >-
+                  VERSION=${VERSION}
 
     # DEFINE Update Docs to Confluence Step
     - step: &docs
