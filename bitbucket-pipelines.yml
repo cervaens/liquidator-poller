@@ -109,7 +109,7 @@ definitions:
     # DEFINE Deployment step
     - step: &deploy-kubernetes
         name: "Deploy to kubernetes cluster"
-        #trigger: manual
+        trigger: manual
 
         caches:
           - node
@@ -143,15 +143,14 @@ pipelines:
   branches:
     development:
       # Runs only on development Branch
-      #- parallel:
-      #    - step: *lint
+      - parallel:
+          - step: *lint
           #- step: *test
           #- step: *analyze
           #- step: *github
-      #- step: *build-app
-      #- step: *release
-      #- step: *upload-image
-      - step: *deploy-kubernetes
+      - step: *build-app
+      - step: *release
+      - step: *upload-image
     master:
       # Runs only on Master Branch
       - parallel:
