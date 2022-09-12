@@ -143,8 +143,8 @@ pipelines:
   branches:
     development:
       # Runs only on development Branch
-     # - parallel:
-      #    - step: *lint
+      - parallel:
+          - step: *lint
           #- step: *test
           #- step: *analyze
           #- step: *github
