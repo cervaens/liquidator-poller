@@ -116,7 +116,8 @@ definitions:
         script:
           - echo "Deploying to EC2"
           - echo "Installing envsubst"
-          - apt-get update && apt-get install gettext-base
+          - apt-get update && apt-get install gettext-base jq -y
+          - declare -x VERSION=$(jq -r '.version' package.json)
           - envsubst < kubernetes/deployment.sh > deploy-out.sh
           - pipe: "atlassian/ssh-run:0.4.1"
             variables:
