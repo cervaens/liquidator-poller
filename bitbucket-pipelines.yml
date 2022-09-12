@@ -119,11 +119,10 @@ definitions:
             variables:
                 SSH_USER: ubuntu
                 SERVER: $SERVER_IP
-                SSH_KEY: $SSH_KEY
                 MODE: script
                 COMMAND: kubernetes/deployment.sh
-                EXTRA_ARGS: 
-                  - '${VERSION}'
+                ENV_VARS: >-
+                  VERSION=${VERSION}
 
     # DEFINE Update Docs to Confluence Step
     - step: &docs
