@@ -115,7 +115,7 @@ definitions:
           - node
         script:
           - echo "Deploying to EC2"
-          - envsubst < .kubernetes/deployment.sh > deploy-out.sh
+          - envsubst < kubernetes/deployment.sh > deploy-out.sh
           - pipe: "atlassian/ssh-run:0.4.1"
             variables:
                 SSH_USER: ubuntu
