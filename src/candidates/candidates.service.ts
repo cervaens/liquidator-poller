@@ -11,7 +11,7 @@ export class CandidatesService {
   private nextInit = 0;
 
   private cToken: Record<string, any> = {};
-  private uAddressPricesUSD: Record<string, number> = {};
+  private uAddressPricesUSD: Record<string, Record<string, number>> = {};
 
   getCandidates(): Record<string, Record<string, any>> {
     return this.activeModuleCandidates;
@@ -66,7 +66,7 @@ export class CandidatesService {
     exchange: 'liquidator-exchange',
     routingKey: 'prices-polled',
   })
-  public async updatePricesHandler(msg: Record<string, number>) {
+  public async updatePricesHandler(msg: Record<string, Record<string, any>>) {
     this.uAddressPricesUSD = msg;
   }
 
@@ -108,10 +108,22 @@ export class CandidatesService {
     routingKey: 'prices-updated',
   })
   public async pricesUpdated(msg: Array<Record<string, any>>) {
+    let liquidate = false;
     for (const priceObj of msg) {
-      this.uAddressPricesUSD[priceObj.underlyingAddress] = priceObj.price;
+      if (
+        !this.uAddressPricesUSD[priceObj.underlyingAddress] ||
+        this.uAddressPricesUSD[priceObj.underlyingAddress].blockNumber <
+          priceObj.blockNumber
+      )
+        this.uAddressPricesUSD[priceObj.underlyingAddress] = {
+          blockNumber: priceObj.blockNumber,
+          price: priceObj.price,
+        };
+      liquidate = true;
     }
-    this.liquidateCandidates();
+    if (liquidate) {
+      this.liquidateCandidates();
+    }
   }
 
   // @RabbitSubscribe({

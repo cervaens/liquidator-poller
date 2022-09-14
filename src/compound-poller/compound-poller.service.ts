@@ -35,6 +35,20 @@ export class CompoundPollerService {
 
   async fetchCtokens(withConfig: Record<string, any>) {
     const json = await this.fetch('ctoken', withConfig);
+
+    if (json.error || json.errors) {
+      this.logger.warn(
+        'Fetch CTokens failed: ' +
+          json.error +
+          ' ' +
+          (json.error.response && json.error.response.statusText),
+      );
+      return {
+        error: json.error,
+        tokens: [],
+      };
+    }
+
     const tokens =
       (json.data &&
         json.data.cToken.map(
@@ -87,7 +101,10 @@ export class CompoundPollerService {
 
     if (firstPage.error || firstPage.errors) {
       this.logger.warn(
-        'Fetch AccountService failed: ' + firstPage.error + firstPage.errors,
+        'Fetch AccountService failed: ' +
+          firstPage.error +
+          ' ' +
+          (firstPage.error.response && firstPage.error.response.statusText),
       );
     }
 

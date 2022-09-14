@@ -2,15 +2,15 @@ import { Controller, Inject, Logger } from '@nestjs/common';
 import { CompoundPollerService } from './compound-poller.service';
 import { CtokenController } from '../mongodb/ctoken/ctoken.controller';
 import { CompoundToken } from '../mongodb/ctoken/classes/CompoundToken';
-import { CompoundPricesWsService } from '../compound-prices-ws/compound-prices-ws.service';
 import { AppService } from 'src/app.service';
 import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
+import { CompoundPricesWsHelperService } from 'src/compound-prices-ws-helper/compound-prices-ws-helper.service';
 @Controller('compound-poller')
 export class CompoundPollerController {
   constructor(
     private readonly compoundPollerService: CompoundPollerService,
     private readonly ctokenController: CtokenController,
-    private readonly compoundPrices: CompoundPricesWsService,
+    private readonly compoundPricesHelper: CompoundPricesWsHelperService,
     @Inject(AppService) private appService: AppService,
     private readonly amqpConnection: AmqpConnection,
   ) {}
@@ -19,7 +19,7 @@ export class CompoundPollerController {
   async onApplicationBootstrap(): Promise<void> {
     const tokenUAddresses = await this.pollCTokens();
     await this.pollCethWalletBalance();
-    this.compoundPrices.pollAndStorePrices(tokenUAddresses);
+    this.compoundPricesHelper.pollAndStorePrices(tokenUAddresses);
 
     // At init the master will start a poll
     this.logger.debug('Waiting to listen from other workers...');
