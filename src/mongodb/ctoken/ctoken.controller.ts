@@ -51,14 +51,14 @@ export class CtokenController {
     );
   }
 
-  async updateCtokensPrices(tokenPrices: Record<string, string>) {
+  async updateCtokensPrices(tokenPrices: Record<string, Record<string, any>>) {
     const promises = [];
     for (const token of Object.keys(tokenPrices)) {
       promises.push(
         this.updateCtokenPriceFromAddressOrSymbol(
           token,
           null,
-          parseInt(tokenPrices[token]),
+          parseInt(tokenPrices[token].price),
           null,
         ),
       );

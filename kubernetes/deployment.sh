@@ -2,7 +2,7 @@
 
 echo "- Start deploying image version "$VERSION
 echo "- Getting production environment file..."
-#aws s3 cp s3://arkana-liquidator/mainnet.env ~/envs/
+aws s3 cp s3://arkana-liquidator/mainnet.env ~/envs/
 
 echo "- Updating environment variables..."
 kubectl delete secret prod-secrets

@@ -2,8 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
 import { CompoundPricesWsHelperService } from '../compound-prices-ws-helper/compound-prices-ws-helper.service';
 import { CtokenController } from 'src/mongodb/ctoken/ctoken.controller';
-import { RabbitSubscribe } from '@golevelup/nestjs-rabbitmq';
-import { Web3ProviderService } from 'src/web3-provider/web3-provider.service';
+import Web3 from 'web3';
 
 @Injectable()
 export class CompoundPricesWsService {
@@ -13,7 +12,7 @@ export class CompoundPricesWsService {
   constructor(
     private readonly amqpConnection: AmqpConnection,
     private readonly ctoken: CtokenController,
-    private provider: Web3ProviderService,
+    private web3Ws: Web3,
     private helper: CompoundPricesWsHelperService,
   ) {
     // provider.web3Ws.eth
@@ -33,7 +32,7 @@ export class CompoundPricesWsService {
   }
 
   async subscribeToBlocks() {
-    // this.provider.web3Ws.eth.subscribe('newBlockHeaders', (err, result) => {
+    // this.web3Ws.eth.subscribe('newBlockHeaders', (err, result) => {
     //   this.logger.debug(
     //     `☑️ *Got New block* | Our timestamp: ${parseInt(
     //       (new Date().getTime() / 1000).toString(),
@@ -44,7 +43,7 @@ export class CompoundPricesWsService {
 
   async unSubscribeWSs() {
     this.logger.debug('Unsubscribing Websocket...');
-    this.provider.web3Ws.eth.clearSubscriptions((error, result) => {
+    this.web3Ws.eth.clearSubscriptions((error, result) => {
       this.logger.debug('Unsubscribed: ' + result);
     });
   }
@@ -65,7 +64,7 @@ export class CompoundPricesWsService {
     };
     let msgPrices = [];
     this.logger.debug('Subscribing to Uniswap Anchorview events... ');
-    this.provider.web3Ws.eth.subscribe('logs', options, async (err, tx) => {
+    this.web3Ws.eth.subscribe('logs', options, async (err, tx) => {
       if (err) {
         this.logger.debug(`☑️ *Got Prices* | ERROR: ${err}`);
       }
@@ -89,6 +88,7 @@ export class CompoundPricesWsService {
       msgPrices.push({
         underlyingAddress: this.cTokenFromHash[tx.topics[1]].underlyingAddress,
         price: parseInt(priceObj.price),
+        blockNumber: tx.blockNumber,
       });
 
       // Here we group all prices from within 200 ms
@@ -118,21 +118,13 @@ export class CompoundPricesWsService {
       this.logger.debug(
         `☑️ *Got Prices* | Address: ${
           this.cTokenFromHash[tx.topics[1]].underlyingAddress
-        } Price: ${priceObj.price}`,
+        } Price: ${priceObj.price} blocknumber: ${tx.blockNumber}`,
       );
+      this.web3Ws.eth
+        .getNodeInfo()
+        .then((str) => this.logger.debug('Web3 provider connected: ' + str));
     });
   }
-
-  @RabbitSubscribe({
-    exchange: 'liquidator-exchange',
-    routingKey: 'poll-prices',
-  })
-  public async pollAndStorePrices(tokens: Array<Record<string, any>>) {
-    const tokenPrices = await this.helper.getTokensPrice(tokens);
-    await this.ctoken.updateCtokensPrices(tokenPrices);
-  }
-
-  //   async onApplicationBootstrap(): Promise<void> {}
 
   /**
    * Here we load all tokenHash and address mapping

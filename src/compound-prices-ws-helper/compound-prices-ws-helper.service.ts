@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
+import { AmqpConnection, RabbitSubscribe } from '@golevelup/nestjs-rabbitmq';
 import { CtokenController } from 'src/mongodb/ctoken/ctoken.controller';
 import uniswapAnchorAbi from './abis/uniswapAnchoredView_ABI.json';
 import { AbiItem } from 'web3-utils';
@@ -85,7 +85,10 @@ export class CompoundPricesWsHelperService {
       }
       // Compound considers stable coins as 1 dollar
       if (token.underlyingSymbol.match('USDC|USDT|TUSD|USDP')) {
-        tokenPrices[token.underlyingAddress] = '1000000';
+        tokenPrices[token.underlyingAddress] = {
+          blockNumber: 0,
+          price: '1000000',
+        };
       } else if (token.underlyingSymbol === 'WBTC') {
         promises[token.underlyingAddress] = this.uniswapAnchorContract.methods
           .price('BTC')
@@ -101,7 +104,7 @@ export class CompoundPricesWsHelperService {
       for (const token of Object.keys(promises)) {
         try {
           const res = await promises[token];
-          tokenPrices[token] = parseInt(res);
+          tokenPrices[token] = { blockNumber: 0, price: parseInt(res) };
         } catch (error) {
           this.logger.error(error.message);
         }
@@ -115,6 +118,15 @@ export class CompoundPricesWsHelperService {
       tokenPrices,
     );
     return tokenPrices;
+  }
+
+  @RabbitSubscribe({
+    exchange: 'liquidator-exchange',
+    routingKey: 'poll-prices',
+  })
+  public async pollAndStorePrices(tokens: Array<Record<string, any>>) {
+    const tokenPrices = await this.getTokensPrice(tokens);
+    await this.ctoken.updateCtokensPrices(tokenPrices);
   }
 
   async initUniswapAnchoredViewContract() {

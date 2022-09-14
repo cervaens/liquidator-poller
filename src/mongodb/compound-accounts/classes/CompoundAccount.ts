@@ -90,7 +90,7 @@ export class CompoundAccount extends StandardAccount {
         const colFactor = cToken[token.symbol].collateralFactor;
         const valueUSD =
           (token.supply_balance_underlying *
-            uAddressPricesUSD[underlyingAddress]) /
+            uAddressPricesUSD[underlyingAddress].price) /
           10 ** 6;
         totalDepositUSD += colFactor * valueUSD;
 
@@ -113,7 +113,7 @@ export class CompoundAccount extends StandardAccount {
       if (token.borrow_balance_underlying > 0) {
         const valueUSD =
           (token.borrow_balance_underlying *
-            uAddressPricesUSD[underlyingAddress]) /
+            uAddressPricesUSD[underlyingAddress].price) /
           10 ** 6;
 
         totalBorrowUSD += valueUSD;

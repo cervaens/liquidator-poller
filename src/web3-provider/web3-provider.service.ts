@@ -50,30 +50,57 @@ export class Web3ProviderService {
   private readonly logger = new Logger(Web3ProviderService.name);
   public web3: Web3;
   public web3Ws: Web3;
+  public web3Providers = [];
+  public web3WsProviders = [];
   constructor() {
-    switch (process.env.WEB3_PROVIDER) {
-      case 'AWS':
-        this.web3 = new Web3(
-          new AWSHttpProvider(process.env.AMB_HTTP_ENDPOINT),
-        );
-        this.web3Ws = new Web3(
-          new AWSWebsocketProvider(process.env.AMB_WS_ENDPOINT, WSoptions).on(
-            'close',
-            (e) => console.error('WS End', e),
-          ),
-        );
-        break;
-      default:
-        this.web3 = HTTPProvider(
-          process.env.WEB3_HTTP_PROVIDER ||
-            `https://eth-mainnet.alchemyapi.io/v2/***REMOVED***`,
-        );
-        this.web3Ws = WSProvider(
-          process.env.WEB3_WSS_PROVIDER ||
-            `wss://eth-mainnet.alchemyapi.io/v2/***REMOVED***`,
-        );
-        break;
+    const providersList = JSON.parse(process.env.WEB3_PROVIDERS) || ['AWS'];
+    for (const provider of providersList) {
+      switch (provider) {
+        case 'AWS':
+          this.web3Providers.push(
+            new Web3(new AWSHttpProvider(process.env.AMB_HTTP_ENDPOINT)),
+          );
+          this.web3WsProviders.push(
+            new Web3(
+              new AWSWebsocketProvider(
+                process.env.AMB_WS_ENDPOINT,
+                WSoptions,
+              ).on('close', (e) => console.error('WS End', e)),
+            ),
+          );
+          break;
+        case 'Alchemy':
+          this.web3Providers.push(
+            HTTPProvider(
+              process.env.ALCHEMY_WEB3_HTTP_PROVIDER ||
+                `https://eth-mainnet.alchemyapi.io/v2/***REMOVED***`,
+            ),
+          );
+          this.web3WsProviders.push(
+            WSProvider(
+              process.env.ALCHEMY_WEB3_WSS_PROVIDER ||
+                `wss://eth-mainnet.alchemyapi.io/v2/***REMOVED***`,
+            ),
+          );
+          break;
+        default:
+          this.web3Providers.push(
+            HTTPProvider(
+              process.env.WEB3_HTTP_PROVIDER ||
+                `https://eth-mainnet.alchemyapi.io/v2/***REMOVED***`,
+            ),
+          );
+          this.web3WsProviders.push(
+            WSProvider(
+              process.env.WEB3_WSS_PROVIDER ||
+                `wss://eth-mainnet.alchemyapi.io/v2/***REMOVED***`,
+            ),
+          );
+          break;
+      }
     }
+    this.web3 = this.web3Providers[0];
+    this.web3Ws = this.web3WsProviders[0];
 
     this.web3.eth
       .getNodeInfo()
