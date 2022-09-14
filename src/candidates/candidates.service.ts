@@ -114,12 +114,13 @@ export class CandidatesService {
         !this.uAddressPricesUSD[priceObj.underlyingAddress] ||
         this.uAddressPricesUSD[priceObj.underlyingAddress].blockNumber <
           priceObj.blockNumber
-      )
+      ) {
         this.uAddressPricesUSD[priceObj.underlyingAddress] = {
           blockNumber: priceObj.blockNumber,
           price: priceObj.price,
         };
-      liquidate = true;
+        liquidate = true;
+      }
     }
     if (liquidate) {
       this.liquidateCandidates();
