@@ -30,7 +30,9 @@ export class CandidatesService {
     routingKey: 'token-wallet-balance',
   })
   public async updateTokenBalances(msg: Record<string, number>) {
-    this.cToken[msg.token].walletBalance = msg.balance;
+    if (this.cToken[msg.token]) {
+      this.cToken[msg.token].walletBalance = msg.balance;
+    }
     this.logger.debug('Got token balance: ' + JSON.stringify(msg));
   }
 

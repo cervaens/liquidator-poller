@@ -15,6 +15,7 @@ import { CandidatesModule } from './candidates/candidates.module';
 import { TxManagerModule } from './tx-manager/tx-manager.module';
 import { CompoundModule } from './compound/compound.module';
 import { MongodbModule } from './mongodb/mongodb.module';
+import { IronbankModule } from './ironbank/ironbank.module';
 
 @Global()
 @Module({
@@ -50,6 +51,7 @@ import { MongodbModule } from './mongodb/mongodb.module';
     TxManagerModule,
     CompoundModule,
     MongodbModule,
+    IronbankModule,
   ],
   controllers: [AppController],
   providers: [
