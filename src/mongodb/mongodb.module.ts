@@ -3,6 +3,7 @@ import { CompoundAccountsModule } from './compound-accounts/compound-accounts.mo
 import { CtokensModule } from './ctoken/ctoken.module';
 import { TransactionsModule } from './transactions/transactions.module';
 import { IbTokenModule } from './ib-token/ib-token.module';
+import { IbAccountsModule } from './ib-accounts/ib-accounts.module';
 
 @Module({
   imports: [
@@ -10,6 +11,7 @@ import { IbTokenModule } from './ib-token/ib-token.module';
     CtokensModule,
     TransactionsModule,
     IbTokenModule,
+    IbAccountsModule,
   ],
   exports: [CtokensModule, IbTokenModule],
 })

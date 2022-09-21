@@ -27,4 +27,18 @@ export class IronbankPollerController {
     //   underlyingSymbol: token.underlyingSymbol,
     // }));
   }
+
+  async pollIBAccountMarkets() {
+    this.logger.debug(
+      'Getting IronBank Accounts and Market through web3 events',
+    );
+    this.tokens = (
+      await this.ibPollerService.fetchIBtokens({ comptroller: 'eth' })
+    ).tokens;
+    await this.ibTokenController.createMany(this.tokens);
+    // return this.tokens.map((token: CompoundToken) => ({
+    //   underlyingAddress: token.underlyingAddress,
+    //   underlyingSymbol: token.underlyingSymbol,
+    // }));
+  }
 }
