@@ -44,6 +44,7 @@
   "devDependencies": {
     "@nestjs/cli": "^8.0.0",
     "@nestjs/schematics": "^8.0.0",
+    "@nestjs/swagger": "6.1.2",
     "@nestjs/testing": "^8.0.0",
     "@semantic-release/changelog": "6.0.1",
     "@semantic-release/commit-analyzer": "9.0.2",

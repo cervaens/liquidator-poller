@@ -54,20 +54,26 @@ export class Web3ProviderService {
   public web3WsProviders = [];
   constructor() {
     const providersList = JSON.parse(process.env.WEB3_PROVIDERS) || ['AWS'];
+    const providersWsList = JSON.parse(process.env.WEB3_WS_PROVIDERS) || [
+      'AWS',
+    ];
     for (const provider of providersList) {
+      this.logger.debug('Provider: ' + provider);
       switch (provider) {
         case 'AWS':
           this.web3Providers.push(
             new Web3(new AWSHttpProvider(process.env.AMB_HTTP_ENDPOINT)),
           );
-          this.web3WsProviders.push(
-            new Web3(
-              new AWSWebsocketProvider(
-                process.env.AMB_WS_ENDPOINT,
-                WSoptions,
-              ).on('close', (e) => console.error('WS End', e)),
-            ),
-          );
+          if (providersWsList.includes(provider)) {
+            this.web3WsProviders.push(
+              new Web3(
+                new AWSWebsocketProvider(
+                  process.env.AMB_WS_ENDPOINT,
+                  WSoptions,
+                ).on('close', (e) => console.error('WS End', e)),
+              ),
+            );
+          }
           break;
         case 'Alchemy':
           this.web3Providers.push(
@@ -76,12 +82,29 @@ export class Web3ProviderService {
                 `https://eth-mainnet.alchemyapi.io/v2/***REMOVED***`,
             ),
           );
-          this.web3WsProviders.push(
-            WSProvider(
-              process.env.ALCHEMY_WEB3_WSS_PROVIDER ||
-                `wss://eth-mainnet.alchemyapi.io/v2/***REMOVED***`,
+          if (providersWsList.includes(provider)) {
+            this.web3WsProviders.push(
+              WSProvider(
+                process.env.ALCHEMY_WEB3_WSS_PROVIDER ||
+                  `wss://eth-mainnet.alchemyapi.io/v2/***REMOVED***`,
+              ),
+            );
+          }
+          break;
+        case 'Infura':
+          this.web3Providers.push(
+            HTTPProvider(
+              `https://:${process.env.INFURA_SECRET}@${process.env.INFURA_HTTP_PROVIDER}`,
             ),
           );
+          if (providersWsList.includes(provider)) {
+            this.web3WsProviders.push(
+              WSProvider(
+                process.env.INFURA_WSS_PROVIDER ||
+                  `wss://mainnet.infura.io/ws/v3/7350eecf18634051b74cd8aa9dbb7161`,
+              ),
+            );
+          }
           break;
         default:
           this.web3Providers.push(
@@ -102,13 +125,18 @@ export class Web3ProviderService {
     this.web3 = this.web3Providers[0];
     this.web3Ws = this.web3WsProviders[0];
 
-    this.web3.eth
-      .getNodeInfo()
-      .then((str) => this.logger.debug('Web3 provider connected: ' + str));
-    this.web3Ws.eth
-      .getNodeInfo()
-      .then((str) =>
-        this.logger.debug('Web3 websocket provider connected: ' + str),
-      );
+    this.web3Providers.forEach((element) => {
+      element.eth
+        .getNodeInfo()
+        .then((str) => this.logger.debug('Web3 provider connected: ' + str));
+    });
+
+    this.web3WsProviders.forEach((element) => {
+      element.eth
+        .getNodeInfo()
+        .then((str) =>
+          this.logger.debug('Web3 websocket provider connected:  ' + str),
+        );
+    });
   }
 }
