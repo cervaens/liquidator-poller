@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { CompoundToken } from '../mongodb/ctoken/classes/CompoundToken';
+import { CompoundToken } from '../../mongodb/ctoken/classes/CompoundToken';
 import { firstValueFrom } from 'rxjs';
 import { HttpService } from '@nestjs/axios';
 import { AmqpConnection, RabbitSubscribe } from '@golevelup/nestjs-rabbitmq';

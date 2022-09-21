@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
-import { CompoundPricesWsService } from 'src/compound-prices-ws/compound-prices-ws.service';
+import { CompoundPricesWsService } from 'src/compound/compound-prices-ws/compound-prices-ws.service';
 import { CompoundPollerController } from './compound-poller.controller';
 import { CompoundPollerService } from './compound-poller.service';
-import { CompoundPricesWsHelperService } from 'src/compound-prices-ws-helper/compound-prices-ws-helper.service';
-import { CompoundPricesWsController } from 'src/compound-prices-ws/compound-prices-ws.controller';
+import { CompoundPricesWsHelperService } from 'src/compound/compound-prices-ws/compound-prices-ws-helper/compound-prices-ws-helper.service';
+import { CompoundPricesWsController } from 'src/compound/compound-prices-ws/compound-prices-ws.controller';
 import { CtokenController } from 'src/mongodb/ctoken/ctoken.controller';
 import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
 import { Web3ProviderService } from 'src/web3-provider/web3-provider.service';

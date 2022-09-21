@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
-import { CompoundPricesWsHelperService } from '../compound-prices-ws-helper/compound-prices-ws-helper.service';
+import { CompoundPricesWsHelperService } from './compound-prices-ws-helper/compound-prices-ws-helper.service';
 import { CtokenController } from 'src/mongodb/ctoken/ctoken.controller';
 import Web3 from 'web3';
 

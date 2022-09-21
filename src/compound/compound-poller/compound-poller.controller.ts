@@ -1,10 +1,10 @@
 import { Controller, Inject, Logger } from '@nestjs/common';
 import { CompoundPollerService } from './compound-poller.service';
-import { CtokenController } from '../mongodb/ctoken/ctoken.controller';
-import { CompoundToken } from '../mongodb/ctoken/classes/CompoundToken';
+import { CtokenController } from '../../mongodb/ctoken/ctoken.controller';
+import { CompoundToken } from '../../mongodb/ctoken/classes/CompoundToken';
 import { AppService } from 'src/app.service';
 import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
-import { CompoundPricesWsHelperService } from 'src/compound-prices-ws-helper/compound-prices-ws-helper.service';
+import { CompoundPricesWsHelperService } from 'src/compound/compound-prices-ws/compound-prices-ws-helper/compound-prices-ws-helper.service';
 @Controller('compound-poller')
 export class CompoundPollerController {
   constructor(
