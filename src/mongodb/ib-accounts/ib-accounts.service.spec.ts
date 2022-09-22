@@ -24,12 +24,19 @@ describe('IbAccountsService', () => {
     service = module.get<IbAccountsService>(IbAccountsService);
   });
 
-  it('should be defined', async () => {
+  it('Account enters market', async () => {
     expect(service).toBeDefined();
     await service.accountEnterMarket('testAccount', 'testMarket');
     const res = await service.findAll();
     expect(res[0]._id).toEqual('testAccount');
     expect(res[0].tokens[0].address).toEqual('testMarket');
+  });
+
+  it('Account exits market', async () => {
+    expect(service).toBeDefined();
+    await service.accountExitsMarket('testAccount', 'testMarket');
+    const res = await service.findAll();
+    expect(res[0].tokens.length).toEqual(0);
   });
 
   afterAll(async () => {

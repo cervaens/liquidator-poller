@@ -4,6 +4,7 @@ import { CtokensModule } from './ctoken/ctoken.module';
 import { TransactionsModule } from './transactions/transactions.module';
 import { IbTokenModule } from './ib-token/ib-token.module';
 import { IbAccountsModule } from './ib-accounts/ib-accounts.module';
+import { IbControlModule } from './ib-control/ib-control.module';
 
 @Module({
   imports: [
@@ -12,6 +13,7 @@ import { IbAccountsModule } from './ib-accounts/ib-accounts.module';
     TransactionsModule,
     IbTokenModule,
     IbAccountsModule,
+    IbControlModule,
   ],
   exports: [CtokensModule, IbTokenModule],
 })

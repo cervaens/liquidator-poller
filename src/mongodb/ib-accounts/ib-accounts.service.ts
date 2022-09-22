@@ -26,6 +26,20 @@ export class IbAccountsService {
     return true;
   }
 
+  async accountExitsMarket(account: string, market: string): Promise<boolean> {
+    await this.ibAccountsModel
+      .findByIdAndUpdate(account, {
+        $pull: {
+          tokens: {
+            address: market,
+          },
+        },
+      })
+      .setOptions({ upsert: true });
+
+    return true;
+  }
+
   async findAll(): Promise<IBaccounts[]> {
     return this.ibAccountsModel.find().exec();
   }

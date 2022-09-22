@@ -3,12 +3,14 @@ import { IronBankToken } from '../../mongodb/ib-token/classes/IronBankToken';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
 import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
+import { Web3ProviderService } from 'src/web3-provider/web3-provider.service';
 
 @Injectable()
 export class IronbankPollerService {
   constructor(
     private readonly httpService: HttpService,
     private readonly amqpConnection: AmqpConnection,
+    private readonly provider: Web3ProviderService,
   ) {}
   private readonly logger = new Logger(IronbankPollerService.name);
 
