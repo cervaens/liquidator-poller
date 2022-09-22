@@ -14,6 +14,7 @@ export class IronbankPollerController {
 
   async onApplicationBootstrap(): Promise<void> {
     const tokenIBAddresses = await this.pollIBTokens();
+    this.ibPollerService.getAccountsFromUnitroller(15457563);
   }
 
   async pollIBTokens() {

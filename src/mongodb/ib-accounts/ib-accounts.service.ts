@@ -10,8 +10,11 @@ export class IbAccountsService {
     private ibAccountsModel: Model<IBaccountsDocument>,
   ) {}
 
-  async accountEnterMarket(account: string, market: string): Promise<boolean> {
-    await this.ibAccountsModel
+  async accountEntersMarket(
+    account: string,
+    market: string,
+  ): Promise<IBaccounts> {
+    return this.ibAccountsModel
       .findByIdAndUpdate(account, {
         $push: {
           tokens: {
@@ -22,12 +25,13 @@ export class IbAccountsService {
         },
       })
       .setOptions({ upsert: true });
-
-    return true;
   }
 
-  async accountExitsMarket(account: string, market: string): Promise<boolean> {
-    await this.ibAccountsModel
+  async accountExitsMarket(
+    account: string,
+    market: string,
+  ): Promise<IBaccounts> {
+    return this.ibAccountsModel
       .findByIdAndUpdate(account, {
         $pull: {
           tokens: {
@@ -36,8 +40,6 @@ export class IbAccountsService {
         },
       })
       .setOptions({ upsert: true });
-
-    return true;
   }
 
   async findAll(): Promise<IBaccounts[]> {

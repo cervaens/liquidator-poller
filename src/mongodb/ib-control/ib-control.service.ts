@@ -23,4 +23,8 @@ export class IbControlService {
   async findAll(): Promise<IBcontrol[]> {
     return this.ibControlModel.find().exec();
   }
+
+  async getControlObj(): Promise<IBcontrol> {
+    return this.ibControlModel.findOne({ _id: 'control' }).exec();
+  }
 }

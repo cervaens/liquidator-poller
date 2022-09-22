@@ -6,7 +6,11 @@ export class IbAccountsController {
   constructor(private readonly ibAccountsService: IbAccountsService) {}
   private readonly logger = new Logger(IbAccountsController.name);
 
-  async accountEnterMarket(account: string, market: string) {
-    return await this.ibAccountsService.accountEnterMarket(account, market);
+  async accountEntersMarket(account: string, market: string) {
+    return await this.ibAccountsService.accountEntersMarket(account, market);
+  }
+
+  async accountExitsMarket(account: string, market: string) {
+    return await this.ibAccountsService.accountExitsMarket(account, market);
   }
 }

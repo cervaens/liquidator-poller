@@ -15,6 +15,6 @@ import { IbControlModule } from './ib-control/ib-control.module';
     IbAccountsModule,
     IbControlModule,
   ],
-  exports: [CtokensModule, IbTokenModule],
+  exports: [CtokensModule, IbTokenModule, IbAccountsModule, IbControlModule],
 })
 export class MongodbModule {}

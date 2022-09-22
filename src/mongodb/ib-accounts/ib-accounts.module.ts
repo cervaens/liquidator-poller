@@ -12,6 +12,6 @@ import { IbAccountsService } from './ib-accounts.service';
   ],
   controllers: [IbAccountsController],
   providers: [IbAccountsService],
-  exports: [],
+  exports: [IbAccountsService],
 })
 export class IbAccountsModule {}

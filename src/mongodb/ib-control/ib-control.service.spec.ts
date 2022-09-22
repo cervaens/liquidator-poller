@@ -24,11 +24,19 @@ describe('IbControlService', () => {
     service = module.get<IbControlService>(IbControlService);
   });
 
-  it('should be defined', async () => {
+  it('Update control item', async () => {
     expect(service).toBeDefined();
     await service.updateItem('lastBlockNumberUnitrollerPoller', 15457563);
     const res = await service.findAll();
     expect(res[0].lastBlockNumberUnitrollerPoller).toEqual(15457563);
+  });
+
+  it('Get control obj', async () => {
+    expect(service).toBeDefined();
+    await service.updateItem('lastBlockNumberUnitrollerPoller', 15457563);
+    const res = await service.getControlObj();
+    expect(res).toBeInstanceOf(Object);
+    expect(res.lastBlockNumberUnitrollerPoller).toEqual(15457563);
   });
 
   afterAll(async () => {

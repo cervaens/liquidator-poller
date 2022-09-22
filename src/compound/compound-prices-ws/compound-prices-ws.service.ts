@@ -4,10 +4,21 @@ import { CompoundPricesWsHelperService } from './compound-prices-ws-helper/compo
 import { CtokenController } from 'src/mongodb/ctoken/ctoken.controller';
 import Web3 from 'web3';
 
+function getProviderId(providerUrl) {
+  if (providerUrl.match(/amazon/)) {
+    return 'AWS';
+  } else if (providerUrl.match(/infura/)) {
+    return 'Infura';
+  } else if (providerUrl.match(/alchemy/)) {
+    return 'Alchemy';
+  }
+}
+
 @Injectable()
 export class CompoundPricesWsService {
   private readonly logger = new Logger(CompoundPricesWsService.name);
   private cTokenFromHash: Record<string, Record<string, any>> = {};
+  private providerId: string;
 
   constructor(
     private readonly amqpConnection: AmqpConnection,
@@ -15,6 +26,7 @@ export class CompoundPricesWsService {
     private web3Ws: Web3,
     private helper: CompoundPricesWsHelperService,
   ) {
+    this.providerId = getProviderId(this.web3Ws.eth.currentProvider['url']);
     // provider.web3Ws.eth
     //   .subscribe('pendingTransactions', function (error, result) {
     //     if (!error) console.log(result);
@@ -66,7 +78,7 @@ export class CompoundPricesWsService {
     this.logger.debug('Subscribing to Uniswap Anchorview events... ');
     this.web3Ws.eth.subscribe('logs', options, async (err, tx) => {
       if (err) {
-        this.logger.debug(`☑️ *Got Prices* | ERROR: ${err}`);
+        this.logger.debug(`*Error* from ${this.providerId} | ERROR: ${err}`);
       }
 
       let extraUpdate = null;
@@ -116,13 +128,10 @@ export class CompoundPricesWsService {
       }
 
       this.logger.debug(
-        `☑️ *Got Prices* | Address: ${
+        `☑️ *Got Prices* from ${this.providerId} | Address: ${
           this.cTokenFromHash[tx.topics[1]].underlyingAddress
         } Price: ${priceObj.price} blocknumber: ${tx.blockNumber}`,
       );
-      this.web3Ws.eth
-        .getNodeInfo()
-        .then((str) => this.logger.debug('Web3 provider connected: ' + str));
     });
   }
 

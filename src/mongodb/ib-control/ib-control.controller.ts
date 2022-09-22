@@ -10,4 +10,8 @@ export class IbControlController {
   async updateItem(item: string, value: any): Promise<IBcontrol> {
     return this.ibControlService.updateItem(item, value);
   }
+
+  async getControlObj(): Promise<IBcontrol> {
+    return this.ibControlService.getControlObj();
+  }
 }

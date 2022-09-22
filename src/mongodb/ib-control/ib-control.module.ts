@@ -12,5 +12,6 @@ import { IbControlService } from './ib-control.service';
   ],
   controllers: [IbControlController],
   providers: [IbControlService],
+  exports: [IbControlService],
 })
 export class IbControlModule {}

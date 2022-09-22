@@ -52,19 +52,19 @@ export class Web3ProviderService {
   public web3Ws: Web3;
   public web3Providers = [];
   public web3WsProviders = [];
+  private providersList = JSON.parse(process.env.WEB3_PROVIDERS) || ['AWS'];
+  private providersWsList = JSON.parse(process.env.WEB3_WS_PROVIDERS) || [
+    'AWS',
+  ];
   constructor() {
-    const providersList = JSON.parse(process.env.WEB3_PROVIDERS) || ['AWS'];
-    const providersWsList = JSON.parse(process.env.WEB3_WS_PROVIDERS) || [
-      'AWS',
-    ];
-    for (const provider of providersList) {
+    for (const provider of this.providersList) {
       this.logger.debug('Provider: ' + provider);
       switch (provider) {
         case 'AWS':
           this.web3Providers.push(
             new Web3(new AWSHttpProvider(process.env.AMB_HTTP_ENDPOINT)),
           );
-          if (providersWsList.includes(provider)) {
+          if (this.providersWsList.includes(provider)) {
             this.web3WsProviders.push(
               new Web3(
                 new AWSWebsocketProvider(
@@ -82,7 +82,7 @@ export class Web3ProviderService {
                 `https://eth-mainnet.alchemyapi.io/v2/***REMOVED***`,
             ),
           );
-          if (providersWsList.includes(provider)) {
+          if (this.providersWsList.includes(provider)) {
             this.web3WsProviders.push(
               WSProvider(
                 process.env.ALCHEMY_WEB3_WSS_PROVIDER ||
@@ -97,7 +97,7 @@ export class Web3ProviderService {
               `https://:${process.env.INFURA_SECRET}@${process.env.INFURA_HTTP_PROVIDER}`,
             ),
           );
-          if (providersWsList.includes(provider)) {
+          if (this.providersWsList.includes(provider)) {
             this.web3WsProviders.push(
               WSProvider(
                 process.env.INFURA_WSS_PROVIDER ||
@@ -138,5 +138,18 @@ export class Web3ProviderService {
           this.logger.debug('Web3 websocket provider connected:  ' + str),
         );
     });
+  }
+
+  getProvider(provider: string) {
+    return (
+      this.web3Providers[this.providersList.indexOf(provider)] || this.web3
+    );
+  }
+
+  getWsProvider(provider: string) {
+    return (
+      this.web3WsProviders[this.providersWsList.indexOf(provider)] ||
+      this.web3Ws
+    );
   }
 }
