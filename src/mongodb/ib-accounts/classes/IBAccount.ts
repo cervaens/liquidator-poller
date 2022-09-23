@@ -1,6 +1,6 @@
 import { StandardAccount } from '../../../classes/StandardAccount';
 
-export class CompoundAccount extends StandardAccount {
+export class IBAccount extends StandardAccount {
   public address: string;
   public _id: string;
   public health: number;
@@ -16,35 +16,8 @@ export class CompoundAccount extends StandardAccount {
 
   constructor(json: Record<string, any>) {
     super(json);
-    this.health = parseFloat(json.health.value);
-    this.tokens = this.tokensArrayToObj(json.tokens);
-    this.total_borrow_value_in_eth = parseFloat(
-      json.total_borrow_value_in_eth && json.total_borrow_value_in_eth.value,
-    );
-    this.total_collateral_value_in_eth = parseFloat(
-      json.total_collateral_value_in_eth &&
-        json.total_collateral_value_in_eth.value,
-    );
-  }
-
-  private tokensArrayToObj(tokens: Array<Record<string, any>>) {
-    const tokensArray: Array<Record<string, any>> = [];
-    for (const token of tokens) {
-      const tokenObj = {};
-      for (const [key, value] of Object.entries(token)) {
-        if (key.match(/^lifetime/)) {
-          continue;
-        }
-        if (value && typeof value === 'object') {
-          tokenObj[key] = parseFloat(value.value);
-        } else {
-          tokenObj[key] = value;
-        }
-      }
-      tokensArray.push(tokenObj);
-    }
-
-    return tokensArray;
+    this.tokens = json.tokens;
+    this.health = json.health || 0;
   }
 
   public isCandidate() {
@@ -68,12 +41,13 @@ export class CompoundAccount extends StandardAccount {
   }
 
   public updateAccount(
-    cToken: Record<string, any>,
-    uAddressPricesUSD: Record<string, any>,
+    iToken: Record<string, any>,
+    chainlinkPricesUSD: Record<string, any>,
   ) {
     if (
-      Object.keys(cToken).length === 0 ||
-      Object.keys(uAddressPricesUSD).length === 0
+      Object.keys(iToken).length === 0 ||
+      Object.keys(chainlinkPricesUSD).length === 0 ||
+      this.tokens.length === 0
     ) {
       return;
     }
@@ -83,24 +57,25 @@ export class CompoundAccount extends StandardAccount {
     const top2Borrow = [];
 
     for (const token of this.tokens) {
-      const underSymbol = cToken[token.symbol].underlyingSymbol;
-      const underlyingAddress = cToken[token.symbol].underlyingAddress;
-      const decimals_underlying = cToken[token.symbol].decimals_underlying;
+      const underSymbol = iToken[token.address].underlyingSymbol;
+      //TODO: changed underlyingAddress by address just till I build the prices part
+      const underlyingAddress = iToken[token.address].address;
+      const decimals_underlying = iToken[token.address].decimals_underlying;
 
       if (token.supply_balance_underlying > 0) {
-        const colFactor = cToken[token.symbol].collateralFactor;
+        const colFactor = iToken[token.address].collateralFactor;
         const valueUSD =
           (token.supply_balance_underlying *
-            ((uAddressPricesUSD[underlyingAddress] &&
-              uAddressPricesUSD[underlyingAddress].price) ||
+            ((chainlinkPricesUSD[underlyingAddress] &&
+              chainlinkPricesUSD[underlyingAddress].price) ||
               0)) /
-          10 ** 6;
+          (10 ** 6 * 10 ** decimals_underlying);
         totalDepositUSD += colFactor * valueUSD;
 
         const collateralObj = {
           valueUSD,
           symbol_underlying: underSymbol,
-          cTokenAddress: token.address,
+          iTokenAddress: token.address,
           units_underlying: token.supply_balance_underlying,
           decimals_underlying,
         };
@@ -116,17 +91,17 @@ export class CompoundAccount extends StandardAccount {
       if (token.borrow_balance_underlying > 0) {
         const valueUSD =
           (token.borrow_balance_underlying *
-            ((uAddressPricesUSD[underlyingAddress] &&
-              uAddressPricesUSD[underlyingAddress].price) ||
+            ((chainlinkPricesUSD[underlyingAddress] &&
+              chainlinkPricesUSD[underlyingAddress].price) ||
               0)) /
-          10 ** 6;
+          (10 ** 6 * 10 ** decimals_underlying);
 
         totalBorrowUSD += valueUSD;
 
         const borrowObj = {
           valueUSD,
           symbol_underlying: underSymbol,
-          cTokenAddress: token.address,
+          iTokenAddress: token.address,
           units_underlying: token.borrow_balance_underlying,
           decimals_underlying,
         };
@@ -138,13 +113,16 @@ export class CompoundAccount extends StandardAccount {
       }
     }
 
+    if (top2Collateral.length === 0 || top2Borrow.length === 0) {
+      return;
+    }
     const ableToPickBest = !(
-      top2Collateral[0].cTokenAddress === top2Borrow[0].cTokenAddress &&
-      top2Collateral[0].cTokenAddress === cToken.cETH.address &&
+      top2Collateral[0].iTokenAddress === top2Borrow[0].iTokenAddress &&
+      top2Collateral[0].iTokenAddress === iToken.cETH.address &&
       top2Borrow[0].units_underlying * this.closeFactor >=
-        ((parseInt(cToken.cETH.walletBalance) || 0) *
-          cToken.cETH.exchangeRate) /
-          10 ** cToken.cETH.decimals
+        ((parseInt(iToken.cETH.walletBalance) || 0) *
+          iToken.cETH.exchangeRate) /
+          10 ** iToken.cETH.decimals
     );
     const repayIdx =
       !ableToPickBest &&
@@ -158,7 +136,7 @@ export class CompoundAccount extends StandardAccount {
     this.liqBorrow = top2Borrow[repayIdx] || {};
     this.liqCollateral = top2Collateral[seizeIdx] || {};
 
-    this.calculatedHealth = totalDepositUSD / totalBorrowUSD;
+    this.health = totalDepositUSD / totalBorrowUSD;
     this.profitUSD =
       Math.min(
         this.liqBorrow.valueUSD * this.closeFactor,

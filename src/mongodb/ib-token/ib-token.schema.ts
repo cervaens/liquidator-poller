@@ -30,6 +30,9 @@ export class IBtoken {
   underlyingPrice: number;
 
   @Prop()
+  decimals_underlying: number;
+
+  @Prop()
   tokenHash: string;
 }
 

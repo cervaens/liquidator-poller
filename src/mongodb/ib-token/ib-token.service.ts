@@ -19,4 +19,8 @@ export class IbTokenService {
 
     return true;
   }
+
+  async findAll(): Promise<IBtoken[]> {
+    return this.ctokenModel.find().exec();
+  }
 }

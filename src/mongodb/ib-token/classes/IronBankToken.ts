@@ -9,6 +9,7 @@ export class IronBankToken {
   public underlyingSymbol: string;
   //   public decimals: number;
   public decimals_underlying: number;
+  public price: number;
 
   constructor(json: Record<string, any>) {
     this._id = json.token_address;
@@ -20,5 +21,6 @@ export class IronBankToken {
     this.underlyingSymbol = json.underlying_symbol;
     // this.decimals = this.getDecimals();
     this.decimals_underlying = json.underlying_decimals;
+    this.price = json.underlying_price.value;
   }
 }

@@ -9,7 +9,7 @@ import { IbTokenService } from './ib-token.service';
     MongooseModule.forFeature([{ name: IBtoken.name, schema: IBtokenSchema }]),
   ],
   controllers: [IbTokenController],
-  providers: [IbTokenService, IbTokenController],
-  exports: [IbTokenController],
+  providers: [IbTokenService],
+  exports: [IbTokenService],
 })
 export class IbTokenModule {}

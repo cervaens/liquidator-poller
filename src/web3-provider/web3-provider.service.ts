@@ -56,6 +56,8 @@ export class Web3ProviderService {
   private providersWsList = JSON.parse(process.env.WEB3_WS_PROVIDERS) || [
     'AWS',
   ];
+  private nextProviderIndex = 0;
+
   constructor() {
     for (const provider of this.providersList) {
       this.logger.debug('Provider: ' + provider);
@@ -140,16 +142,24 @@ export class Web3ProviderService {
     });
   }
 
-  getProvider(provider: string) {
+  getProvider(provider: string): Web3 {
     return (
       this.web3Providers[this.providersList.indexOf(provider)] || this.web3
     );
   }
 
-  getWsProvider(provider: string) {
+  getWsProvider(provider: string): Web3 {
     return (
       this.web3WsProviders[this.providersWsList.indexOf(provider)] ||
       this.web3Ws
     );
+  }
+
+  getNextProvider(): Web3 {
+    this.nextProviderIndex += 1;
+    if (this.nextProviderIndex === this.web3Providers.length) {
+      this.nextProviderIndex = 0;
+    }
+    return this.web3Providers[this.nextProviderIndex];
   }
 }

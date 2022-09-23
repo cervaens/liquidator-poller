@@ -20,8 +20,14 @@ export class IBaccounts {
   @Prop({ required: true })
   tokens: Token[];
 
+  @Prop({ required: true })
+  tokenList: Array<string>;
+
   @Prop()
   health: number;
+
+  @Prop()
+  lastUpdated: Date;
 
   @Prop()
   total_borrow_value_in_eth: number;

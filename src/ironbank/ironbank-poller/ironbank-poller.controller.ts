@@ -1,20 +1,44 @@
 import { Controller, Logger } from '@nestjs/common';
-import { IbTokenController } from 'src/mongodb/ib-token/ib-token.controller';
+import { AppService } from 'src/app.service';
+import { IbTokenService } from 'src/mongodb/ib-token/ib-token.service';
 import { IronbankPollerService } from './ironbank-poller.service';
 
 @Controller('ironbank-poller')
 export class IronbankPollerController {
   constructor(
     private readonly ibPollerService: IronbankPollerService,
-    private readonly ibTokenController: IbTokenController,
+    private readonly ibTokenService: IbTokenService,
+    private readonly appService: AppService,
   ) {}
 
   private tokens = [];
   private readonly logger = new Logger(IronbankPollerController.name);
 
   async onApplicationBootstrap(): Promise<void> {
-    const tokenIBAddresses = await this.pollIBTokens();
-    this.ibPollerService.getAccountsFromUnitroller(15457563);
+    await this.pollIBTokens();
+    await this.ibPollerService.initTokenContracts();
+    this.ibPollerService.getAccountsFromUnitroller();
+
+    setInterval(() => {
+      if (
+        this.appService.amItheMaster() &&
+        this.ibPollerService.firstAccountsPollFinished
+      ) {
+        this.ibPollerService.pollAllAccounts();
+      }
+    }, parseInt(process.env.IRONBANK_POLL_BALANCES_PERIOD));
+
+    let amITheMaster = false;
+    setInterval(async () => {
+      if (this.appService.amItheMaster() && !amITheMaster) {
+        this.ibPollerService.getAccountsFromUnitroller();
+        amITheMaster = true;
+      } else if (!this.appService.amItheMaster() && amITheMaster) {
+        // unsubscribe if for some reason stops being master
+        this.ibPollerService.unsubscribeWs();
+        amITheMaster = false;
+      }
+    }, 5500);
   }
 
   async pollIBTokens() {
@@ -22,7 +46,7 @@ export class IronbankPollerController {
     this.tokens = (
       await this.ibPollerService.fetchIBtokens({ comptroller: 'eth' })
     ).tokens;
-    await this.ibTokenController.createMany(this.tokens);
+    await this.ibTokenService.createMany(this.tokens);
     // return this.tokens.map((token: CompoundToken) => ({
     //   underlyingAddress: token.underlyingAddress,
     //   underlyingSymbol: token.underlyingSymbol,
@@ -36,7 +60,7 @@ export class IronbankPollerController {
     this.tokens = (
       await this.ibPollerService.fetchIBtokens({ comptroller: 'eth' })
     ).tokens;
-    await this.ibTokenController.createMany(this.tokens);
+    await this.ibTokenService.createMany(this.tokens);
     // return this.tokens.map((token: CompoundToken) => ({
     //   underlyingAddress: token.underlyingAddress,
     //   underlyingSymbol: token.underlyingSymbol,
