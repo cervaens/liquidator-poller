@@ -5,5 +5,6 @@ import { IronbankPollerService } from './ironbank-poller.service';
 @Module({
   controllers: [IronbankPollerController],
   providers: [IronbankPollerService],
+  exports: [IronbankPollerService],
 })
 export class IronbankPollerModule {}

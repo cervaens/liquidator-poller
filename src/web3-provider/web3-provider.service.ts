@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Catch, Injectable, Logger } from '@nestjs/common';
 import Web3 from 'web3';
 import AWSHttpProvider from '@aws/web3-http-provider';
 import AWSWebsocketProvider from '@aws/web3-ws-provider';
@@ -46,6 +46,7 @@ export const web3Ws = WSProvider(
 );
 
 @Injectable()
+@Catch()
 export class Web3ProviderService {
   private readonly logger = new Logger(Web3ProviderService.name);
   public web3: Web3;

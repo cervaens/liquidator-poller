@@ -11,6 +11,7 @@ export class IBAccount extends StandardAccount {
   public calculatedHealth: number;
   public liqCollateral: Record<string, any> = { valueUSD: 0 };
   public liqBorrow: Record<string, any> = { valueUSD: 0 };
+  public lastUpdated: number;
   private closeFactor = 0.5;
   private liquidationIncentive = 1.08;
 
@@ -18,6 +19,7 @@ export class IBAccount extends StandardAccount {
     super(json);
     this.tokens = json.tokens;
     this.health = json.health || 0;
+    this.lastUpdated = new Date().getTime();
   }
 
   public isCandidate() {
@@ -57,6 +59,10 @@ export class IBAccount extends StandardAccount {
     const top2Borrow = [];
 
     for (const token of this.tokens) {
+      // There are suspended markets not outputted by the API
+      if (Object.keys(iToken).length > 0 && !iToken[token.address]) {
+        return;
+      }
       const underSymbol = iToken[token.address].underlyingSymbol;
       //TODO: changed underlyingAddress by address just till I build the prices part
       const underlyingAddress = iToken[token.address].address;
@@ -116,14 +122,7 @@ export class IBAccount extends StandardAccount {
     if (top2Collateral.length === 0 || top2Borrow.length === 0) {
       return;
     }
-    const ableToPickBest = !(
-      top2Collateral[0].iTokenAddress === top2Borrow[0].iTokenAddress &&
-      top2Collateral[0].iTokenAddress === iToken.cETH.address &&
-      top2Borrow[0].units_underlying * this.closeFactor >=
-        ((parseInt(iToken.cETH.walletBalance) || 0) *
-          iToken.cETH.exchangeRate) /
-          10 ** iToken.cETH.decimals
-    );
+    const ableToPickBest = true;
     const repayIdx =
       !ableToPickBest &&
       top2Borrow[1] &&

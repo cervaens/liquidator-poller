@@ -1,5 +1,6 @@
 import { Controller, Logger } from '@nestjs/common';
 import { AppService } from 'src/app.service';
+import { IbControlService } from 'src/mongodb/ib-control/ib-control.service';
 import { IbTokenService } from 'src/mongodb/ib-token/ib-token.service';
 import { IronbankPollerService } from './ironbank-poller.service';
 
@@ -9,6 +10,7 @@ export class IronbankPollerController {
     private readonly ibPollerService: IronbankPollerService,
     private readonly ibTokenService: IbTokenService,
     private readonly appService: AppService,
+    private readonly ibControlService: IbControlService,
   ) {}
 
   private tokens = [];
@@ -17,12 +19,11 @@ export class IronbankPollerController {
   async onApplicationBootstrap(): Promise<void> {
     await this.pollIBTokens();
     await this.ibPollerService.initTokenContracts();
-    this.ibPollerService.getAccountsFromUnitroller();
 
     setInterval(() => {
       if (
-        this.appService.amItheMaster() &&
-        this.ibPollerService.firstAccountsPollFinished
+        this.appService.amItheMaster()
+        // !this.ibControlService.updatingMarkets
       ) {
         this.ibPollerService.pollAllAccounts();
       }

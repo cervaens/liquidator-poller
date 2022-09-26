@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+// import { IbControlService } from '../ib-control/ib-control.service';
 import { IBtoken } from '../ib-token/ib-token.schema';
 import { IBAccount } from './classes/IBAccount';
 import { IBaccounts, IBaccountsDocument } from './ib-accounts.schema';
@@ -9,47 +10,76 @@ import { IBaccounts, IBaccountsDocument } from './ib-accounts.schema';
 export class IbAccountsService {
   constructor(
     @InjectModel(IBaccounts.name)
-    private ibAccountsModel: Model<IBaccountsDocument>,
+    private ibAccountsModel: Model<IBaccountsDocument>, // private readonly ibControl: IbControlService,
   ) {}
 
-  async accountEntersMarket(account: string, market: string) {
+  async accountEntersMarket(
+    account: string,
+    market: string,
+    blockNumber: number,
+  ) {
     return this.ibAccountsModel
-      .findByIdAndUpdate(account, {
-        address: account,
-        $addToSet: {
-          tokenList: market,
-        },
-      })
-      .setOptions({ upsert: true })
-      .then(async (res) => {
-        if (!res || !res.tokens.find((doc) => doc.address === market)) {
-          await this.ibAccountsModel.updateOne(
-            { _id: account },
-            {
-              $push: {
-                tokens: {
-                  address: market,
-                  borrow_balance_underlying: null,
-                  supply_balance_underlying: null,
+      .findByIdAndUpdate(account, [
+        {
+          $set: {
+            address: account,
+            lastBlockNumber: blockNumber,
+            tokens: {
+              $cond: {
+                if: {
+                  $eq: [
+                    {
+                      $type: '$tokens',
+                    },
+                    'array',
+                  ],
                 },
+                then: {
+                  $cond: {
+                    if: { $in: [market, '$tokens.address'] },
+                    then: '$tokens',
+                    else: {
+                      $concatArrays: [
+                        '$tokens',
+                        [
+                          {
+                            address: market,
+                            borrow_balance_underlying: null,
+                            supply_balance_underlying: null,
+                          },
+                        ],
+                      ],
+                    },
+                  },
+                },
+                else: [
+                  {
+                    address: market,
+                    borrow_balance_underlying: null,
+                    supply_balance_underlying: null,
+                  },
+                ],
               },
             },
-          );
-        }
-      });
+          },
+        },
+      ])
+      .setOptions({ upsert: true });
   }
 
-  async accountExitsMarket(account: string, market: string): Promise<any> {
-    return this.ibAccountsModel
-      .findByIdAndUpdate(account, {
-        $pull: {
-          tokens: {
-            address: market,
-          },
-          tokenList: market,
+  async accountExitsMarket(
+    account: string,
+    market: string,
+    blockNumber: number,
+  ): Promise<any> {
+    return this.ibAccountsModel.findByIdAndUpdate(account, {
+      $set: { lastBlockNumber: blockNumber },
+      $pull: {
+        tokens: {
+          address: market,
         },
-      })
-      .setOptions({ upsert: true });
+      },
+    });
   }
 
   async updateBalances(
@@ -83,6 +113,10 @@ export class IbAccountsService {
 
   async findAll(): Promise<IBaccounts[]> {
     return this.ibAccountsModel.find().exec();
+  }
+
+  async getLastAccountByBlockNumber(): Promise<IBaccounts> {
+    return this.ibAccountsModel.findOne().sort({ lastBlockNumber: -1 }).lean();
   }
 
   async findAccount(account: string): Promise<IBaccounts> {

@@ -89,11 +89,17 @@ export class CompoundAccount extends StandardAccount {
 
       if (token.supply_balance_underlying > 0) {
         const colFactor = cToken[token.symbol].collateralFactor;
+        // DEV purposes
+        if (
+          !uAddressPricesUSD[underlyingAddress] ||
+          !uAddressPricesUSD[underlyingAddress].price
+        ) {
+          console.log('No price for ' + underlyingAddress);
+        }
         const valueUSD =
           (token.supply_balance_underlying *
-            ((uAddressPricesUSD[underlyingAddress] &&
-              uAddressPricesUSD[underlyingAddress].price) ||
-              0)) /
+            (uAddressPricesUSD[underlyingAddress] &&
+              uAddressPricesUSD[underlyingAddress].price)) /
           10 ** 6;
         totalDepositUSD += colFactor * valueUSD;
 
@@ -114,11 +120,17 @@ export class CompoundAccount extends StandardAccount {
         }
       }
       if (token.borrow_balance_underlying > 0) {
+        // DEV purposes
+        if (
+          !uAddressPricesUSD[underlyingAddress] ||
+          !uAddressPricesUSD[underlyingAddress].price
+        ) {
+          console.log('No price for ' + underlyingAddress);
+        }
         const valueUSD =
           (token.borrow_balance_underlying *
-            ((uAddressPricesUSD[underlyingAddress] &&
-              uAddressPricesUSD[underlyingAddress].price) ||
-              0)) /
+            (uAddressPricesUSD[underlyingAddress] &&
+              uAddressPricesUSD[underlyingAddress].price)) /
           10 ** 6;
 
         totalBorrowUSD += valueUSD;

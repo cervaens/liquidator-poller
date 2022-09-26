@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Catch, Injectable, Logger } from '@nestjs/common';
 import { IronBankToken } from '../../mongodb/ib-token/classes/IronBankToken';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
@@ -7,11 +7,11 @@ import { Web3ProviderService } from 'src/web3-provider/web3-provider.service';
 import { IbAccountsService } from 'src/mongodb/ib-accounts/ib-accounts.service';
 import { IbControlService } from 'src/mongodb/ib-control/ib-control.service';
 import { IbTokenService } from 'src/mongodb/ib-token/ib-token.service';
-import Web3 from 'web3';
 import iTokenAbi from './abis/iTokenAbi.json';
 import { AbiItem } from 'web3-utils';
 
 @Injectable()
+@Catch()
 export class IronbankPollerService {
   constructor(
     private readonly httpService: HttpService,
@@ -24,7 +24,6 @@ export class IronbankPollerService {
   private readonly logger = new Logger(IronbankPollerService.name);
 
   private tokenContract = {};
-  public firstAccountsPollFinished = false;
   public accountsSubsciption;
   private tokenObj;
 
@@ -67,10 +66,11 @@ export class IronbankPollerService {
   }
 
   async getAccountsFromUnitroller() {
-    const controlObj = await this.ibControl.getControlObj();
+    const lastAccount = await this.ibAccounts.getLastAccountByBlockNumber();
     const options = {
-      fromBlock: controlObj.lastBlockNumberUnitrollerPoller || 15457563, // If this is uncommented, it will retrieve ALL the logs, enable at your own risk, infura might to throttle the calls temporarily (and actually has a limit of 10000 results)
+      fromBlock: lastAccount.lastBlockNumber || 1, // If this is uncommented, it will retrieve ALL the logs, enable at your own risk, infura might to throttle the calls temporarily (and actually has a limit of 10000 results)
       address: [process.env.IB_UNITROLLER_ADDRESS],
+      topics: [[this.topicEnter, this.topicExit]],
     };
 
     this.logger.debug(
@@ -88,7 +88,6 @@ export class IronbankPollerService {
       },
     ];
 
-    let timeOut: any;
     this.accountsSubsciption = this.web3Provider
       .getWsProvider('Alchemy')
       .eth.subscribe('logs', options, async (err, tx) => {
@@ -102,9 +101,6 @@ export class IronbankPollerService {
         tx.topics.forEach((topic) => {
           // If the Transaction Topic is Deposit / Withdraw / Borrow / Repay
           if (topic === this.topicEnter || topic === this.topicExit) {
-            if (timeOut) {
-              clearTimeout(timeOut);
-            }
             // // decode the transaction data byte code so it's readable
             const result = this.web3Provider.web3.eth.abi.decodeLog(
               logInput,
@@ -112,27 +108,18 @@ export class IronbankPollerService {
               tx.topics,
             );
 
+            // this.ibControl.updatingMarkets = true;
             topic === this.topicEnter
               ? this.ibAccounts.accountEntersMarket(
                   result.account,
                   result.market,
+                  tx.blockNumber,
                 )
               : this.ibAccounts.accountExitsMarket(
                   result.account,
                   result.market,
+                  tx.blockNumber,
                 );
-
-            // We just want to update blockNumber when its the last of a bunch
-            timeOut = setTimeout(() => {
-              this.logger.debug(
-                'Updating lastBlockNumber for Unitroller Poller',
-              );
-              this.ibControl.updateItem(
-                'lastBlockNumberUnitrollerPoller',
-                tx.blockNumber,
-              );
-              this.firstAccountsPollFinished = true;
-            }, 200);
           }
         });
       });
@@ -147,6 +134,14 @@ export class IronbankPollerService {
   }
 
   async getAccountBalanceFromToken(account: string, iToken: string) {
+    // There are suspended markets not outputted by the API
+    if (
+      Object.keys(this.tokenContract).length > 0 &&
+      !this.tokenContract[iToken]
+    ) {
+      this.logger.error('No contract for iToken: ' + iToken);
+      return Promise.resolve([0, 0, 0]);
+    }
     return this.tokenContract[iToken].methods
       .getAccountSnapshot(account)
       .call();
@@ -162,10 +157,12 @@ export class IronbankPollerService {
         promises[account._id] = {};
       }
       for (const token of account.tokens) {
-        promises[account._id][token.address] = this.getAccountBalanceFromToken(
-          account._id,
-          token.address,
-        );
+        try {
+          promises[account._id][token.address] =
+            this.getAccountBalanceFromToken(account._id, token.address);
+        } catch (error) {
+          this.logger.error(error.message);
+        }
       }
     }
     const updatedAccounts = [];
@@ -189,7 +186,7 @@ export class IronbankPollerService {
     };
 
     await promiseExecution();
-
+    // this.logger.debug('Updating accounts' + JSON.stringify(updatedAccounts));
     this.logger.debug('IB: Finished polling accounts balances');
     // While I dont develop prices poll I pass the tokens obj
     await this.ibAccounts.calculateHealthAndStore(

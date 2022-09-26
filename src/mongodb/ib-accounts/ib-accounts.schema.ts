@@ -20,11 +20,11 @@ export class IBaccounts {
   @Prop({ required: true })
   tokens: Token[];
 
-  @Prop({ required: true })
-  tokenList: Array<string>;
-
   @Prop()
   health: number;
+
+  @Prop()
+  lastBlockNumber: number;
 
   @Prop()
   lastUpdated: Date;
