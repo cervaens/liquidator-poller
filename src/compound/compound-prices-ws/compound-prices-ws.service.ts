@@ -19,6 +19,7 @@ export class CompoundPricesWsService {
   private readonly logger = new Logger(CompoundPricesWsService.name);
   private cTokenFromHash: Record<string, Record<string, any>> = {};
   private providerId: string;
+  private protocol = 'Compound';
 
   constructor(
     private readonly amqpConnection: AmqpConnection,
@@ -107,11 +108,10 @@ export class CompoundPricesWsService {
       // just not to trigger the same logic per price on the same second
       if (msgPrices.length === 1) {
         setTimeout(() => {
-          this.amqpConnection.publish(
-            'liquidator-exchange',
-            'prices-updated',
-            msgPrices,
-          );
+          this.amqpConnection.publish('liquidator-exchange', 'prices-updated', {
+            protocol: this.protocol,
+            prices: msgPrices,
+          });
           msgPrices = [];
         }, 200);
       }

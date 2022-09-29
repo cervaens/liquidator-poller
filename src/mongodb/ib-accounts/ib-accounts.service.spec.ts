@@ -49,7 +49,7 @@ describe('IbAccountsService', () => {
     await service.accountEntersMarket('testAccountBalance', 'testMarket', 133);
     await service.updateBalances('testAccountBalance', 'testMarket', 123, 456);
     const res = await service.findAccount('testAccountBalance');
-    expect(res.tokens[0].supply_balance_underlying).toEqual(456);
+    expect(res.tokens[0].supply_balance_itoken).toEqual(456);
     expect(res.tokens[0].borrow_balance_underlying).toEqual(123);
   });
 

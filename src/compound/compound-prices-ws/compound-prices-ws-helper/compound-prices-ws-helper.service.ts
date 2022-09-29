@@ -75,7 +75,7 @@ export class CompoundPricesWsHelperService {
   }
 
   async getTokensPrice(tokens: Array<Record<string, any>>) {
-    this.logger.debug('Getting Token prices');
+    this.logger.debug('Getting Compound Token prices');
     const tokenPrices = {};
     const promises: Record<string, Promise<any>> = {};
 
@@ -112,11 +112,10 @@ export class CompoundPricesWsHelperService {
     };
 
     await promiseExecution();
-    this.amqpConnection.publish(
-      'liquidator-exchange',
-      'prices-polled',
-      tokenPrices,
-    );
+    this.amqpConnection.publish('liquidator-exchange', 'prices-polled', {
+      protocol: 'Compound',
+      prices: tokenPrices,
+    });
     return tokenPrices;
   }
 

@@ -1,8 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { AmqpConnection, RabbitSubscribe } from '@golevelup/nestjs-rabbitmq';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import { IronBankToken } from '../ib-token/classes/IronBankToken';
 // import { IbControlService } from '../ib-control/ib-control.service';
-import { IBtoken } from '../ib-token/ib-token.schema';
+// import { IBtoken } from '../ib-token/ib-token.schema';
 import { IBAccount } from './classes/IBAccount';
 import { IBaccounts, IBaccountsDocument } from './ib-accounts.schema';
 
@@ -10,8 +12,13 @@ import { IBaccounts, IBaccountsDocument } from './ib-accounts.schema';
 export class IbAccountsService {
   constructor(
     @InjectModel(IBaccounts.name)
-    private ibAccountsModel: Model<IBaccountsDocument>, // private readonly ibControl: IbControlService,
+    private ibAccountsModel: Model<IBaccountsDocument>,
+    private readonly amqpConnection: AmqpConnection,
   ) {}
+
+  private readonly logger = new Logger(IbAccountsService.name);
+  private allActiveCandidates: Record<string, number> = {};
+  private protocol = 'IronBank';
 
   async accountEntersMarket(
     account: string,
@@ -45,7 +52,7 @@ export class IbAccountsService {
                           {
                             address: market,
                             borrow_balance_underlying: null,
-                            supply_balance_underlying: null,
+                            supply_balance_itoken: null,
                           },
                         ],
                       ],
@@ -56,7 +63,7 @@ export class IbAccountsService {
                   {
                     address: market,
                     borrow_balance_underlying: null,
-                    supply_balance_underlying: null,
+                    supply_balance_itoken: null,
                   },
                 ],
               },
@@ -94,7 +101,7 @@ export class IbAccountsService {
         {
           $set: {
             'tokens.$.borrow_balance_underlying': borrowBalance,
-            'tokens.$.supply_balance_underlying': supplyBalance,
+            'tokens.$.supply_balance_itoken': supplyBalance,
             lastUpdated: new Date().getTime(),
           },
         },
@@ -125,13 +132,23 @@ export class IbAccountsService {
 
   async calculateHealthAndStore(
     accounts: Array<Record<string, any>>,
-    iTokens: Array<IBtoken>,
+    iTokens: Record<string, IronBankToken>,
     prices: Record<string, any>,
   ) {
     const queries = [];
+    const candidatesUpdated = [];
+    const candidatesNew = [];
+
     for (const account of accounts) {
       const ibAccount = new IBAccount(account);
       ibAccount.updateAccount(iTokens, prices);
+
+      if (ibAccount.isCandidate()) {
+        !this.allActiveCandidates[ibAccount._id]
+          ? candidatesNew.push(account)
+          : candidatesUpdated.push(account);
+      }
+
       queries.push({
         updateOne: {
           filter: { _id: ibAccount._id },
@@ -142,6 +159,59 @@ export class IbAccountsService {
     }
 
     const res = await this.ibAccountsModel.bulkWrite(queries);
+
+    if (candidatesNew.length > 0) {
+      if (candidatesNew.length > 0) {
+        this.amqpConnection.publish('liquidator-exchange', 'candidates-new', {
+          accounts: candidatesNew,
+          protocol: this.protocol,
+          // timestamp: msg.timestamp,
+        });
+        // this.logger.debug(
+        //   candidatesNew.length + ' new Compound candidates were sent',
+        // );
+      }
+
+      if (candidatesUpdated.length > 0) {
+        this.amqpConnection.publish(
+          'liquidator-exchange',
+          'candidates-updated',
+          {
+            accounts: candidatesUpdated,
+            protocol: this.protocol,
+            // timestamp: msg.timestamp,
+          },
+        );
+      }
+    }
+
     return res;
+  }
+
+  @RabbitSubscribe({
+    exchange: 'liquidator-exchange',
+    routingKey: 'ib-candidates-list',
+  })
+  public async updateAllCandidatesList(msg: Record<string, any>) {
+    if (msg.protocol !== this.protocol) {
+      return;
+    }
+    const curNumberCandidates = Object.keys(this.allActiveCandidates).length;
+
+    if (msg.action === 'insert') {
+      this.allActiveCandidates = { ...this.allActiveCandidates, ...msg.ids };
+    } else if (msg.action === 'deleteBelowTimestamp') {
+      for (const id of Object.keys(this.allActiveCandidates)) {
+        if (this.allActiveCandidates[id] < msg.timestamp) {
+          delete this.allActiveCandidates[id];
+        }
+      }
+    }
+
+    if (curNumberCandidates !== Object.keys(this.allActiveCandidates).length) {
+      this.logger.debug(
+        'Total nr. candidates: ' + Object.keys(this.allActiveCandidates).length,
+      );
+    }
   }
 }

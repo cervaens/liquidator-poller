@@ -20,15 +20,23 @@ export class CandidatesController {
     setInterval(() => {
       if (!this.candidatesService.getIsNextInit()) {
         const time = new Date().getTime();
-        const candidateIds = {};
-        Object.keys(this.candidatesService.getCandidates()).forEach((id) => {
-          candidateIds[id] = time;
-        });
+        const candidates = this.candidatesService.getCandidates();
+        for (const protocol of Object.keys(candidates)) {
+          const candidateIds = {};
+          Object.keys(candidates[protocol]).forEach((id) => {
+            candidateIds[id] = time;
+          });
 
-        this.amqpConnection.publish('liquidator-exchange', 'candidates-list', {
-          action: 'insert',
-          ids: candidateIds,
-        });
+          this.amqpConnection.publish(
+            'liquidator-exchange',
+            'candidates-list',
+            {
+              action: 'insert',
+              ids: candidateIds,
+              protocol,
+            },
+          );
+        }
       }
     }, this.candidatesTimeout);
 
@@ -91,6 +99,6 @@ export class CandidatesController {
 
   @Get('ready-for-liquidation')
   getReadyForLiq(): Array<CompoundAccount> {
-    return this.candidatesService.getCandidatesForLiquidation();
+    return this.candidatesService.getCandidatesForLiquidation('Compound');
   }
 }

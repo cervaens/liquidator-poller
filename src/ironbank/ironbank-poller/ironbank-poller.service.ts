@@ -2,10 +2,10 @@ import { Catch, Injectable, Logger } from '@nestjs/common';
 import { IronBankToken } from '../../mongodb/ib-token/classes/IronBankToken';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
-import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
+import { AmqpConnection, RabbitSubscribe } from '@golevelup/nestjs-rabbitmq';
 import { Web3ProviderService } from 'src/web3-provider/web3-provider.service';
 import { IbAccountsService } from 'src/mongodb/ib-accounts/ib-accounts.service';
-import { IbControlService } from 'src/mongodb/ib-control/ib-control.service';
+// import { IbControlService } from 'src/mongodb/ib-control/ib-control.service';
 import { IbTokenService } from 'src/mongodb/ib-token/ib-token.service';
 import iTokenAbi from './abis/iTokenAbi.json';
 import { AbiItem } from 'web3-utils';
@@ -18,19 +18,32 @@ export class IronbankPollerService {
     private readonly amqpConnection: AmqpConnection,
     private readonly web3Provider: Web3ProviderService,
     private readonly ibAccounts: IbAccountsService,
-    private readonly ibControl: IbControlService,
+    // private readonly ibControl: IbControlService,
     private readonly ibToken: IbTokenService,
   ) {}
   private readonly logger = new Logger(IronbankPollerService.name);
+  private protocol = 'IronBank';
 
   private tokenContract = {};
-  public accountsSubsciption;
-  private tokenObj;
+  public accountsSubscription;
+  public tokenObj: Record<string, IronBankToken> = {};
+  private iTokenPrices: Record<string, any>;
 
   private topicEnter =
     '0x3ab23ab0d51cccc0c3085aec51f99228625aa1a922b3a8ca89a26b0f2027a1a5';
   private topicExit =
     '0xe699a64c18b07ac5b7301aa273f36a2287239eb9501d81950672794afba29a0d';
+
+  @RabbitSubscribe({
+    exchange: 'liquidator-exchange',
+    routingKey: 'prices-polled',
+  })
+  async updateItokensHandler(msg: Record<string, any>) {
+    if (msg.protocol !== this.protocol) {
+      return;
+    }
+    this.iTokenPrices = { ...this.iTokenPrices, ...msg.prices };
+  }
 
   async fetchIBtokens(withConfig: Record<string, any>) {
     const json = await this.fetch('itoken', withConfig);
@@ -51,12 +64,13 @@ export class IronbankPollerService {
     const tokens =
       json.data.map((i: Record<string, any>) => new IronBankToken(i)) || [];
 
-    this.tokenObj = {};
     for (const token of tokens) {
       this.tokenObj[token.address] = token;
     }
-    this.amqpConnection.publish('liquidator-exchange', 'itokens-polled', {
-      ...this.tokenObj,
+    this.logger.debug('Publishing polled iTokens');
+    this.amqpConnection.publish('liquidator-exchange', 'tokens-polled', {
+      tokens: this.tokenObj,
+      protocol: this.protocol,
     });
 
     return {
@@ -88,7 +102,7 @@ export class IronbankPollerService {
       },
     ];
 
-    this.accountsSubsciption = this.web3Provider
+    this.accountsSubscription = this.web3Provider
       .getWsProvider('Alchemy')
       .eth.subscribe('logs', options, async (err, tx) => {
         if (err || tx == null) {
@@ -126,7 +140,7 @@ export class IronbankPollerService {
   }
 
   unsubscribeWs() {
-    this.accountsSubsciption.unsubscribe((error, success) => {
+    this.accountsSubscription.unsubscribe((error, success) => {
       if (success) {
         this.logger.debug('IB: Successfully unsubscribed from logs.');
       }
@@ -147,7 +161,20 @@ export class IronbankPollerService {
       .call();
   }
 
-  async pollAllAccounts() {
+  @RabbitSubscribe({
+    exchange: 'liquidator-exchange',
+    routingKey: 'fetch-ib-accounts',
+    queue: 'fetch-ib-accounts',
+  })
+  async fetchAccounts() {
+    if (
+      !this.tokenObj ||
+      !this.iTokenPrices ||
+      Object.keys(this.tokenObj).length === 0 ||
+      Object.keys(this.iTokenPrices).length === 0
+    ) {
+      return;
+    }
     const accounts = await this.ibAccounts.findAllSortedLimited();
     this.logger.debug(`IB: Polling ${accounts.length} accounts balances`);
     const promises: Record<string, Record<string, Promise<any>>> = {};
@@ -175,7 +202,7 @@ export class IronbankPollerService {
             tokens.push({
               address: tokenId,
               borrow_balance_underlying: parseFloat(res[2]),
-              supply_balance_underlying: parseFloat(res[1]),
+              supply_balance_itoken: parseFloat(res[1]),
             });
           } catch (error) {
             this.logger.error(error.message);
@@ -189,12 +216,16 @@ export class IronbankPollerService {
     // this.logger.debug('Updating accounts' + JSON.stringify(updatedAccounts));
     this.logger.debug('IB: Finished polling accounts balances');
     // While I dont develop prices poll I pass the tokens obj
+
+    this.amqpConnection.publish('liquidator-exchange', 'ib-accounts-polled', {
+      accounts: updatedAccounts,
+    });
+
     await this.ibAccounts.calculateHealthAndStore(
       updatedAccounts,
       this.tokenObj,
-      this.tokenObj,
+      this.iTokenPrices,
     );
-    return true;
   }
 
   async initTokenContracts() {

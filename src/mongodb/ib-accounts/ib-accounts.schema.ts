@@ -6,9 +6,15 @@ export type IBaccountsDocument = IBaccounts & Document;
 class Token {
   address: string;
   borrow_balance_underlying: number;
-  supply_balance_underlying: number;
+  supply_balance_itoken: number;
 }
 
+class Liquidation {
+  valueUSD: number;
+  symbol_underlying: string;
+  iTokenAddress: string;
+  units_underlying: number;
+}
 @Schema()
 export class IBaccounts {
   @Prop({ required: true })
@@ -35,11 +41,11 @@ export class IBaccounts {
   @Prop()
   total_collateral_value_in_eth: number;
 
-  // @Prop()
-  // liqCollateral: Liquidation;
+  @Prop()
+  liqCollateral: Liquidation;
 
-  // @Prop()
-  // liqBorrow: Liquidation;
+  @Prop()
+  liqBorrow: Liquidation;
 
   @Prop()
   calculatedHealth: number;

@@ -14,6 +14,7 @@ import { AmqpConnection, RabbitSubscribe } from '@golevelup/nestjs-rabbitmq';
 export class CompoundAccountsService {
   private readonly logger = new Logger(CompoundAccountsService.name);
   private allActiveCandidates: Record<string, number> = {};
+  private protocol = 'Compound';
 
   constructor(
     @InjectModel(CompoundAccounts.name)
@@ -38,6 +39,9 @@ export class CompoundAccountsService {
     routingKey: 'candidates-list',
   })
   public async updateAllCandidatesList(msg: Record<string, any>) {
+    if (msg.protocol !== this.protocol) {
+      return;
+    }
     const curNumberCandidates = Object.keys(this.allActiveCandidates).length;
     if (msg.action === 'insert') {
       this.allActiveCandidates = { ...this.allActiveCandidates, ...msg.ids };
@@ -101,6 +105,7 @@ export class CompoundAccountsService {
           accounts: candidatesNew,
           init: msg.init,
           timestamp: msg.timestamp,
+          protocol: this.protocol,
         });
         // this.logger.debug(
         //   candidatesNew.length + ' new Compound candidates were sent',
@@ -113,6 +118,7 @@ export class CompoundAccountsService {
           'candidates-updated',
           {
             accounts: candidatesUpdated,
+            protocol: this.protocol,
             timestamp: msg.timestamp,
           },
         );

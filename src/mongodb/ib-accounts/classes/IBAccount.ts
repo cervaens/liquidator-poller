@@ -47,6 +47,8 @@ export class IBAccount extends StandardAccount {
     chainlinkPricesUSD: Record<string, any>,
   ) {
     if (
+      !iToken ||
+      !chainlinkPricesUSD ||
       Object.keys(iToken).length === 0 ||
       Object.keys(chainlinkPricesUSD).length === 0 ||
       this.tokens.length === 0
@@ -63,27 +65,32 @@ export class IBAccount extends StandardAccount {
       if (Object.keys(iToken).length > 0 && !iToken[token.address]) {
         return;
       }
+      if (!chainlinkPricesUSD[token.address]) {
+        console.log('No price for ' + token.address);
+        return;
+      }
       const underSymbol = iToken[token.address].underlyingSymbol;
-      //TODO: changed underlyingAddress by address just till I build the prices part
-      const underlyingAddress = iToken[token.address].address;
+      //TODO: changed token.address by address just till I build the prices part
+      // const underlyingAddress = iToken[token.address].address;
       const decimals_underlying = iToken[token.address].decimals_underlying;
+      const exchangeRate = iToken[token.address].exchangeRate;
 
-      if (token.supply_balance_underlying > 0) {
+      if (token.supply_balance_itoken > 0) {
         const colFactor = iToken[token.address].collateralFactor;
+        const units_underlying = token.supply_balance_itoken * exchangeRate;
         const valueUSD =
-          (token.supply_balance_underlying *
-            ((chainlinkPricesUSD[underlyingAddress] &&
-              chainlinkPricesUSD[underlyingAddress].price) ||
-              0)) /
-          (10 ** 6 * 10 ** decimals_underlying);
+          (units_underlying *
+            (chainlinkPricesUSD[token.address] &&
+              chainlinkPricesUSD[token.address].price)) /
+          10 ** 8;
         totalDepositUSD += colFactor * valueUSD;
 
         const collateralObj = {
           valueUSD,
           symbol_underlying: underSymbol,
           iTokenAddress: token.address,
-          units_underlying: token.supply_balance_underlying,
-          decimals_underlying,
+          units_underlying,
+          // decimals_underlying,
         };
         if (!top2Collateral[0] || valueUSD > top2Collateral[0].valueUSD) {
           top2Collateral.unshift(collateralObj);
@@ -97,10 +104,9 @@ export class IBAccount extends StandardAccount {
       if (token.borrow_balance_underlying > 0) {
         const valueUSD =
           (token.borrow_balance_underlying *
-            ((chainlinkPricesUSD[underlyingAddress] &&
-              chainlinkPricesUSD[underlyingAddress].price) ||
-              0)) /
-          (10 ** 6 * 10 ** decimals_underlying);
+            (chainlinkPricesUSD[token.address] &&
+              chainlinkPricesUSD[token.address].price)) /
+          10 ** decimals_underlying;
 
         totalBorrowUSD += valueUSD;
 
@@ -109,7 +115,7 @@ export class IBAccount extends StandardAccount {
           symbol_underlying: underSymbol,
           iTokenAddress: token.address,
           units_underlying: token.borrow_balance_underlying,
-          decimals_underlying,
+          // decimals_underlying,
         };
         if (!top2Borrow[0] || valueUSD > top2Borrow[0].valueUSD) {
           top2Borrow.unshift(borrowObj);
@@ -136,6 +142,7 @@ export class IBAccount extends StandardAccount {
     this.liqCollateral = top2Collateral[seizeIdx] || {};
 
     this.health = totalDepositUSD / totalBorrowUSD;
+    console.log(this.health);
     this.profitUSD =
       Math.min(
         this.liqBorrow.valueUSD * this.closeFactor,

@@ -2,16 +2,35 @@ import { AmqpConnection, RabbitSubscribe } from '@golevelup/nestjs-rabbitmq';
 import { Injectable, Logger } from '@nestjs/common';
 // import { StandardAccount } from 'src/classes/StandardAccount';
 import { CompoundAccount } from 'src/mongodb/compound-accounts/classes/CompoundAccount';
+import { IBAccount } from 'src/mongodb/ib-accounts/classes/IBAccount';
 
 @Injectable()
 export class CandidatesService {
   constructor(private readonly amqpConnection: AmqpConnection) {}
-  private activeModuleCandidates: Record<string, CompoundAccount> = {};
+  private activeModuleCandidates: Record<
+    string,
+    Record<string, CompoundAccount | IBAccount>
+  > = {};
   private readonly logger = new Logger(CandidatesService.name);
   private nextInit = 0;
 
-  private cToken: Record<string, any> = {};
-  private uAddressPricesUSD: Record<string, Record<string, number>> = {};
+  private protocolClass = {
+    Compound: CompoundAccount,
+    IronBank: IBAccount,
+  };
+  private tokens: Record<string, any> = {};
+  private pricesUSD: Record<string, Record<string, Record<string, number>>> =
+    {};
+
+  getNrCandidates(): Record<string, number> {
+    const result = {};
+    for (const protocol of Object.keys(this.activeModuleCandidates)) {
+      result[protocol] = Object.keys(
+        this.activeModuleCandidates[protocol],
+      ).length;
+    }
+    return result;
+  }
 
   getCandidates(): Record<string, Record<string, any>> {
     return this.activeModuleCandidates;
@@ -30,9 +49,12 @@ export class CandidatesService {
     routingKey: 'token-wallet-balance',
   })
   public async updateTokenBalances(msg: Record<string, number>) {
-    if (this.cToken[msg.token]) {
-      this.cToken[msg.token].walletBalance = msg.balance;
+    for (const protocol of Object.keys(this.tokens)) {
+      if (this.tokens[protocol][msg.token]) {
+        this.tokens[protocol][msg.token].walletBalance = msg.balance;
+      }
     }
+
     this.logger.debug('Got token balance: ' + JSON.stringify(msg));
   }
 
@@ -40,10 +62,16 @@ export class CandidatesService {
     return this.nextInit;
   }
 
-  getCandidatesForLiquidation(): Array<CompoundAccount> {
+  getCandidatesForLiquidation(protocol: string): Array<any> {
     const candidatesToLiquidate = [];
-    for (const candidate of Object.values(this.activeModuleCandidates)) {
-      candidate.updateAccount(this.cToken, this.uAddressPricesUSD);
+    if (!this.activeModuleCandidates[protocol]) {
+      return;
+    }
+
+    for (const candidate of Object.values(
+      this.activeModuleCandidates[protocol],
+    )) {
+      candidate.updateAccount(this.tokens[protocol], this.pricesUSD[protocol]);
       if (
         candidate.profitUSD >
           parseInt(process.env.LIQUIDATION_MIN_USD_PROFIT) &&
@@ -58,19 +86,28 @@ export class CandidatesService {
 
   @RabbitSubscribe({
     exchange: 'liquidator-exchange',
-    routingKey: 'ctokens-polled',
+    routingKey: 'tokens-polled',
   })
-  public async updateCtokensHandler(msg: Record<string, number>) {
-    this.cToken = msg;
+  public async updateTokensHandler(msg: Record<string, number>) {
+    this.tokens[msg.protocol] = msg.tokens;
   }
 
   @RabbitSubscribe({
     exchange: 'liquidator-exchange',
     routingKey: 'prices-polled',
   })
-  public async updatePricesHandler(msg: Record<string, Record<string, any>>) {
-    this.uAddressPricesUSD = msg;
+  public async updatePrices(msg: Record<string, any>) {
+    this.pricesUSD[msg.protocol] = msg.prices;
   }
+
+  // @RabbitSubscribe({
+  //   exchange: 'liquidator-exchange',
+  //   routingKey: 'ib-prices-polled',
+  // })
+  // public async updateIBPrices(msg: Record<string, any>) {
+  //   this.ibPricesUSD = msg;
+  //   this.pricesUSD[msg.protocol] = msg.prices;
+  // }
 
   @RabbitSubscribe({
     exchange: 'liquidator-exchange',
@@ -83,14 +120,24 @@ export class CandidatesService {
     // candidate distribution
     if (this.nextInit && msg.timestamp > this.nextInit) {
       this.activeModuleCandidates = {};
+      this.activeModuleCandidates[msg.protocol] = {};
       this.nextInit = 0;
     }
 
+    // Have to have this due to msgs from mq at init
+    if (!this.activeModuleCandidates[msg.protocol]) {
+      this.activeModuleCandidates[msg.protocol] = {};
+    }
+
     for (const account of msg.accounts) {
-      const compoundAccount = new CompoundAccount(account);
-      candidateIds[compoundAccount._id] = msg.timestamp;
-      compoundAccount.updateAccount(this.cToken, this.uAddressPricesUSD);
-      this.activeModuleCandidates[account.address] = compoundAccount;
+      const protocolAccount = new this.protocolClass[msg.protocol](account);
+      candidateIds[protocolAccount._id] = msg.timestamp;
+      protocolAccount.updateAccount(
+        this.tokens[msg.protocol],
+        this.pricesUSD[msg.protocol],
+      );
+      this.activeModuleCandidates[msg.protocol][account.address] =
+        protocolAccount;
     }
     // this.logger.debug('Added ' + msg.accounts.length + ' new candidates');
 
@@ -98,9 +145,10 @@ export class CandidatesService {
     this.amqpConnection.publish('liquidator-exchange', 'candidates-list', {
       action: 'insert',
       ids: candidateIds,
+      protocol: msg.protocol,
     });
     this.logger.debug(
-      'Worker nr. candidates: ' + Object.keys(this.getCandidates()).length,
+      'Worker nr. candidates: ' + JSON.stringify(this.getNrCandidates()),
     );
     // }
   }
@@ -109,15 +157,18 @@ export class CandidatesService {
     exchange: 'liquidator-exchange',
     routingKey: 'prices-updated',
   })
-  public async pricesUpdated(msg: Array<Record<string, any>>) {
+  public async pricesUpdated(msg: Record<string, any>) {
     let liquidate = false;
-    for (const priceObj of msg) {
+    for (const priceObj of msg.prices) {
+      if (!this.pricesUSD[msg.protocol]) {
+        this.pricesUSD[msg.protocol] = {};
+      }
       if (
-        !this.uAddressPricesUSD[priceObj.underlyingAddress] ||
-        this.uAddressPricesUSD[priceObj.underlyingAddress].blockNumber <
+        !this.pricesUSD[msg.protocol][priceObj.underlyingAddress] ||
+        this.pricesUSD[msg.protocol][priceObj.underlyingAddress].blockNumber <
           priceObj.blockNumber
       ) {
-        this.uAddressPricesUSD[priceObj.underlyingAddress] = {
+        this.pricesUSD[msg.protocol][priceObj.underlyingAddress] = {
           blockNumber: priceObj.blockNumber,
           price: priceObj.price,
         };
@@ -125,42 +176,30 @@ export class CandidatesService {
       }
     }
     if (liquidate) {
-      this.liquidateCandidates();
+      this.liquidateCandidates(msg.protocol);
     }
   }
-
-  // @RabbitSubscribe({
-  //   exchange: 'liquidator-exchange',
-  //   routingKey: 'candidates-delete',
-  //   queue: 'candidates-delete',
-  // })
-  // public async deleteCandidates(msg: Record<string, Array<string>>) {
-  //   for (const id of msg.ids) {
-  //     delete this.activeModuleCandidates[id];
-  //   }
-  //   this.logger.debug('Deleted ' + msg.ids.length + ' candidate(s)');
-
-  //   // Adding new candidates to global list
-  //   this.amqpConnection.publish('liquidator-exchange', 'candidates-list', {
-  //     action: 'delete',
-  //     ids: msg.ids,
-  //   });
-  // }
 
   @RabbitSubscribe({
     exchange: 'liquidator-exchange',
     routingKey: 'candidates-updated',
   })
-  public async updateCandidates(
-    msg: Record<string, Array<Record<string, any>>>,
-  ) {
+  public async updateCandidates(msg: Record<string, any>) {
     // const updateList = {};
     for (const account of msg.accounts) {
-      const compoundAccount = new CompoundAccount(account);
-      compoundAccount.updateAccount(this.cToken, this.uAddressPricesUSD);
-      if (this.activeModuleCandidates[compoundAccount.address]) {
-        this.activeModuleCandidates[compoundAccount.address] = compoundAccount;
-        // updateList[compoundAccount._id] = msg.timestamp;
+      // TODO: deal with account classes here
+      const protocolAccount = new this.protocolClass[msg.protocol](account);
+      protocolAccount.updateAccount(
+        this.tokens[msg.protocol],
+        this.pricesUSD[msg.protocol],
+      );
+      if (
+        this.activeModuleCandidates[msg.protocol] &&
+        this.activeModuleCandidates[msg.protocol][protocolAccount.address]
+      ) {
+        this.activeModuleCandidates[msg.protocol][protocolAccount.address] =
+          protocolAccount;
+        // updateList[protocolAccount._id] = msg.timestamp;
       }
     }
   }
@@ -169,8 +208,8 @@ export class CandidatesService {
     exchange: 'liquidator-exchange',
     routingKey: 'trigger-liquidations',
   })
-  liquidateCandidates() {
-    const candidates = this.getCandidatesForLiquidation();
+  liquidateCandidates(protocol: string) {
+    const candidates = this.getCandidatesForLiquidation(protocol);
 
     let candidatesArray = [];
     this.logger.debug(`Checking ${candidates.length} accounts for liquidation`);
@@ -181,6 +220,7 @@ export class CandidatesService {
         seizeCToken: candidates[i].liqCollateral.cTokenAddress,
         borrower: candidates[i].address,
         profitUSD: candidates[i].profitUSD,
+        protocol,
       };
       candidatesArray.push(liqCand);
       if (candidatesArray.length === 10) {

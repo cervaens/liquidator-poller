@@ -72,7 +72,9 @@ export class CompoundAccount extends StandardAccount {
     uAddressPricesUSD: Record<string, any>,
   ) {
     if (
+      !cToken ||
       Object.keys(cToken).length === 0 ||
+      !uAddressPricesUSD ||
       Object.keys(uAddressPricesUSD).length === 0
     ) {
       return;
