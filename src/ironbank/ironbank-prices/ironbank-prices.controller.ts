@@ -12,34 +12,40 @@ export class IronbankPricesController {
   ) {}
 
   private stableCoinsStr = '/EUR|USD|DAI|CHF|GBP/';
-  private iTokenPrices: Record<string, any>;
+  // private iTokenPrices: Record<string, any>;
 
   async onApplicationBootstrap(): Promise<void> {
     setInterval(() => {
-      if (this.appService.amItheMaster()) {
+      if (
+        this.appService.amItheMaster() &&
+        this.appService.getControlIdStatus('IB-poller-init-finished')
+      ) {
         this.pollStableCoins();
       }
     }, parseInt(process.env.IB_POLLING_PRICES_LONG));
 
     setInterval(() => {
-      if (this.appService.amItheMaster()) {
+      if (
+        this.appService.amItheMaster() &&
+        this.appService.getControlIdStatus('IB-poller-init-finished')
+      ) {
         this.pollNonStableCoins();
       }
     }, parseInt(process.env.IB_POLLING_PRICES_SHORT));
   }
 
   async pollStableCoins() {
+    console.log('CALLING POLL STABLE');
     const tokens = this.ironBankPrices.getITokensFiltered(this.stableCoinsStr);
-    const res = await this.ironBankPrices.getTokensUnderlyingPrice(tokens);
-    this.iTokenPrices = { ...this.iTokenPrices, ...res };
+    this.ironBankPrices.getTokensUnderlyingPrice(tokens);
   }
 
   async pollNonStableCoins() {
+    console.log('CALLING POLL NON STABLE');
     const tokens = this.ironBankPrices.getITokensFiltered(
       this.stableCoinsStr,
       true,
     );
-    const res = await this.ironBankPrices.getTokensUnderlyingPrice(tokens);
-    this.iTokenPrices = { ...this.iTokenPrices, ...res };
+    this.ironBankPrices.getTokensUnderlyingPrice(tokens);
   }
 }

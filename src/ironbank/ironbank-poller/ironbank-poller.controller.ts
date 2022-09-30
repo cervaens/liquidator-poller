@@ -40,10 +40,12 @@ export class IronbankPollerController {
         await this.ironBankPrices.getTokensUnderlyingPrice(tokens);
         this.pollAccounts();
         amITheMaster = true;
+        this.appService.setControlIdStatus('IB-poller-init-finished', true);
       } else if (!this.appService.amItheMaster() && amITheMaster) {
         // unsubscribe if for some reason stops being master
         this.ibPollerService.unsubscribeWs();
         amITheMaster = false;
+        this.appService.setControlIdStatus('IB-poller-init-finished', false);
       }
     }, parseInt(process.env.WAIT_TIME_FOR_OTHER_WORKERS));
   }

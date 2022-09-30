@@ -6,21 +6,31 @@ export class AppService {
   private readonly logger = new Logger(AppService.name);
   constructor(private readonly amqpConnection: AmqpConnection) {}
 
-  private isThereAMaster = false;
-  private iamTheMaster = false;
+  private appControl: Record<string, boolean> = {
+    isThereAMaster: false,
+    iamTheMaster: false,
+  };
+
+  getControlIdStatus(controlId: string): boolean {
+    return this.appControl[controlId] ? this.appControl[controlId] : false;
+  }
+
+  setControlIdStatus(controlId: string, value: boolean) {
+    this.appControl[controlId] = value;
+  }
 
   getIsThereAMaster(): boolean {
-    return this.isThereAMaster;
+    return this.appControl.isThereAMaster;
   }
 
   setThereIsNoMaster(): boolean {
-    this.isThereAMaster = false;
-    return this.isThereAMaster;
+    this.appControl.isThereAMaster = false;
+    return this.appControl.isThereAMaster;
   }
 
   setImNoMaster(): boolean {
-    this.iamTheMaster = false;
-    return this.iamTheMaster;
+    this.appControl.iamTheMaster = false;
+    return this.appControl.iamTheMaster;
   }
 
   sendJoining() {
@@ -30,14 +40,14 @@ export class AppService {
   }
 
   sendImTheMaster(isNew: boolean) {
-    this.iamTheMaster = true;
+    this.appControl.iamTheMaster = true;
     this.amqpConnection.publish('liquidator-exchange', 'i-am-master', {
       isNew,
     });
   }
 
   amItheMaster(): boolean {
-    return this.iamTheMaster;
+    return this.appControl.iamTheMaster;
   }
 
   @RabbitSubscribe({
@@ -45,6 +55,6 @@ export class AppService {
     routingKey: 'i-am-master',
   })
   public async thereIsAMaster() {
-    this.isThereAMaster = true;
+    this.appControl.isThereAMaster = true;
   }
 }

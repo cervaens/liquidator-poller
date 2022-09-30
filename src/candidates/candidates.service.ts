@@ -97,17 +97,11 @@ export class CandidatesService {
     routingKey: 'prices-polled',
   })
   public async updatePrices(msg: Record<string, any>) {
-    this.pricesUSD[msg.protocol] = msg.prices;
+    this.pricesUSD[msg.protocol] = {
+      ...this.pricesUSD[msg.protocol],
+      ...msg.prices,
+    };
   }
-
-  // @RabbitSubscribe({
-  //   exchange: 'liquidator-exchange',
-  //   routingKey: 'ib-prices-polled',
-  // })
-  // public async updateIBPrices(msg: Record<string, any>) {
-  //   this.ibPricesUSD = msg;
-  //   this.pricesUSD[msg.protocol] = msg.prices;
-  // }
 
   @RabbitSubscribe({
     exchange: 'liquidator-exchange',
