@@ -6,7 +6,7 @@ import { IbTokenService } from './ib-token.service';
 @Controller('ib-token')
 export class IbTokenController {
   constructor(
-    private readonly ctokenService: IbTokenService,
+    private readonly ibTokenService: IbTokenService,
     private readonly amqpConnection: AmqpConnection,
   ) {}
   private readonly logger = new Logger(IbTokenController.name);
@@ -15,7 +15,7 @@ export class IbTokenController {
   async onApplicationBootstrap(): Promise<void> {
     // At start time of the worker we get the itokens from db if they exist
     setTimeout(async () => {
-      const iTokens = await this.ctokenService.findAll();
+      const iTokens = await this.ibTokenService.findAll();
       if (iTokens.length > 0) {
         const tokenObj = {};
         for (const token of iTokens) {
@@ -30,6 +30,6 @@ export class IbTokenController {
   }
 
   async createMany(@Body() ctokens: Array<IronBankToken>) {
-    return await this.ctokenService.createMany(ctokens);
+    return await this.ibTokenService.createMany(ctokens);
   }
 }
