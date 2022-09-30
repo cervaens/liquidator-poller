@@ -35,13 +35,11 @@ export class IronbankPricesController {
   }
 
   async pollStableCoins() {
-    console.log('CALLING POLL STABLE');
     const tokens = this.ironBankPrices.getITokensFiltered(this.stableCoinsStr);
     this.ironBankPrices.getTokensUnderlyingPrice(tokens);
   }
 
   async pollNonStableCoins() {
-    console.log('CALLING POLL NON STABLE');
     const tokens = this.ironBankPrices.getITokensFiltered(
       this.stableCoinsStr,
       true,

@@ -36,9 +36,19 @@ export class IronbankPollerService {
 
   @RabbitSubscribe({
     exchange: 'liquidator-exchange',
-    routingKey: 'prices-polled',
+    routingKey: 'tokens-polled',
   })
   async updateItokensHandler(msg: Record<string, any>) {
+    if (msg.protocol === this.protocol) {
+      this.tokenObj = msg.tokens;
+    }
+  }
+
+  @RabbitSubscribe({
+    exchange: 'liquidator-exchange',
+    routingKey: 'prices-polled',
+  })
+  async updatePricesHandler(msg: Record<string, any>) {
     if (msg.protocol !== this.protocol) {
       return;
     }

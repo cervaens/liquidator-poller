@@ -10,12 +10,13 @@ class Token {
   supply_balance_underlying: number;
 }
 
-// class Liquidation {
-//   valueUSD: number;
-//   symbol: string;
-//   address: string;
-//   units: number;
-// }
+class Liquidation {
+  valueUSD: number;
+  symbol_underlying: string;
+  cTokenAddress: string;
+  units_underlying: number;
+  decimals_underlying: number;
+}
 @Schema()
 export class CompoundAccounts {
   @Prop({ required: true })
@@ -39,14 +40,17 @@ export class CompoundAccounts {
   @Prop()
   total_collateral_value_in_eth: number;
 
-  // @Prop()
-  // liqCollateral: Liquidation;
+  @Prop()
+  liqCollateral: Liquidation;
 
-  // @Prop()
-  // liqBorrow: Liquidation;
+  @Prop()
+  liqBorrow: Liquidation;
 
   @Prop()
   calculatedHealth: number;
+
+  @Prop()
+  profitUSD: number;
 }
 
 export const CompoundAccountsSchema =

@@ -21,6 +21,6 @@ export class IbTokenService {
   }
 
   async findAll(): Promise<IBtoken[]> {
-    return this.itokenModel.find().exec();
+    return this.itokenModel.find().lean().exec();
   }
 }

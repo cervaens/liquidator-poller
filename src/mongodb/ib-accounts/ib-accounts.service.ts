@@ -130,6 +130,46 @@ export class IbAccountsService {
     return this.ibAccountsModel.findOne({ _id: account }).exec();
   }
 
+  async getCandidatesFromDB() {
+    if (Object.keys(this.allActiveCandidates).length > 0) {
+      return;
+    }
+    let candidatesNew = [];
+    this.ibAccountsModel
+      .find({
+        health: {
+          $gte: parseFloat(process.env.CANDIDATE_MIN_HEALTH),
+          $lte: parseFloat(process.env.CANDIDATE_MAX_HEALTH),
+        },
+        profitUSD: { $gte: parseFloat(process.env.LIQUIDATION_MIN_USD_PROFIT) },
+      })
+      .lean()
+      .then((candidates) => {
+        for (const candidate of candidates) {
+          candidatesNew.push(candidate);
+          if (candidatesNew.length === 10) {
+            this.amqpConnection.publish(
+              'liquidator-exchange',
+              'candidates-new',
+              {
+                accounts: candidatesNew,
+                protocol: this.protocol,
+                // timestamp: msg.timestamp,
+              },
+            );
+            candidatesNew = [];
+          }
+        }
+        if (candidatesNew.length > 0) {
+          this.amqpConnection.publish('liquidator-exchange', 'candidates-new', {
+            accounts: candidatesNew,
+            protocol: this.protocol,
+            // timestamp: msg.timestamp,
+          });
+        }
+      });
+  }
+
   async calculateHealthAndStore(
     accounts: Array<Record<string, any>>,
     iTokens: Record<string, IronBankToken>,
@@ -190,7 +230,7 @@ export class IbAccountsService {
 
   @RabbitSubscribe({
     exchange: 'liquidator-exchange',
-    routingKey: 'ib-candidates-list',
+    routingKey: 'candidates-list',
   })
   public async updateAllCandidatesList(msg: Record<string, any>) {
     if (msg.protocol !== this.protocol) {

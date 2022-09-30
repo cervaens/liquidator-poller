@@ -32,6 +32,15 @@ export class IronbankPollerController {
       }
     }, parseInt(process.env.IRONBANK_POLL_BALANCES_PERIOD));
 
+    setInterval(() => {
+      if (
+        amITheMaster
+        // !this.ibControlService.updatingMarkets
+      ) {
+        this.pollIBTokens();
+      }
+    }, parseInt(process.env.IRONBANK_POLL_TOKENS_PERIOD));
+
     this.logger.debug('Waiting to listen from other workers...');
     setInterval(async () => {
       if (this.appService.amItheMaster() && !amITheMaster) {

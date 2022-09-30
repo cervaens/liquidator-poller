@@ -49,6 +49,9 @@ export class IBaccounts {
 
   @Prop()
   calculatedHealth: number;
+
+  @Prop()
+  profitUSD: number;
 }
 
 export const IBaccountsSchema = SchemaFactory.createForClass(IBaccounts);

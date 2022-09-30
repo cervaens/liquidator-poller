@@ -64,8 +64,11 @@ export class CandidatesService {
 
   getCandidatesForLiquidation(protocol: string): Array<any> {
     const candidatesToLiquidate = [];
-    if (!this.activeModuleCandidates[protocol]) {
-      return;
+    if (
+      !this.activeModuleCandidates[protocol] ||
+      Object.keys(this.activeModuleCandidates[protocol]).length === 0
+    ) {
+      return [];
     }
 
     for (const candidate of Object.values(

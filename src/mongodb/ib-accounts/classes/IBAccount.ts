@@ -25,7 +25,8 @@ export class IBAccount extends StandardAccount {
   public isCandidate() {
     return (
       this.health >= parseFloat(process.env.CANDIDATE_MIN_HEALTH) &&
-      this.health <= parseFloat(process.env.CANDIDATE_MAX_HEALTH)
+      this.health <= parseFloat(process.env.CANDIDATE_MAX_HEALTH) &&
+      this.profitUSD >= parseFloat(process.env.LIQUIDATION_MIN_USD_PROFIT)
     );
   }
 
@@ -142,7 +143,6 @@ export class IBAccount extends StandardAccount {
     this.liqCollateral = top2Collateral[seizeIdx] || {};
 
     this.health = totalDepositUSD / totalBorrowUSD;
-    console.log(this.health);
     this.profitUSD =
       Math.min(
         this.liqBorrow.valueUSD * this.closeFactor,
