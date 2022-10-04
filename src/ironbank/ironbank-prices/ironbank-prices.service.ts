@@ -15,6 +15,7 @@ export class IronbankPricesService {
   ) {}
 
   private iTokens = {} as Record<string, any>;
+  private iTokenPrices = {} as Record<string, number>;
   private protocol = 'IronBank';
 
   async onModuleInit(): Promise<void> {
@@ -45,7 +46,7 @@ export class IronbankPricesService {
 
   async getTokensUnderlyingPrice(tokens: Array<Record<string, any>>) {
     this.logger.debug('Getting iToken prices');
-    const tokenPrices = {};
+    const tokenPricesUpdated = {};
     const promises: Record<string, Promise<any>> = {};
 
     for (const token of tokens) {
@@ -63,7 +64,10 @@ export class IronbankPricesService {
       for (const token of Object.keys(promises)) {
         try {
           const res = await promises[token];
-          tokenPrices[token] = { blockNumber: 0, price: res };
+          if (this.iTokenPrices[token] !== res) {
+            this.iTokenPrices[token] = res;
+            tokenPricesUpdated[token] = { blockNumber: 0, price: res };
+          }
         } catch (error) {
           this.logger.error(error.message);
         }
@@ -71,11 +75,16 @@ export class IronbankPricesService {
     };
 
     await promiseExecution();
-    this.amqpConnection.publish('liquidator-exchange', 'prices-polled', {
-      protocol: 'IronBank',
-      prices: tokenPrices,
-    });
-    return tokenPrices;
+    if (Object.keys(tokenPricesUpdated).length > 0) {
+      this.logger.debug(
+        '☑️ *Got Prices* for IronBank: ' + JSON.stringify(tokenPricesUpdated),
+      );
+      this.amqpConnection.publish('liquidator-exchange', 'prices-polled', {
+        protocol: 'IronBank',
+        prices: tokenPricesUpdated,
+      });
+    }
+    return tokenPricesUpdated;
   }
 
   async initChainlinkProxyContract() {

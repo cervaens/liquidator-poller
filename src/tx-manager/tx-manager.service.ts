@@ -49,7 +49,7 @@ export class TxManagerService {
         return;
       }
       this.logger.debug(
-        `Liquidating account 
+        `Liquidating account from ${candidate.protocol}
         Borrower ${borrower}
         Repaying ${repayCToken} with amount ${candidate.amount}
         Seizing  ${seizeCToken} for estimated profit of ${parseFloat(

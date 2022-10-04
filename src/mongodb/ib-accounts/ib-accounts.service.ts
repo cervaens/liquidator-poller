@@ -2,6 +2,7 @@ import { AmqpConnection, RabbitSubscribe } from '@golevelup/nestjs-rabbitmq';
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import { AppService } from 'src/app.service';
 import { IronBankToken } from '../ib-token/classes/IronBankToken';
 // import { IbControlService } from '../ib-control/ib-control.service';
 // import { IBtoken } from '../ib-token/ib-token.schema';
@@ -14,6 +15,7 @@ export class IbAccountsService {
     @InjectModel(IBaccounts.name)
     private ibAccountsModel: Model<IBaccountsDocument>,
     private readonly amqpConnection: AmqpConnection,
+    private readonly appService: AppService,
   ) {}
 
   private readonly logger = new Logger(IbAccountsService.name);
@@ -135,7 +137,7 @@ export class IbAccountsService {
       return;
     }
     let candidatesNew = [];
-    this.ibAccountsModel
+    return this.ibAccountsModel
       .find({
         health: {
           $gte: parseFloat(process.env.CANDIDATE_MIN_HEALTH),
@@ -146,6 +148,9 @@ export class IbAccountsService {
       .lean()
       .then((candidates) => {
         for (const candidate of candidates) {
+          if (this.allActiveCandidates[candidate._id]) {
+            continue;
+          }
           candidatesNew.push(candidate);
           if (candidatesNew.length === 10) {
             this.amqpConnection.publish(
@@ -178,6 +183,7 @@ export class IbAccountsService {
     const queries = [];
     const candidatesUpdated = [];
     const candidatesNew = [];
+    let triggerLiquidation = false;
 
     for (const account of accounts) {
       const ibAccount = new IBAccount(account);
@@ -187,6 +193,11 @@ export class IbAccountsService {
         !this.allActiveCandidates[ibAccount._id]
           ? candidatesNew.push(account)
           : candidatesUpdated.push(account);
+
+        // Trigger immediate liquidation check
+        if (ibAccount.health < 1) {
+          triggerLiquidation = true;
+        }
       }
 
       queries.push({
@@ -201,30 +212,34 @@ export class IbAccountsService {
     const res = await this.ibAccountsModel.bulkWrite(queries);
 
     if (candidatesNew.length > 0) {
-      if (candidatesNew.length > 0) {
-        this.amqpConnection.publish('liquidator-exchange', 'candidates-new', {
-          accounts: candidatesNew,
-          protocol: this.protocol,
-          // timestamp: msg.timestamp,
-        });
-        // this.logger.debug(
-        //   candidatesNew.length + ' new Compound candidates were sent',
-        // );
-      }
-
-      if (candidatesUpdated.length > 0) {
-        this.amqpConnection.publish(
-          'liquidator-exchange',
-          'candidates-updated',
-          {
-            accounts: candidatesUpdated,
-            protocol: this.protocol,
-            // timestamp: msg.timestamp,
-          },
-        );
-      }
+      this.amqpConnection.publish('liquidator-exchange', 'candidates-new', {
+        accounts: candidatesNew,
+        protocol: this.protocol,
+        // timestamp: msg.timestamp,
+      });
+      // this.logger.debug(
+      //   candidatesNew.length + ' new Compound candidates were sent',
+      // );
     }
 
+    if (candidatesUpdated.length > 0) {
+      this.amqpConnection.publish('liquidator-exchange', 'candidates-updated', {
+        accounts: candidatesUpdated,
+        protocol: this.protocol,
+        // timestamp: msg.timestamp,
+      });
+    }
+
+    if (triggerLiquidation) {
+      this.amqpConnection.publish(
+        'liquidator-exchange',
+        'trigger-liquidations',
+        {
+          protocol: this.protocol,
+        },
+      );
+      this.logger.debug(`Triggering immediate liquidation check`);
+    }
     return res;
   }
 
@@ -233,7 +248,10 @@ export class IbAccountsService {
     routingKey: 'candidates-list',
   })
   public async updateAllCandidatesList(msg: Record<string, any>) {
-    if (msg.protocol !== this.protocol) {
+    if (
+      msg.protocol !== this.protocol &&
+      msg.action !== 'deleteBelowTimestamp'
+    ) {
       return;
     }
     const curNumberCandidates = Object.keys(this.allActiveCandidates).length;
@@ -250,7 +268,8 @@ export class IbAccountsService {
 
     if (curNumberCandidates !== Object.keys(this.allActiveCandidates).length) {
       this.logger.debug(
-        'Total nr. candidates: ' + Object.keys(this.allActiveCandidates).length,
+        'IronBank: Total nr. candidates: ' +
+          Object.keys(this.allActiveCandidates).length,
       );
     }
   }

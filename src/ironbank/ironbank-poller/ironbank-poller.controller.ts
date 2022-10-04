@@ -1,6 +1,7 @@
 import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
 import { Controller, Logger } from '@nestjs/common';
 import { AppService } from 'src/app.service';
+import { IbAccountsService } from 'src/mongodb/ib-accounts/ib-accounts.service';
 // import { IbControlService } from 'src/mongodb/ib-control/ib-control.service';
 import { IbTokenService } from 'src/mongodb/ib-token/ib-token.service';
 import { IronbankPricesService } from '../ironbank-prices/ironbank-prices.service';
@@ -14,6 +15,7 @@ export class IronbankPollerController {
     private readonly appService: AppService,
     private readonly amqpConnection: AmqpConnection,
     private readonly ironBankPrices: IronbankPricesService,
+    private readonly ibAccountsService: IbAccountsService,
   ) {}
 
   // private tokens: Record<string, any>;
@@ -46,7 +48,10 @@ export class IronbankPollerController {
       if (this.appService.amItheMaster() && !amITheMaster) {
         this.ibPollerService.getAccountsFromUnitroller();
         const tokens = await this.pollIBTokens();
-        await this.ironBankPrices.getTokensUnderlyingPrice(tokens);
+        await Promise.all([
+          this.ironBankPrices.getTokensUnderlyingPrice(tokens),
+          this.ibAccountsService.getCandidatesFromDB(),
+        ]);
         this.pollAccounts();
         amITheMaster = true;
         this.appService.setControlIdStatus('IB-poller-init-finished', true);

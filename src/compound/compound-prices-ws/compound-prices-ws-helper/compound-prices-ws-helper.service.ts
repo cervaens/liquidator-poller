@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { AmqpConnection, RabbitSubscribe } from '@golevelup/nestjs-rabbitmq';
+import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
 import { CtokenController } from 'src/mongodb/ctoken/ctoken.controller';
 import uniswapAnchorAbi from './abis/uniswapAnchoredView_ABI.json';
 import { AbiItem } from 'web3-utils';
@@ -119,10 +119,6 @@ export class CompoundPricesWsHelperService {
     return tokenPrices;
   }
 
-  @RabbitSubscribe({
-    exchange: 'liquidator-exchange',
-    routingKey: 'poll-prices',
-  })
   public async pollAndStorePrices(tokens: Array<Record<string, any>>) {
     const tokenPrices = await this.getTokensPrice(tokens);
     await this.ctoken.updateCtokensPrices(tokenPrices);

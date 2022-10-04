@@ -116,7 +116,7 @@ export class IBAccount extends StandardAccount {
           symbol_underlying: underSymbol,
           iTokenAddress: token.address,
           units_underlying: token.borrow_balance_underlying,
-          // decimals_underlying,
+          decimals_underlying,
         };
         if (!top2Borrow[0] || valueUSD > top2Borrow[0].valueUSD) {
           top2Borrow.unshift(borrowObj);

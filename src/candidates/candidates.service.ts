@@ -23,11 +23,12 @@ export class CandidatesService {
     {};
 
   getNrCandidates(): Record<string, number> {
-    const result = {};
+    const result = { total: 0 };
     for (const protocol of Object.keys(this.activeModuleCandidates)) {
       result[protocol] = Object.keys(
         this.activeModuleCandidates[protocol],
       ).length;
+      result.total += result[protocol];
     }
     return result;
   }
@@ -104,6 +105,7 @@ export class CandidatesService {
       ...this.pricesUSD[msg.protocol],
       ...msg.prices,
     };
+    this.liquidateCandidates({ protocol: msg.protocol });
   }
 
   @RabbitSubscribe({
@@ -116,8 +118,9 @@ export class CandidatesService {
     // We need to compare timestamp as worker might annouce joining during
     // candidate distribution
     if (this.nextInit && msg.timestamp > this.nextInit) {
-      this.activeModuleCandidates = {};
-      this.activeModuleCandidates[msg.protocol] = {};
+      // this.activeModuleCandidates = {};
+      // Here we just clean compound's active candidates due to the way they are added
+      this.activeModuleCandidates['Compound'] = {};
       this.nextInit = 0;
     }
 
@@ -173,7 +176,7 @@ export class CandidatesService {
       }
     }
     if (liquidate) {
-      this.liquidateCandidates(msg.protocol);
+      this.liquidateCandidates({ protocol: msg.protocol });
     }
   }
 
@@ -205,11 +208,13 @@ export class CandidatesService {
     exchange: 'liquidator-exchange',
     routingKey: 'trigger-liquidations',
   })
-  liquidateCandidates(protocol: string) {
-    const candidates = this.getCandidatesForLiquidation(protocol);
+  liquidateCandidates(msg: Record<string, any>) {
+    const candidates = this.getCandidatesForLiquidation(msg.protocol);
 
     let candidatesArray = [];
-    this.logger.debug(`Checking ${candidates.length} accounts for liquidation`);
+    this.logger.debug(
+      `${msg.protocol}: Checking ${candidates.length} accounts for liquidation`,
+    );
     for (let i = 0; i < candidates.length; i++) {
       const liqCand = {
         repayCToken: candidates[i].liqBorrow.cTokenAddress,
@@ -217,7 +222,7 @@ export class CandidatesService {
         seizeCToken: candidates[i].liqCollateral.cTokenAddress,
         borrower: candidates[i].address,
         profitUSD: candidates[i].profitUSD,
-        protocol,
+        protocol: msg.protocol,
       };
       candidatesArray.push(liqCand);
       if (candidatesArray.length === 10) {

@@ -19,7 +19,7 @@ export class IbTokenController {
       if (iTokens.length > 0) {
         const tokenObj = {};
         for (const token of iTokens) {
-          tokenObj[token.symbol] = token;
+          tokenObj[token.address] = token;
         }
         this.amqpConnection.publish('liquidator-exchange', 'tokens-polled', {
           tokens: tokenObj,

@@ -18,25 +18,22 @@ export class CandidatesController {
     // so that we can identify disconnected workers that deprecated
     // their list of candidates
     setInterval(() => {
-      if (!this.candidatesService.getIsNextInit()) {
-        const time = new Date().getTime();
-        const candidates = this.candidatesService.getCandidates();
-        for (const protocol of Object.keys(candidates)) {
-          const candidateIds = {};
-          Object.keys(candidates[protocol]).forEach((id) => {
-            candidateIds[id] = time;
-          });
-
-          this.amqpConnection.publish(
-            'liquidator-exchange',
-            'candidates-list',
-            {
-              action: 'insert',
-              ids: candidateIds,
-              protocol,
-            },
-          );
+      const time = new Date().getTime();
+      const candidates = this.candidatesService.getCandidates();
+      for (const protocol of Object.keys(candidates)) {
+        if (this.candidatesService.getIsNextInit() && protocol === 'Compound') {
+          continue;
         }
+        const candidateIds = {};
+        Object.keys(candidates[protocol]).forEach((id) => {
+          candidateIds[id] = time;
+        });
+
+        this.amqpConnection.publish('liquidator-exchange', 'candidates-list', {
+          action: 'insert',
+          ids: candidateIds,
+          protocol,
+        });
       }
     }, this.candidatesTimeout);
 
@@ -68,11 +65,9 @@ export class CandidatesController {
         {},
       );
     }
-    this.amqpConnection.publish(
-      'liquidator-exchange',
-      'trigger-liquidations',
-      {},
-    );
+    this.amqpConnection.publish('liquidator-exchange', 'trigger-liquidations', {
+      protocol: query.protocol || '',
+    });
     return 'Triggered liquidations';
   }
 

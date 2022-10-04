@@ -39,7 +39,10 @@ export class CompoundAccountsService {
     routingKey: 'candidates-list',
   })
   public async updateAllCandidatesList(msg: Record<string, any>) {
-    if (msg.protocol !== this.protocol) {
+    if (
+      msg.protocol !== this.protocol &&
+      msg.action !== 'deleteBelowTimestamp'
+    ) {
       return;
     }
     const curNumberCandidates = Object.keys(this.allActiveCandidates).length;
@@ -55,7 +58,8 @@ export class CompoundAccountsService {
 
     if (curNumberCandidates !== Object.keys(this.allActiveCandidates).length) {
       this.logger.debug(
-        'Total nr. candidates: ' + Object.keys(this.allActiveCandidates).length,
+        'Compound: Total nr. candidates: ' +
+          Object.keys(this.allActiveCandidates).length,
       );
     }
   }

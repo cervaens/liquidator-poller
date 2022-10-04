@@ -70,6 +70,9 @@ export class CompoundPollerController {
 
   async pollCethWalletBalance() {
     this.logger.debug('Checking cETH wallet balance');
+    if (this.tokens.length === 0) {
+      await this.pollCTokens();
+    }
     const cEth = this.tokens.filter((token) => token.symbol === 'cETH');
     this.amqpConnection.publish(
       'liquidator-exchange',
