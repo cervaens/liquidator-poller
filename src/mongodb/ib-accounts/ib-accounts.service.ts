@@ -183,7 +183,7 @@ export class IbAccountsService {
     const queries = [];
     const candidatesUpdated = [];
     const candidatesNew = [];
-    let triggerLiquidation = false;
+    const triggerLiquidation = [];
 
     for (const account of accounts) {
       const ibAccount = new IBAccount(account);
@@ -196,7 +196,7 @@ export class IbAccountsService {
 
         // Trigger immediate liquidation check
         if (ibAccount.health < 1) {
-          triggerLiquidation = true;
+          triggerLiquidation.push(ibAccount);
         }
       }
 
@@ -230,7 +230,7 @@ export class IbAccountsService {
       });
     }
 
-    if (triggerLiquidation) {
+    if (triggerLiquidation.length > 0) {
       this.amqpConnection.publish(
         'liquidator-exchange',
         'trigger-liquidations',
@@ -238,7 +238,11 @@ export class IbAccountsService {
           protocol: this.protocol,
         },
       );
-      this.logger.debug(`Triggering immediate liquidation check`);
+      this.logger.debug(
+        `Triggering immediate liquidation check: ${JSON.stringify(
+          triggerLiquidation,
+        )}`,
+      );
     }
     return res;
   }

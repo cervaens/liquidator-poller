@@ -79,7 +79,7 @@ export class CandidatesService {
       if (
         candidate.profitUSD >
           parseInt(process.env.LIQUIDATION_MIN_USD_PROFIT) &&
-        candidate.calculatedHealth < 1
+        candidate.getCalculatedHealth() < 1
       ) {
         candidatesToLiquidate.push(candidate);
       }
@@ -217,9 +217,9 @@ export class CandidatesService {
     );
     for (let i = 0; i < candidates.length; i++) {
       const liqCand = {
-        repayCToken: candidates[i].liqBorrow.cTokenAddress,
+        repayToken: candidates[i].liqBorrow.tokenAddress,
         amount: candidates[i].getLiqAmount(),
-        seizeCToken: candidates[i].liqCollateral.cTokenAddress,
+        seizeToken: candidates[i].liqCollateral.tokenAddress,
         borrower: candidates[i].address,
         profitUSD: candidates[i].profitUSD,
         protocol: msg.protocol,

@@ -30,6 +30,10 @@ export class IBAccount extends StandardAccount {
     );
   }
 
+  public getCalculatedHealth(): number {
+    return this.health;
+  }
+
   public getLiqAmount() {
     return this.liqBorrow.valueUSD * this.closeFactor <=
       this.liqCollateral.valueUSD
@@ -89,7 +93,7 @@ export class IBAccount extends StandardAccount {
         const collateralObj = {
           valueUSD,
           symbol_underlying: underSymbol,
-          iTokenAddress: token.address,
+          tokenAddress: token.address,
           units_underlying,
           // decimals_underlying,
         };
@@ -114,7 +118,7 @@ export class IBAccount extends StandardAccount {
         const borrowObj = {
           valueUSD,
           symbol_underlying: underSymbol,
-          iTokenAddress: token.address,
+          tokenAddress: token.address,
           units_underlying: token.borrow_balance_underlying,
           decimals_underlying,
         };

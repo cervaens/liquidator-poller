@@ -12,7 +12,7 @@ class Token {
 class Liquidation {
   valueUSD: number;
   symbol_underlying: string;
-  iTokenAddress: string;
+  tokenAddress: string;
   units_underlying: number;
 }
 @Schema()

@@ -13,7 +13,7 @@ class Token {
 class Liquidation {
   valueUSD: number;
   symbol_underlying: string;
-  cTokenAddress: string;
+  tokenAddress: string;
   units_underlying: number;
   decimals_underlying: number;
 }

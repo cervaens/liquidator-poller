@@ -41,7 +41,7 @@ export class TxManagerService {
     // const promises = [];
 
     for (const candidate of msg) {
-      const { repayCToken, profitUSD, seizeCToken, borrower } = candidate;
+      const { repayToken, profitUSD, seizeToken, borrower } = candidate;
       if (
         this.liquidationsStatus[borrower] &&
         this.liquidationsStatus[borrower].timestamp > now - 3600000
@@ -51,8 +51,8 @@ export class TxManagerService {
       this.logger.debug(
         `Liquidating account from ${candidate.protocol}
         Borrower ${borrower}
-        Repaying ${repayCToken} with amount ${candidate.amount}
-        Seizing  ${seizeCToken} for estimated profit of ${parseFloat(
+        Repaying ${repayToken} with amount ${candidate.amount}
+        Seizing  ${seizeToken} for estimated profit of ${parseFloat(
           profitUSD,
         ).toFixed(2)} USD`,
       );
@@ -60,9 +60,9 @@ export class TxManagerService {
       this.liquidationsStatus[borrower] = { status: 'ongoing', timestamp: now };
       const method = this.liquidatorContract.methods.liquidate(
         borrower,
-        repayCToken,
+        repayToken,
         // parseInt(amount).toString(),
-        seizeCToken,
+        seizeToken,
       );
 
       const gasLimit = 2000000;
@@ -86,7 +86,7 @@ export class TxManagerService {
         })
         .catch((e) => {
           this.logger.debug(
-            `Revert during gas estimation: ${e.name} ${e.message} for account  ${candidate.borrower}, repaying amount ${candidate.amount} of ${candidate.repayCToken}, seizing ${candidate.seizeCToken}`,
+            `Revert during gas estimation: ${e.name} ${e.message} for account  ${candidate.borrower}, repaying amount ${candidate.amount} of ${candidate.repayToken}, seizing ${candidate.seizeToken}`,
           );
         });
       // );
@@ -148,11 +148,11 @@ export class TxManagerService {
         type: 'address',
       },
       {
-        name: 'repayCToken',
+        name: 'repayToken',
         type: 'address',
       },
       {
-        name: 'seizeCToken',
+        name: 'seizeToken',
         type: 'address',
       },
       {

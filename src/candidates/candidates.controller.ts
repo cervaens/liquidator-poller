@@ -78,9 +78,9 @@ export class CandidatesController {
     this.logger.debug(`Liquidating ${params.account}`);
 
     const liqCand = {
-      repayCToken: candidates[params.account].liqBorrow.cTokenAddress,
+      repayToken: candidates[params.account].liqBorrow.tokenAddress,
       amount: candidates[params.account].getLiqAmount(),
-      seizeCToken: candidates[params.account].liqCollateral.cTokenAddress,
+      seizeToken: candidates[params.account].liqCollateral.tokenAddress,
       borrower: candidates[params.account].address,
       profitUSD: candidates[params.account].profitUSD,
     };

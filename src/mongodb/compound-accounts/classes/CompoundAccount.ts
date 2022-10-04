@@ -67,6 +67,10 @@ export class CompoundAccount extends StandardAccount {
           this.liqBorrow.valueUSD;
   }
 
+  public getCalculatedHealth(): number {
+    return this.calculatedHealth;
+  }
+
   public updateAccount(
     cToken: Record<string, any>,
     uAddressPricesUSD: Record<string, any>,
@@ -101,7 +105,7 @@ export class CompoundAccount extends StandardAccount {
         const collateralObj = {
           valueUSD,
           symbol_underlying: underSymbol,
-          cTokenAddress: token.address,
+          tokenAddress: token.address,
           units_underlying: token.supply_balance_underlying,
           decimals_underlying,
         };
@@ -126,7 +130,7 @@ export class CompoundAccount extends StandardAccount {
         const borrowObj = {
           valueUSD,
           symbol_underlying: underSymbol,
-          cTokenAddress: token.address,
+          tokenAddress: token.address,
           units_underlying: token.borrow_balance_underlying,
           decimals_underlying,
         };
@@ -139,8 +143,8 @@ export class CompoundAccount extends StandardAccount {
     }
 
     const ableToPickBest = !(
-      top2Collateral[0].cTokenAddress === top2Borrow[0].cTokenAddress &&
-      top2Collateral[0].cTokenAddress === cToken.cETH.address &&
+      top2Collateral[0].tokenAddress === top2Borrow[0].tokenAddress &&
+      top2Collateral[0].tokenAddress === cToken.cETH.address &&
       top2Borrow[0].units_underlying * this.closeFactor >=
         ((parseInt(cToken.cETH.walletBalance) || 0) *
           cToken.cETH.exchangeRate) /
