@@ -143,6 +143,12 @@ export class WalletService {
     return this.provider.web3.eth.getTransactionCount(this.walletAddress);
   }
 
+  async rebase() {
+    return this.getLowestLiquidNonce().then((res) => {
+      this.nonce = res;
+    });
+  }
+
   async getGasPrice() {
     return this.provider.web3.eth.getGasPrice();
   }

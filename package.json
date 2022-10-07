@@ -86,7 +86,10 @@
       "**/*.(t|j)s"
     ],
     "coverageDirectory": "../coverage",
-    "testEnvironment": "node"
+    "testEnvironment": "node",
+    "moduleNameMapper": {
+      "^src/(.*)$": "/opt/liquidator/src/$1"
+    }
   },
   "release": {
     "branches": [
