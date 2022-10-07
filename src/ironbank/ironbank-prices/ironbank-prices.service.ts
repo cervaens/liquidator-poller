@@ -53,6 +53,9 @@ export class IronbankPricesService {
       promises[token.address] = this.chainlinkProxyContract.methods
         .getUnderlyingPrice(token.address)
         .call()
+        .catch((err) => {
+          this.logger.error(`Couldn't get price for ${token.address}: ${err}`);
+        })
         .then((res) => {
           const valueUSD =
             res * 10 ** (0 - 18 - 18 + token.decimals_underlying);
@@ -64,7 +67,7 @@ export class IronbankPricesService {
       for (const token of Object.keys(promises)) {
         try {
           const res = await promises[token];
-          if (this.iTokenPrices[token] !== res) {
+          if (this.iTokenPrices[token] !== res && res) {
             this.iTokenPrices[token] = res;
             tokenPricesUpdated[token] = { blockNumber: 0, price: res };
           }

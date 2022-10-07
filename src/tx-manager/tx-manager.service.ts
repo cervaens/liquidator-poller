@@ -25,6 +25,18 @@ export class TxManagerService {
     private readonly appService: AppService,
   ) {}
 
+  // For now Im hardcoding this, but this shouldnt be here, should be in the contract
+  private readonly protocolAddresses = {
+    Compound: {
+      compTroller: '0x3d9819210A31b4961b30EF54bE2aeD79B9c9Cd3B',
+      eth: '0x4Ddc2D193948926D02f9B1fE9e1daa0718270ED5',
+    },
+    IronBank: {
+      compTroller: '0xAB1c342C7bf5Ec5F02ADEA1c2270670bCa144CbB',
+      eth: '0x41c84c0e2EE0b740Cf0d31F63f3B6F627DC6b393',
+    },
+  };
+
   async onModuleInit(): Promise<void> {
     this.liquidatorContract = await this.initLiquidatorContract();
     await this.subscribeToLiquidatorEvents();
@@ -59,6 +71,8 @@ export class TxManagerService {
       // TODO: ENABLE THIS IN PROD
       this.liquidationsStatus[borrower] = { status: 'ongoing', timestamp: now };
       const method = this.liquidatorContract.methods.liquidate(
+        this.protocolAddresses[candidate.protocol].compTroller,
+        this.protocolAddresses[candidate.protocol].eth,
         borrower,
         repayToken,
         // parseInt(amount).toString(),

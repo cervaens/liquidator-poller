@@ -105,7 +105,7 @@ export class CandidatesService {
       ...this.pricesUSD[msg.protocol],
       ...msg.prices,
     };
-    this.liquidateCandidates({ protocol: msg.protocol });
+    this.checkCandidatesLiquidations({ protocol: msg.protocol });
   }
 
   @RabbitSubscribe({
@@ -114,6 +114,7 @@ export class CandidatesService {
     queue: 'candidates-new',
   })
   public async newCandidates(msg: Record<string, any>) {
+    let checkLiquidations = false;
     const candidateIds = {};
     // We need to compare timestamp as worker might annouce joining during
     // candidate distribution
@@ -138,6 +139,14 @@ export class CandidatesService {
       );
       this.activeModuleCandidates[msg.protocol][account.address] =
         protocolAccount;
+
+      if (protocolAccount.health < 1) {
+        checkLiquidations = true;
+      }
+    }
+
+    if (checkLiquidations) {
+      this.checkCandidatesLiquidations({ protocol: msg.protocol });
     }
     // this.logger.debug('Added ' + msg.accounts.length + ' new candidates');
 
@@ -158,7 +167,7 @@ export class CandidatesService {
     routingKey: 'prices-updated',
   })
   public async pricesUpdated(msg: Record<string, any>) {
-    let liquidate = false;
+    let checkLiquidations = false;
     for (const priceObj of msg.prices) {
       if (!this.pricesUSD[msg.protocol]) {
         this.pricesUSD[msg.protocol] = {};
@@ -172,11 +181,11 @@ export class CandidatesService {
           blockNumber: priceObj.blockNumber,
           price: priceObj.price,
         };
-        liquidate = true;
+        checkLiquidations = true;
       }
     }
-    if (liquidate) {
-      this.liquidateCandidates({ protocol: msg.protocol });
+    if (checkLiquidations) {
+      this.checkCandidatesLiquidations({ protocol: msg.protocol });
     }
   }
 
@@ -185,22 +194,34 @@ export class CandidatesService {
     routingKey: 'candidates-updated',
   })
   public async updateCandidates(msg: Record<string, any>) {
+    let checkLiquidations = false;
     // const updateList = {};
     for (const account of msg.accounts) {
       // TODO: deal with account classes here
       const protocolAccount = new this.protocolClass[msg.protocol](account);
+
       protocolAccount.updateAccount(
         this.tokens[msg.protocol],
         this.pricesUSD[msg.protocol],
       );
+
       if (
         this.activeModuleCandidates[msg.protocol] &&
+        this.activeModuleCandidates[msg.protocol][protocolAccount.address] &&
+        protocolAccount.health !== 0 &&
+        protocolAccount.health < 1 &&
         this.activeModuleCandidates[msg.protocol][protocolAccount.address]
+          .health !== protocolAccount.health
       ) {
         this.activeModuleCandidates[msg.protocol][protocolAccount.address] =
           protocolAccount;
+        checkLiquidations = true;
         // updateList[protocolAccount._id] = msg.timestamp;
       }
+    }
+
+    if (checkLiquidations) {
+      this.checkCandidatesLiquidations({ protocol: msg.protocol });
     }
   }
 
@@ -208,7 +229,7 @@ export class CandidatesService {
     exchange: 'liquidator-exchange',
     routingKey: 'trigger-liquidations',
   })
-  liquidateCandidates(msg: Record<string, any>) {
+  checkCandidatesLiquidations(msg: Record<string, any>) {
     const candidates = this.getCandidatesForLiquidation(msg.protocol);
 
     let candidatesArray = [];
