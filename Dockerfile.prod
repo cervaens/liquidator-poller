@@ -9,4 +9,4 @@ COPY dist .
 COPY node_modules ./node_modules
 
 # Start the server using the production build
-CMD [ "node", "main.js" ]
+CMD [ "node", "src/main.js" ]
