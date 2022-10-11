@@ -120,6 +120,37 @@ export class IbAccountsService {
       .exec();
   }
 
+  async findAllSortedAndCandidates(): Promise<IBaccounts[]> {
+    return this.ibAccountsModel
+      .aggregate([
+        { $match: this.getCandidatesFromDBqueryObj() },
+        { $sort: { lastUpdated: 1 } },
+        { $limit: parseInt(process.env.IRONBANK_POLL_BALANCES_NR_CANDIDATES) },
+        {
+          $unionWith: {
+            coll: 'ibaccounts',
+            pipeline: [
+              { $sort: { lastUpdated: 1 } },
+              {
+                $limit: parseInt(
+                  process.env.IRONBANK_POLL_BALANCES_NR_ACCOUNTS,
+                ),
+              },
+            ],
+          },
+        },
+        { $group: { _id: { address: '$address', tokens: '$tokens' } } },
+        {
+          $project: {
+            _id: '$_id.address',
+            address: '$_id.address',
+            tokens: '$_id.tokens',
+          },
+        },
+      ])
+      .exec();
+  }
+
   async findAll(): Promise<IBaccounts[]> {
     return this.ibAccountsModel.find().exec();
   }
@@ -132,19 +163,23 @@ export class IbAccountsService {
     return this.ibAccountsModel.findOne({ _id: account }).exec();
   }
 
+  getCandidatesFromDBqueryObj() {
+    return {
+      health: {
+        $gte: parseFloat(process.env.CANDIDATE_MIN_HEALTH),
+        $lte: parseFloat(process.env.CANDIDATE_MAX_HEALTH),
+      },
+      profitUSD: { $gte: parseFloat(process.env.LIQUIDATION_MIN_USD_PROFIT) },
+    };
+  }
+
   async getCandidatesFromDB() {
     if (Object.keys(this.allActiveCandidates).length > 0) {
       return;
     }
     let candidatesNew = [];
     return this.ibAccountsModel
-      .find({
-        health: {
-          $gte: parseFloat(process.env.CANDIDATE_MIN_HEALTH),
-          $lte: parseFloat(process.env.CANDIDATE_MAX_HEALTH),
-        },
-        profitUSD: { $gte: parseFloat(process.env.LIQUIDATION_MIN_USD_PROFIT) },
-      })
+      .find(this.getCandidatesFromDBqueryObj())
       .lean()
       .then((candidates) => {
         for (const candidate of candidates) {
@@ -183,7 +218,7 @@ export class IbAccountsService {
     const queries = [];
     const candidatesUpdated = [];
     const candidatesNew = [];
-    const triggerLiquidation = [];
+    // const triggerLiquidation = [];
 
     for (const account of accounts) {
       const ibAccount = new IBAccount(account);
@@ -195,9 +230,9 @@ export class IbAccountsService {
           : candidatesUpdated.push(account);
 
         // Trigger immediate liquidation check
-        if (ibAccount.health < 1) {
-          triggerLiquidation.push(ibAccount);
-        }
+        // if (ibAccount.health < 1) {
+        //   triggerLiquidation.push(ibAccount);
+        // }
       }
 
       queries.push({
@@ -230,20 +265,20 @@ export class IbAccountsService {
       });
     }
 
-    if (triggerLiquidation.length > 0) {
-      this.amqpConnection.publish(
-        'liquidator-exchange',
-        'trigger-liquidations',
-        {
-          protocol: this.protocol,
-        },
-      );
-      this.logger.debug(
-        `Triggering immediate liquidation check: ${JSON.stringify(
-          triggerLiquidation,
-        )}`,
-      );
-    }
+    // if (triggerLiquidation.length > 0) {
+    //   this.amqpConnection.publish(
+    //     'liquidator-exchange',
+    //     'trigger-liquidations',
+    //     {
+    //       protocol: this.protocol,
+    //     },
+    //   );
+    //   this.logger.debug(
+    //     `Triggering immediate liquidation check: ${JSON.stringify(
+    //       triggerLiquidation,
+    //     )}`,
+    //   );
+    // }
     return res;
   }
 

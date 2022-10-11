@@ -147,6 +147,12 @@ export class IronbankPollerService {
           }
         });
       });
+
+    this.accountsSubscription.on('error', (error) => {
+      this.logger.error(
+        'Got an error when watching incoming transactions: ' + error,
+      );
+    });
   }
 
   unsubscribeWs() {
@@ -163,7 +169,7 @@ export class IronbankPollerService {
       Object.keys(this.tokenContract).length > 0 &&
       !this.tokenContract[iToken]
     ) {
-      this.logger.error('No contract for iToken: ' + iToken);
+      // this.logger.error('No contract for iToken: ' + iToken);
       return Promise.resolve([0, 0, 0]);
     }
     return this.tokenContract[iToken].methods
@@ -185,8 +191,13 @@ export class IronbankPollerService {
     ) {
       return;
     }
-    const accounts = await this.ibAccounts.findAllSortedLimited();
+    const accounts = await this.ibAccounts.findAllSortedAndCandidates();
     this.logger.debug(`IB: Polling ${accounts.length} accounts balances`);
+    // this.logger.debug(
+    //   `IB: Polling ${accounts.length} accounts balances: ${JSON.stringify(
+    //     accounts.map((account) => account.address),
+    //   )}`,
+    // );
     const promises: Record<string, Record<string, Promise<any>>> = {};
 
     for (const account of accounts) {
