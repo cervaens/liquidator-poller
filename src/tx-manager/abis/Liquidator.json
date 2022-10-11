@@ -247,6 +247,16 @@
     "inputs": [
       {
         "internalType": "address",
+        "name": "compTroller",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "cEth",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
         "name": "_borrower",
         "type": "address"
       },

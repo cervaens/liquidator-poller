@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Catch, Injectable, Logger } from '@nestjs/common';
 import Web3 from 'web3';
 import AWSHttpProvider from '@aws/web3-http-provider';
 import AWSWebsocketProvider from '@aws/web3-ws-provider';
@@ -46,25 +46,28 @@ export const web3Ws = WSProvider(
 );
 
 @Injectable()
+@Catch()
 export class Web3ProviderService {
   private readonly logger = new Logger(Web3ProviderService.name);
   public web3: Web3;
   public web3Ws: Web3;
   public web3Providers = [];
   public web3WsProviders = [];
+  private providersList = JSON.parse(process.env.WEB3_PROVIDERS) || ['AWS'];
+  private providersWsList = JSON.parse(process.env.WEB3_WS_PROVIDERS) || [
+    'AWS',
+  ];
+  private nextProviderIndex = 0;
+
   constructor() {
-    const providersList = JSON.parse(process.env.WEB3_PROVIDERS) || ['AWS'];
-    const providersWsList = JSON.parse(process.env.WEB3_WS_PROVIDERS) || [
-      'AWS',
-    ];
-    for (const provider of providersList) {
+    for (const provider of this.providersList) {
       this.logger.debug('Provider: ' + provider);
       switch (provider) {
         case 'AWS':
           this.web3Providers.push(
             new Web3(new AWSHttpProvider(process.env.AMB_HTTP_ENDPOINT)),
           );
-          if (providersWsList.includes(provider)) {
+          if (this.providersWsList.includes(provider)) {
             this.web3WsProviders.push(
               new Web3(
                 new AWSWebsocketProvider(
@@ -82,7 +85,7 @@ export class Web3ProviderService {
                 `https://eth-mainnet.alchemyapi.io/v2/***REMOVED***`,
             ),
           );
-          if (providersWsList.includes(provider)) {
+          if (this.providersWsList.includes(provider)) {
             this.web3WsProviders.push(
               WSProvider(
                 process.env.ALCHEMY_WEB3_WSS_PROVIDER ||
@@ -97,7 +100,7 @@ export class Web3ProviderService {
               `https://:${process.env.INFURA_SECRET}@${process.env.INFURA_HTTP_PROVIDER}`,
             ),
           );
-          if (providersWsList.includes(provider)) {
+          if (this.providersWsList.includes(provider)) {
             this.web3WsProviders.push(
               WSProvider(
                 process.env.INFURA_WSS_PROVIDER ||
@@ -138,5 +141,26 @@ export class Web3ProviderService {
           this.logger.debug('Web3 websocket provider connected:  ' + str),
         );
     });
+  }
+
+  getProvider(provider: string): Web3 {
+    return (
+      this.web3Providers[this.providersList.indexOf(provider)] || this.web3
+    );
+  }
+
+  getWsProvider(provider: string): Web3 {
+    return (
+      this.web3WsProviders[this.providersWsList.indexOf(provider)] ||
+      this.web3Ws
+    );
+  }
+
+  getNextProvider(): Web3 {
+    this.nextProviderIndex += 1;
+    if (this.nextProviderIndex === this.web3Providers.length) {
+      this.nextProviderIndex = 0;
+    }
+    return this.web3Providers[this.nextProviderIndex];
   }
 }

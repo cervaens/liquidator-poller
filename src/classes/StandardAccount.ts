@@ -9,7 +9,6 @@ export class StandardAccount {
   constructor(json: Record<string, any>) {
     this.address = json.address;
     this._id = this.address;
-    this.health = parseFloat(json.health.value);
   }
 
   // public updateAccount(tokenMap, prices) {
