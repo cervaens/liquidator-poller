@@ -1,10 +1,10 @@
 import { Controller, Inject, Logger } from '@nestjs/common';
 import { CompoundPollerService } from './compound-poller.service';
-import { CtokenController } from '../mongodb/ctoken/ctoken.controller';
-import { CompoundToken } from '../mongodb/ctoken/classes/CompoundToken';
+import { CtokenController } from '../../mongodb/ctoken/ctoken.controller';
+import { CompoundToken } from '../../mongodb/ctoken/classes/CompoundToken';
 import { AppService } from 'src/app.service';
 import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
-import { CompoundPricesWsHelperService } from 'src/compound-prices-ws-helper/compound-prices-ws-helper.service';
+import { CompoundPricesWsHelperService } from 'src/compound/compound-prices-ws/compound-prices-ws-helper/compound-prices-ws-helper.service';
 @Controller('compound-poller')
 export class CompoundPollerController {
   constructor(
@@ -17,17 +17,16 @@ export class CompoundPollerController {
 
   private tokens = [];
   async onApplicationBootstrap(): Promise<void> {
-    const tokenUAddresses = await this.pollCTokens();
-    await this.pollCethWalletBalance();
-    this.compoundPricesHelper.pollAndStorePrices(tokenUAddresses);
-
     // At init the master will start a poll
     this.logger.debug('Waiting to listen from other workers...');
-    setTimeout(() => {
+    setTimeout(async () => {
       if (this.appService.amItheMaster()) {
+        const tokenUAddresses = await this.pollCTokens();
+        this.compoundPricesHelper.pollAndStorePrices(tokenUAddresses);
+        this.pollCethWalletBalance();
         this.pollAccounts(true);
       }
-    }, parseInt(process.env.WAIT_TIME_FOR_OTHER_WORKERS));
+    }, parseInt(process.env.WAIT_TIME_FOR_OTHER_WORKERS) + 1000);
 
     setInterval(() => {
       if (this.appService.amItheMaster()) {
@@ -71,6 +70,9 @@ export class CompoundPollerController {
 
   async pollCethWalletBalance() {
     this.logger.debug('Checking cETH wallet balance');
+    if (this.tokens.length === 0) {
+      await this.pollCTokens();
+    }
     const cEth = this.tokens.filter((token) => token.symbol === 'cETH');
     this.amqpConnection.publish(
       'liquidator-exchange',

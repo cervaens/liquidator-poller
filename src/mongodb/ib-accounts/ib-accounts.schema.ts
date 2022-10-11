@@ -1,13 +1,12 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 
-export type CompoundAccountsDocument = CompoundAccounts & Document;
+export type IBaccountsDocument = IBaccounts & Document;
 
 class Token {
   address: string;
   borrow_balance_underlying: number;
-  safe_withdraw_amount_underlying: number;
-  supply_balance_underlying: number;
+  supply_balance_itoken: number;
 }
 
 class Liquidation {
@@ -15,10 +14,9 @@ class Liquidation {
   symbol_underlying: string;
   tokenAddress: string;
   units_underlying: number;
-  decimals_underlying: number;
 }
 @Schema()
-export class CompoundAccounts {
+export class IBaccounts {
   @Prop({ required: true })
   _id: string;
 
@@ -28,11 +26,14 @@ export class CompoundAccounts {
   @Prop({ required: true })
   tokens: Token[];
 
-  @Prop({ required: true })
-  symbol: string;
-
-  @Prop({ required: true })
+  @Prop()
   health: number;
+
+  @Prop()
+  lastBlockNumber: number;
+
+  @Prop()
+  lastUpdated: Date;
 
   @Prop()
   total_borrow_value_in_eth: number;
@@ -53,5 +54,4 @@ export class CompoundAccounts {
   profitUSD: number;
 }
 
-export const CompoundAccountsSchema =
-  SchemaFactory.createForClass(CompoundAccounts);
+export const IBaccountsSchema = SchemaFactory.createForClass(IBaccounts);

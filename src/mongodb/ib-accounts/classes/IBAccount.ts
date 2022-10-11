@@ -1,6 +1,6 @@
 import { StandardAccount } from '../../../classes/StandardAccount';
 
-export class CompoundAccount extends StandardAccount {
+export class IBAccount extends StandardAccount {
   public address: string;
   public _id: string;
   public health: number;
@@ -11,47 +11,27 @@ export class CompoundAccount extends StandardAccount {
   public calculatedHealth: number;
   public liqCollateral: Record<string, any> = { valueUSD: 0 };
   public liqBorrow: Record<string, any> = { valueUSD: 0 };
+  public lastUpdated: number;
   private closeFactor = 0.5;
   private liquidationIncentive = 1.08;
 
   constructor(json: Record<string, any>) {
     super(json);
-    this.health = parseFloat(json.health.value);
-    this.tokens = this.tokensArrayToObj(json.tokens);
-    this.total_borrow_value_in_eth = parseFloat(
-      json.total_borrow_value_in_eth && json.total_borrow_value_in_eth.value,
-    );
-    this.total_collateral_value_in_eth = parseFloat(
-      json.total_collateral_value_in_eth &&
-        json.total_collateral_value_in_eth.value,
-    );
-  }
-
-  private tokensArrayToObj(tokens: Array<Record<string, any>>) {
-    const tokensArray: Array<Record<string, any>> = [];
-    for (const token of tokens) {
-      const tokenObj = {};
-      for (const [key, value] of Object.entries(token)) {
-        if (key.match(/^lifetime/)) {
-          continue;
-        }
-        if (value && typeof value === 'object') {
-          tokenObj[key] = parseFloat(value.value);
-        } else {
-          tokenObj[key] = value;
-        }
-      }
-      tokensArray.push(tokenObj);
-    }
-
-    return tokensArray;
+    this.tokens = json.tokens;
+    this.health = json.health || 0;
+    this.lastUpdated = new Date().getTime();
   }
 
   public isCandidate() {
     return (
       this.health >= parseFloat(process.env.CANDIDATE_MIN_HEALTH) &&
-      this.health <= parseFloat(process.env.CANDIDATE_MAX_HEALTH)
+      this.health <= parseFloat(process.env.CANDIDATE_MAX_HEALTH) &&
+      this.profitUSD >= parseFloat(process.env.LIQUIDATION_MIN_USD_PROFIT)
     );
+  }
+
+  public getCalculatedHealth(): number {
+    return this.health;
   }
 
   public getLiqAmount() {
@@ -67,19 +47,16 @@ export class CompoundAccount extends StandardAccount {
           this.liqBorrow.valueUSD;
   }
 
-  public getCalculatedHealth(): number {
-    return this.calculatedHealth;
-  }
-
   public updateAccount(
-    cToken: Record<string, any>,
-    uAddressPricesUSD: Record<string, any>,
+    iToken: Record<string, any>,
+    chainlinkPricesUSD: Record<string, any>,
   ) {
     if (
-      !cToken ||
-      Object.keys(cToken).length === 0 ||
-      !uAddressPricesUSD ||
-      Object.keys(uAddressPricesUSD).length === 0
+      !iToken ||
+      !chainlinkPricesUSD ||
+      Object.keys(iToken).length === 0 ||
+      Object.keys(chainlinkPricesUSD).length === 0 ||
+      this.tokens.length === 0
     ) {
       return;
     }
@@ -89,25 +66,36 @@ export class CompoundAccount extends StandardAccount {
     const top2Borrow = [];
 
     for (const token of this.tokens) {
-      const underSymbol = cToken[token.symbol].underlyingSymbol;
-      const underlyingAddress = cToken[token.symbol].underlyingAddress;
-      const decimals_underlying = cToken[token.symbol].decimals_underlying;
+      // There are suspended markets not outputted by the API
+      if (Object.keys(iToken).length > 0 && !iToken[token.address]) {
+        return;
+      }
+      if (!chainlinkPricesUSD[token.address]) {
+        console.log('No price for ' + token.address);
+        return;
+      }
+      const underSymbol = iToken[token.address].underlyingSymbol;
+      //TODO: changed token.address by address just till I build the prices part
+      // const underlyingAddress = iToken[token.address].address;
+      const decimals_underlying = iToken[token.address].decimals_underlying;
+      const exchangeRate = iToken[token.address].exchangeRate;
 
-      if (token.supply_balance_underlying > 0) {
-        const colFactor = cToken[token.symbol].collateralFactor;
+      if (token.supply_balance_itoken > 0) {
+        const colFactor = iToken[token.address].collateralFactor;
+        const units_underlying = token.supply_balance_itoken * exchangeRate;
         const valueUSD =
-          (token.supply_balance_underlying *
-            (uAddressPricesUSD[underlyingAddress] &&
-              uAddressPricesUSD[underlyingAddress].price)) /
-          10 ** 6;
+          (units_underlying *
+            (chainlinkPricesUSD[token.address] &&
+              chainlinkPricesUSD[token.address].price)) /
+          10 ** 8;
         totalDepositUSD += colFactor * valueUSD;
 
         const collateralObj = {
           valueUSD,
           symbol_underlying: underSymbol,
           tokenAddress: token.address,
-          units_underlying: token.supply_balance_underlying,
-          decimals_underlying,
+          units_underlying,
+          // decimals_underlying,
         };
         if (!top2Collateral[0] || valueUSD > top2Collateral[0].valueUSD) {
           top2Collateral.unshift(collateralObj);
@@ -121,9 +109,9 @@ export class CompoundAccount extends StandardAccount {
       if (token.borrow_balance_underlying > 0) {
         const valueUSD =
           (token.borrow_balance_underlying *
-            (uAddressPricesUSD[underlyingAddress] &&
-              uAddressPricesUSD[underlyingAddress].price)) /
-          10 ** 6;
+            (chainlinkPricesUSD[token.address] &&
+              chainlinkPricesUSD[token.address].price)) /
+          10 ** decimals_underlying;
 
         totalBorrowUSD += valueUSD;
 
@@ -142,14 +130,10 @@ export class CompoundAccount extends StandardAccount {
       }
     }
 
-    const ableToPickBest = !(
-      top2Collateral[0].tokenAddress === top2Borrow[0].tokenAddress &&
-      top2Collateral[0].tokenAddress === cToken.cETH.address &&
-      top2Borrow[0].units_underlying * this.closeFactor >=
-        ((parseInt(cToken.cETH.walletBalance) || 0) *
-          cToken.cETH.exchangeRate) /
-          10 ** cToken.cETH.decimals
-    );
+    if (top2Collateral.length === 0 || top2Borrow.length === 0) {
+      return;
+    }
+    const ableToPickBest = true;
     const repayIdx =
       !ableToPickBest &&
       top2Borrow[1] &&
@@ -162,7 +146,7 @@ export class CompoundAccount extends StandardAccount {
     this.liqBorrow = top2Borrow[repayIdx] || {};
     this.liqCollateral = top2Collateral[seizeIdx] || {};
 
-    this.calculatedHealth = totalDepositUSD / totalBorrowUSD;
+    this.health = totalDepositUSD / totalBorrowUSD;
     this.profitUSD =
       Math.min(
         this.liqBorrow.valueUSD * this.closeFactor,

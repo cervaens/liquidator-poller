@@ -30,7 +30,7 @@ export class CtokenService {
   }
 
   async findAll(): Promise<Ctoken[]> {
-    return this.ctokenModel.find().exec();
+    return this.ctokenModel.find().lean().exec();
   }
 
   async findWithParams(

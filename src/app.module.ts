@@ -4,21 +4,18 @@ import { AppService } from './app.service';
 // import { ScheduleModule } from '@nestjs/schedule';
 import { RabbitMQModule } from '@golevelup/nestjs-rabbitmq';
 import { MongooseModule } from '@nestjs/mongoose';
-import { CtokensModule } from './mongodb/ctoken/ctoken.module';
-import { CompoundPollerModule } from './compound-poller/compound-poller.module';
 import { HttpModule } from '@nestjs/axios';
 import { ConfigModule } from '@nestjs/config';
-// import { Web3ProviderService } from './web3-provider/web3-provider.service';
-// import { Web3ProviderModule } from './web3-provider/web3-provider.module';
 import {
   // web3Con,
   Web3ProviderService,
   // web3Ws,
 } from './web3-provider/web3-provider.service';
-import { CompoundAccountsModule } from './mongodb/compound-accounts/compound-accounts.module';
-import { TransactionsModule } from './mongodb/transactions/transactions.module';
 import { CandidatesModule } from './candidates/candidates.module';
 import { TxManagerModule } from './tx-manager/tx-manager.module';
+import { CompoundModule } from './compound/compound.module';
+import { MongodbModule } from './mongodb/mongodb.module';
+import { IronbankModule } from './ironbank/ironbank.module';
 
 @Global()
 @Module({
@@ -47,14 +44,14 @@ import { TxManagerModule } from './tx-manager/tx-manager.module';
       },
     }),
     AppModule,
-    CtokensModule,
-    CompoundPollerModule,
+    CompoundModule,
     HttpModule,
-    CompoundAccountsModule,
+    MongodbModule,
     CandidatesModule,
     TxManagerModule,
-    TransactionsModule,
-    // Web3ProviderModule,
+    CompoundModule,
+    MongodbModule,
+    IronbankModule,
   ],
   controllers: [AppController],
   providers: [
@@ -72,8 +69,7 @@ import { TxManagerModule } from './tx-manager/tx-manager.module';
   exports: [
     RabbitMQModule,
     HttpModule,
-    CtokensModule,
-    CompoundPollerModule,
+    MongodbModule,
     // 'WEB3WS',
     // 'WEB3PROV',
     AppService,

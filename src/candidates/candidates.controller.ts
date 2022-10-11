@@ -18,16 +18,21 @@ export class CandidatesController {
     // so that we can identify disconnected workers that deprecated
     // their list of candidates
     setInterval(() => {
-      if (!this.candidatesService.getIsNextInit()) {
-        const time = new Date().getTime();
+      const time = new Date().getTime();
+      const candidates = this.candidatesService.getCandidates();
+      for (const protocol of Object.keys(candidates)) {
+        if (this.candidatesService.getIsNextInit() && protocol === 'Compound') {
+          continue;
+        }
         const candidateIds = {};
-        Object.keys(this.candidatesService.getCandidates()).forEach((id) => {
+        Object.keys(candidates[protocol]).forEach((id) => {
           candidateIds[id] = time;
         });
 
         this.amqpConnection.publish('liquidator-exchange', 'candidates-list', {
           action: 'insert',
           ids: candidateIds,
+          protocol,
         });
       }
     }, this.candidatesTimeout);
@@ -60,11 +65,9 @@ export class CandidatesController {
         {},
       );
     }
-    this.amqpConnection.publish(
-      'liquidator-exchange',
-      'trigger-liquidations',
-      {},
-    );
+    this.amqpConnection.publish('liquidator-exchange', 'trigger-liquidations', {
+      protocol: query.protocol || '',
+    });
     return 'Triggered liquidations';
   }
 
@@ -75,9 +78,9 @@ export class CandidatesController {
     this.logger.debug(`Liquidating ${params.account}`);
 
     const liqCand = {
-      repayCToken: candidates[params.account].liqBorrow.cTokenAddress,
+      repayToken: candidates[params.account].liqBorrow.tokenAddress,
       amount: candidates[params.account].getLiqAmount(),
-      seizeCToken: candidates[params.account].liqCollateral.cTokenAddress,
+      seizeToken: candidates[params.account].liqCollateral.tokenAddress,
       borrower: candidates[params.account].address,
       profitUSD: candidates[params.account].profitUSD,
     };
@@ -91,6 +94,6 @@ export class CandidatesController {
 
   @Get('ready-for-liquidation')
   getReadyForLiq(): Array<CompoundAccount> {
-    return this.candidatesService.getCandidatesForLiquidation();
+    return this.candidatesService.getCandidatesForLiquidation('Compound');
   }
 }

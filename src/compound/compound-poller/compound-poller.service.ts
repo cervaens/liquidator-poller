@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { CompoundToken } from '../mongodb/ctoken/classes/CompoundToken';
+import { CompoundToken } from '../../mongodb/ctoken/classes/CompoundToken';
 import { firstValueFrom } from 'rxjs';
 import { HttpService } from '@nestjs/axios';
 import { AmqpConnection, RabbitSubscribe } from '@golevelup/nestjs-rabbitmq';
@@ -14,6 +14,7 @@ export class CompoundPollerService {
   // // This one is only for delete candidates purpose (not very important)
   // private activeCandidatesList: Array<string> = [];
   private initOngoing = false;
+  private protocol = 'Compound';
 
   // Init is necessary so that the activeCandidateList is cleared
   // to re-spread all candidates including the new joined app
@@ -60,8 +61,9 @@ export class CompoundPollerService {
     for (const token of tokens) {
       tokenObj[token.symbol] = token;
     }
-    this.amqpConnection.publish('liquidator-exchange', 'ctokens-polled', {
-      ...tokenObj,
+    this.amqpConnection.publish('liquidator-exchange', 'tokens-polled', {
+      tokens: tokenObj,
+      protocol: this.protocol,
     });
 
     return {
