@@ -67,7 +67,12 @@ export class CompoundPricesWsHelperService {
   async getTokenInfo(tokenHash: string) {
     return await this.uniswapAnchorContract.methods
       .getTokenConfigBySymbolHash(tokenHash)
-      .call();
+      .call()
+      .catch((err) => {
+        this.logger.error(
+          `Couldn't get token info for hash ${tokenHash}: ${err}`,
+        );
+      });
   }
 
   async getTokenPrice(tokenSymbol: string) {
@@ -92,11 +97,19 @@ export class CompoundPricesWsHelperService {
       } else if (token.underlyingSymbol === 'WBTC') {
         promises[token.underlyingAddress] = this.uniswapAnchorContract.methods
           .price('BTC')
-          .call();
+          .call()
+          .catch((err) => {
+            this.logger.error(`Couldn't get price for BTC: ${err}`);
+          });
       } else {
         promises[token.underlyingAddress] = this.uniswapAnchorContract.methods
           .price(token.underlyingSymbol)
-          .call();
+          .call()
+          .catch((err) => {
+            this.logger.error(
+              `Couldn't get price for ${token.underlyingSymbol}: ${err}`,
+            );
+          });
       }
     }
 
