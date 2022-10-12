@@ -174,7 +174,10 @@ export class IronbankPollerService {
     }
     return this.tokenContract[iToken].methods
       .getAccountSnapshot(account)
-      .call();
+      .call()
+      .catch((err) => {
+        this.logger.error(`Couldn't get balances for ${account}: ${err}`);
+      });
   }
 
   @RabbitSubscribe({
@@ -250,6 +253,10 @@ export class IronbankPollerService {
   }
 
   async initTokenContracts() {
+    // This means that the iToken contracts were already initiated
+    if (Object.keys(this.tokenContract).length > 0) {
+      return true;
+    }
     const tokens = await this.ibToken.findAll();
 
     for (const token of tokens) {

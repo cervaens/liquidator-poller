@@ -74,13 +74,15 @@ export class CompoundPollerController {
       await this.pollCTokens();
     }
     const cEth = this.tokens.filter((token) => token.symbol === 'cETH');
-    this.amqpConnection.publish(
-      'liquidator-exchange',
-      'get-token-wallet-balance',
-      {
-        token: cEth[0].symbol,
-        tokenAddress: cEth[0].address,
-      },
-    );
+    if (cEth.length > 0) {
+      this.amqpConnection.publish(
+        'liquidator-exchange',
+        'get-token-wallet-balance',
+        {
+          token: cEth[0].symbol,
+          tokenAddress: cEth[0].address,
+        },
+      );
+    }
   }
 }
