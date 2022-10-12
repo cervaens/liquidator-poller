@@ -23,7 +23,6 @@ export class IronbankPollerController {
 
   async onApplicationBootstrap(): Promise<void> {
     let amITheMaster = false;
-    await this.ibPollerService.initTokenContracts();
 
     setInterval(() => {
       if (
@@ -50,6 +49,7 @@ export class IronbankPollerController {
         this.ibPollerService.getAccountsFromUnitroller();
         const tokens = await this.pollIBTokens();
         await Promise.all([
+          this.ibPollerService.initTokenContracts(),
           this.ironBankPrices.getTokensUnderlyingPrice(tokens),
           this.ibAccountsService.getCandidatesFromDB(),
         ]);

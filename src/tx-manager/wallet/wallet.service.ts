@@ -132,6 +132,11 @@ export class WalletService {
       this.tokenContract[tokenAddress].methods
         .balanceOf(this.walletAddress)
         .call()
+        .catch((err) => {
+          this.logger.error(
+            `Couldn't get token balance for token ${tokenAddress}: ${err}`,
+          );
+        })
     );
   }
   /**

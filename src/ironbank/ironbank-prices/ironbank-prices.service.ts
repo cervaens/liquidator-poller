@@ -41,7 +41,10 @@ export class IronbankPricesService {
   async getTokenPrice(tokenSymbol: string) {
     return this.chainlinkProxyContract.methods
       .getUnderlyingPrice(tokenSymbol)
-      .call();
+      .call()
+      .catch((err) => {
+        this.logger.error(`Couldn't get price for ${tokenSymbol}: ${err}`);
+      });
   }
 
   async getTokensUnderlyingPrice(tokens: Array<Record<string, any>>) {
