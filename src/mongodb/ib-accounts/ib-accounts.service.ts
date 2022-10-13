@@ -174,9 +174,6 @@ export class IbAccountsService {
   }
 
   async getCandidatesFromDB() {
-    if (Object.keys(this.allActiveCandidates).length > 0) {
-      return;
-    }
     let candidatesNew = [];
     return this.ibAccountsModel
       .find(this.getCandidatesFromDBqueryObj())
