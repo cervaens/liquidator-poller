@@ -49,7 +49,6 @@ export class IronbankPollerController {
         this.ibPollerService.getAccountsFromUnitroller();
         const tokens = await this.pollIBTokens();
         await Promise.all([
-          this.ibPollerService.initTokenContracts(),
           this.ironBankPrices.getTokensUnderlyingPrice(tokens),
           this.ibAccountsService.getCandidatesFromDB(),
         ]);

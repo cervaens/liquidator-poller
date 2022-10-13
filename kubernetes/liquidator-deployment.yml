@@ -17,7 +17,8 @@ metadata:
   namespace: default
   name: liquidator-deployment
 spec:
-  replicas: 3
+  replicas: 2
+  revisionHistoryLimit: 2
   selector:
     matchLabels:
       app: liquidator
@@ -30,7 +31,7 @@ spec:
         - name: aws-registry
       containers:
         - name: liquidator-poller
-          image: 082576982398.dkr.ecr.ca-central-1.amazonaws.com/liquidator-poller
+          image: 082576982398.dkr.ecr.ca-central-1.amazonaws.com/liquidator-poller:1.8.3
           ports:
             - containerPort: 3000
           envFrom:
