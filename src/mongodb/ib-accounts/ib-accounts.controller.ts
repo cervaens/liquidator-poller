@@ -19,28 +19,4 @@ export class IbAccountsController {
       }
     }, parseInt(process.env.WAIT_TIME_FOR_OTHER_WORKERS) + 1000);
   }
-
-  async accountEntersMarket(
-    account: string,
-    market: string,
-    blockNumber: number,
-  ) {
-    return await this.ibAccountsService.accountEntersMarket(
-      account,
-      market,
-      blockNumber,
-    );
-  }
-
-  async accountExitsMarket(
-    account: string,
-    market: string,
-    blockNumber: number,
-  ) {
-    return await this.ibAccountsService.accountExitsMarket(
-      account,
-      market,
-      blockNumber,
-    );
-  }
 }
