@@ -252,25 +252,29 @@ export class IronbankPollerService {
     );
   }
 
-  async initTokenContracts() {
-    // This means that the iToken contracts were already initiated
-    if (Object.keys(this.tokenContract).length > 0) {
-      return true;
+  @RabbitSubscribe({
+    exchange: 'liquidator-exchange',
+    routingKey: 'tokens-polled',
+  })
+  async initTokenContracts(msg: Record<string, IronBankToken | string>) {
+    if (msg.protocol !== this.protocol) {
+      return;
     }
-    const tokens = await this.ibToken.findAll();
 
-    for (const token of tokens) {
+    for (const tokenAddress of Object.keys(msg.tokens)) {
+      if (this.tokenContract[tokenAddress]) {
+        continue;
+      }
       try {
-        this.tokenContract[token.address] = new (this.web3Provider.getProvider(
+        this.tokenContract[tokenAddress] = new (this.web3Provider.getProvider(
           'AWS',
-        ).eth.Contract)(iTokenAbi as AbiItem[], token.address);
+        ).eth.Contract)(iTokenAbi as AbiItem[], tokenAddress);
       } catch (err) {
         this.logger.debug(
-          'Error instanciating iToken contract: ' + token.address + ' ' + err,
+          'Error instanciating iToken contract: ' + tokenAddress + ' ' + err,
         );
       }
     }
-    return true;
   }
 
   async fetch(endpoint: string, withConfig: Record<string, any>) {
