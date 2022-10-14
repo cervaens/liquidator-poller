@@ -89,7 +89,7 @@ export class WalletService {
   })
   async executeTx(msg: Record<string, any>) {
     if (this.appService.amItheMaster()) {
-      this.signAndSend(msg.tx, msg.profitUSD);
+      this.signAndSend(msg.tx, msg.profitUSD, msg.protocol, msg.accountAddress);
     }
   }
 
@@ -158,7 +158,7 @@ export class WalletService {
     return this.provider.web3.eth.getGasPrice();
   }
 
-  signAndSend(tx, profitUSD) {
+  signAndSend(tx, profitUSD, protocol, accountAddress) {
     tx.nonce = Web3Utils.toHex(this.nonce);
     this.logger.debug('Setting nonce: ' + this.nonce);
     this.nonce += 1;
@@ -176,6 +176,7 @@ export class WalletService {
         tx,
         sentDate,
         hash,
+        protocol,
       });
     });
     // After receiving receipt, log success and rebase
@@ -185,6 +186,16 @@ export class WalletService {
         receipt,
         profitUSD,
       });
+
+      const updateLiqStatus = {};
+      updateLiqStatus[protocol] = {};
+      updateLiqStatus[protocol][accountAddress] = { status: 'Processed' };
+
+      this.amqpConnection.publish(
+        'liquidator-exchange',
+        'liquidations-called',
+        updateLiqStatus,
+      );
     });
     // After receiving an error, check if it occurred on or off chain
     sentTx.on('error', (err) => {
@@ -208,7 +219,7 @@ export class WalletService {
         this.logger.debug(
           'Off-chain ' + errStr + ' errored nonce: ' + this.nonceErrored,
         );
-        this.signAndSend(tx, profitUSD);
+        this.signAndSend(tx, profitUSD, protocol, accountAddress);
       } else if (
         errStr.includes('replacement transaction underpriced') ||
         errStr.includes('already known')

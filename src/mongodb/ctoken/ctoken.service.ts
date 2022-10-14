@@ -62,7 +62,7 @@ export class CtokenService {
     filter: Record<string, unknown>,
     setStat: Record<string, unknown>,
   ) {
-    return this.ctokenModel.updateMany(filter, setStat);
+    return this.ctokenModel.updateMany(filter, setStat).exec();
   }
 
   async updateCtokenPriceFromAddressOrSymbol(

@@ -52,6 +52,9 @@ export class Transactions {
 
   @Prop()
   loanAmount: string;
+
+  @Prop()
+  protocol: string;
 }
 
 export const TransactionsSchema = SchemaFactory.createForClass(Transactions);

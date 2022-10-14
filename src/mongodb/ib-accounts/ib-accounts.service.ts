@@ -22,6 +22,45 @@ export class IbAccountsService {
   private allActiveCandidates: Record<string, number> = {};
   private protocol = 'IronBank';
 
+  @RabbitSubscribe({
+    exchange: 'liquidator-exchange',
+    routingKey: 'liquidations-clear',
+  })
+  async clearLiquidationsList() {
+    this.ibAccountsModel
+      .updateMany(
+        {},
+        {
+          $set: {
+            liquidationStatus: {},
+          },
+        },
+      )
+      .exec();
+  }
+
+  @RabbitSubscribe({
+    exchange: 'liquidator-exchange',
+    routingKey: 'liquidations-called',
+  })
+  async updateAccountLiquidationStatus(msg: Record<string, any>) {
+    if (!msg[this.protocol]) {
+      return;
+    }
+    for (const accountAddress of Object.keys(msg[this.protocol])) {
+      this.ibAccountsModel
+        .updateMany(
+          { address: accountAddress },
+          {
+            $set: {
+              liquidationStatus: msg[this.protocol][accountAddress],
+            },
+          },
+        )
+        .exec();
+    }
+  }
+
   async accountEntersMarket(
     account: string,
     market: string,
@@ -89,6 +128,27 @@ export class IbAccountsService {
         },
       },
     });
+  }
+
+  async sendLiquidationStatus() {
+    const msg = {};
+    msg[this.protocol] = {};
+    const accountsOnLiquidation = await this.ibAccountsModel
+      .find({ 'liquidationStatus.status': 'ongoing', health: { $lt: 1 } })
+      .lean();
+
+    for (const account of accountsOnLiquidation) {
+      msg[this.protocol][account.address] = account.liquidationStatus;
+    }
+
+    if (Object.keys(msg[this.protocol]).length > 0) {
+      this.amqpConnection.publish(
+        'liquidator-exchange',
+        'liquidations-called',
+        msg,
+      );
+      this.logger.debug('Sent liquidation status');
+    }
   }
 
   async updateBalances(
