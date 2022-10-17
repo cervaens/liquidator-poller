@@ -368,5 +368,11 @@ export class IbAccountsService {
           Object.keys(this.allActiveCandidates).length,
       );
     }
+
+    // Sometimes a node goes down and candidates get lost
+    if (curNumberCandidates > Object.keys(this.allActiveCandidates).length) {
+      this.logger.debug('IronBank: Reloading candidates from DB');
+      this.getCandidatesFromDB();
+    }
   }
 }
