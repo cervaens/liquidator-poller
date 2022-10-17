@@ -16,8 +16,16 @@ export class IbAccountsController {
     setTimeout(async () => {
       if (this.appService.amItheMaster()) {
         this.ibAccountsService.sendLiquidationStatus();
+      }
+    }, parseInt(process.env.WAIT_TIME_FOR_OTHER_WORKERS));
+
+    setInterval(async () => {
+      if (
+        this.appService.amItheMaster() &&
+        Object.keys(this.ibAccountsService.allActiveCandidates).length === 0
+      ) {
         this.ibAccountsService.getCandidatesFromDB();
       }
-    }, parseInt(process.env.WAIT_TIME_FOR_OTHER_WORKERS) + 1000);
+    }, 10000);
   }
 }

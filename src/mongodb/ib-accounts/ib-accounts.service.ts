@@ -19,7 +19,7 @@ export class IbAccountsService {
   ) {}
 
   private readonly logger = new Logger(IbAccountsService.name);
-  private allActiveCandidates: Record<string, number> = {};
+  public allActiveCandidates: Record<string, number> = {};
   private protocol = 'IronBank';
 
   @RabbitSubscribe({
@@ -367,6 +367,12 @@ export class IbAccountsService {
         'IronBank: Total nr. candidates: ' +
           Object.keys(this.allActiveCandidates).length,
       );
+    }
+
+    // Sometimes a node goes down and candidates get lost
+    if (curNumberCandidates > Object.keys(this.allActiveCandidates).length) {
+      this.logger.debug('IronBank: Reloading candidates from DB');
+      this.getCandidatesFromDB();
     }
   }
 }
