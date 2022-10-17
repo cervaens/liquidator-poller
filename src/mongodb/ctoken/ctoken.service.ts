@@ -1,5 +1,5 @@
 import { Model } from 'mongoose';
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Ctoken, CtokenDocument } from './ctoken.schema';
 import { CtokenDto } from './dto/create-ctoken.dto';
@@ -8,6 +8,7 @@ import { CompoundToken } from './classes/CompoundToken';
 
 @Injectable()
 export class CtokenService {
+  private readonly logger = new Logger(CtokenService.name);
   constructor(
     @InjectModel(Ctoken.name) private ctokenModel: Model<CtokenDocument>,
   ) {}
@@ -62,7 +63,12 @@ export class CtokenService {
     filter: Record<string, unknown>,
     setStat: Record<string, unknown>,
   ) {
-    return this.ctokenModel.updateMany(filter, setStat).exec();
+    return this.ctokenModel
+      .updateMany(filter, setStat)
+      .exec()
+      .catch((err) => {
+        this.logger.error(`Couldn't insert cTokens: ${err}`);
+      });
   }
 
   async updateCtokenPriceFromAddressOrSymbol(
