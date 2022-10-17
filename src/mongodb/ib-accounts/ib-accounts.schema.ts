@@ -15,6 +15,12 @@ class Liquidation {
   tokenAddress: string;
   units_underlying: number;
 }
+
+class LiquidationStatus {
+  timestamp: number;
+  status: string;
+}
+
 @Schema()
 export class IBaccounts {
   @Prop({ required: true })
@@ -52,6 +58,9 @@ export class IBaccounts {
 
   @Prop()
   profitUSD: number;
+
+  @Prop()
+  liquidationStatus: LiquidationStatus;
 }
 
 export const IBaccountsSchema = SchemaFactory.createForClass(IBaccounts);

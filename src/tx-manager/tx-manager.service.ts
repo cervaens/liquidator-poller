@@ -42,6 +42,15 @@ export class TxManagerService {
     await this.subscribeToLiquidatorEvents();
   }
 
+  getNrLiquidations(): Record<string, number> {
+    const result = { total: 0 };
+    for (const protocol of Object.keys(this.liquidationsStatus)) {
+      result[protocol] = Object.keys(this.liquidationsStatus[protocol]).length;
+      result.total += result[protocol];
+    }
+    return result;
+  }
+
   @RabbitSubscribe({
     exchange: 'liquidator-exchange',
     routingKey: 'liquidate-many',
@@ -54,12 +63,7 @@ export class TxManagerService {
 
     for (const candidate of msg) {
       const { repayToken, profitUSD, seizeToken, borrower } = candidate;
-      if (
-        this.liquidationsStatus[borrower] &&
-        this.liquidationsStatus[borrower].timestamp > now - 3600000
-      ) {
-        return;
-      }
+
       this.logger.debug(
         `Liquidating account from ${candidate.protocol}
         Borrower ${borrower}
@@ -68,8 +72,34 @@ export class TxManagerService {
           profitUSD,
         ).toFixed(2)} USD`,
       );
-      // TODO: ENABLE THIS IN PROD
-      this.liquidationsStatus[borrower] = { status: 'ongoing', timestamp: now };
+
+      if (
+        this.liquidationsStatus[candidate.protocol] &&
+        this.liquidationsStatus[candidate.protocol][borrower] &&
+        (this.liquidationsStatus[candidate.protocol][borrower].timestamp >
+          now - (parseInt(process.env.LIQUIDATIONS_CLEAN_TIME) || 3600000) ||
+          !this.liquidationsStatus[candidate.protocol][borrower].timestamp)
+      ) {
+        if (
+          this.liquidationsStatus[candidate.protocol][borrower].timestamp ===
+          Infinity
+        ) {
+          this.logger.debug(`Account ${borrower} is blacklisted`);
+        } else {
+          this.logger.debug(
+            `Account ${borrower} was recently tried for liquidation`,
+          );
+        }
+        continue;
+      }
+
+      if (!this.liquidationsStatus[candidate.protocol]) {
+        this.liquidationsStatus[candidate.protocol] = {};
+      }
+      this.liquidationsStatus[candidate.protocol][borrower] = {
+        status: 'ongoing',
+        timestamp: now,
+      };
       const method = this.liquidatorContract.methods.liquidate(
         this.protocolAddresses[candidate.protocol].compTroller,
         this.protocolAddresses[candidate.protocol].eth,
@@ -93,10 +123,23 @@ export class TxManagerService {
               ? estimated
               : tx.gasLimit;
 
-          this.amqpConnection.publish('liquidator-exchange', 'execute-tx', {
-            tx,
-            profitUSD,
-          });
+          if (process.env.LIQUIDATIONS_REAL_TXS_ENABLED === 'true' || false) {
+            this.logger.debug(
+              ` * CREATING TX * in ${candidate.protocol} for account ${borrower} `,
+            );
+            this.amqpConnection.publish('liquidator-exchange', 'execute-tx', {
+              tx,
+              profitUSD,
+              protocol: candidate.protocol,
+              accountAddress: candidate.address,
+            });
+          } else {
+            this.logger.debug(
+              `Real liquidations disabled. Tx ${JSON.stringify(
+                tx,
+              )} was not sent`,
+            );
+          }
         })
         .catch((e) => {
           this.logger.debug(
@@ -117,10 +160,15 @@ export class TxManagerService {
     routingKey: 'liquidations-called',
   })
   async updateLiquidationsList(msg: Record<string, any>) {
-    this.liquidationsStatus;
-    this.liquidationsStatus = { ...this.liquidationsStatus, ...msg };
+    for (const protocol of Object.keys(msg)) {
+      this.liquidationsStatus[protocol] = {
+        ...this.liquidationsStatus[protocol],
+        ...msg[protocol],
+      };
+    }
+
     this.logger.debug(
-      'Current nr liqs: ' + Object.keys(this.liquidationsStatus).length,
+      'Current nr liqs: ' + JSON.stringify(this.getNrLiquidations()),
     );
   }
 
@@ -129,10 +177,9 @@ export class TxManagerService {
     routingKey: 'liquidations-clear',
   })
   async clearLiquidationsList() {
-    this.liquidationsStatus;
     this.liquidationsStatus = {};
     this.logger.debug(
-      'Current nr liqs: ' + Object.keys(this.liquidationsStatus).length,
+      'Current nr liqs: ' + JSON.stringify(this.getNrLiquidations()),
     );
   }
 

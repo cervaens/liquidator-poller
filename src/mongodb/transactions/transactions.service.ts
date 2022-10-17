@@ -53,7 +53,9 @@ export class TransactionsService {
     routingKey: 'tx-created',
     queue: 'tx-created',
   })
-  public async createTransaction(msg: Record<string, Record<string, any>>) {
+  public async createTransaction(
+    msg: Record<string, any | Record<string, any>>,
+  ) {
     const {
       0: borrower,
       1: repayToken,
@@ -71,11 +73,16 @@ export class TransactionsService {
         createdDate: new Date(),
         sentDate: msg.sentDate,
         gasLimit: msg.tx.gasLimit,
+        protocol: msg.protocol,
       })
       .setOptions({ upsert: true })
       .catch((err) => {
         this.logger.error('Couldnt insert transaction: ' + err);
       });
+  }
+
+  getTransaction(txHash) {
+    return this.transactionsModel.findById(txHash).lean();
   }
 
   @RabbitSubscribe({

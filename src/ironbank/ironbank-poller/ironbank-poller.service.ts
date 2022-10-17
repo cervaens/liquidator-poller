@@ -122,7 +122,7 @@ export class IronbankPollerService {
           return;
         }
 
-        tx.topics.forEach((topic) => {
+        tx.topics.forEach(async (topic) => {
           // If the Transaction Topic is Deposit / Withdraw / Borrow / Repay
           if (topic === this.topicEnter || topic === this.topicExit) {
             // // decode the transaction data byte code so it's readable
@@ -134,16 +134,28 @@ export class IronbankPollerService {
 
             // this.ibControl.updatingMarkets = true;
             topic === this.topicEnter
-              ? this.ibAccounts.accountEntersMarket(
-                  result.account,
-                  result.market,
-                  tx.blockNumber,
-                )
-              : this.ibAccounts.accountExitsMarket(
-                  result.account,
-                  result.market,
-                  tx.blockNumber,
-                );
+              ? await this.ibAccounts
+                  .accountEntersMarket(
+                    result.account,
+                    result.market,
+                    tx.blockNumber,
+                  )
+                  .catch((err) => {
+                    this.logger.debug(
+                      `Couldn't update account for Enter market: ${err}`,
+                    );
+                  })
+              : await this.ibAccounts
+                  .accountExitsMarket(
+                    result.account,
+                    result.market,
+                    tx.blockNumber,
+                  )
+                  .catch((err) => {
+                    this.logger.debug(
+                      `Couldn't update account for Exit market: ${err}`,
+                    );
+                  });
           }
         });
       });
