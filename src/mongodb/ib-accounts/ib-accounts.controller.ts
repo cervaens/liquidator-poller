@@ -15,6 +15,7 @@ export class IbAccountsController {
     this.logger.debug('Waiting to listen from other workers...');
     setTimeout(async () => {
       if (this.appService.amItheMaster()) {
+        this.ibAccountsService.sendLiquidationStatus();
         this.ibAccountsService.getCandidatesFromDB();
       }
     }, parseInt(process.env.WAIT_TIME_FOR_OTHER_WORKERS) + 1000);

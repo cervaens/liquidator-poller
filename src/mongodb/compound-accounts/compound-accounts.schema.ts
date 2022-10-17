@@ -17,6 +17,12 @@ class Liquidation {
   units_underlying: number;
   decimals_underlying: number;
 }
+
+class LiquidationStatus {
+  timestamp: number;
+  status: string;
+}
+
 @Schema()
 export class CompoundAccounts {
   @Prop({ required: true })
@@ -51,6 +57,9 @@ export class CompoundAccounts {
 
   @Prop()
   profitUSD: number;
+
+  @Prop()
+  liquidationStatus: LiquidationStatus;
 }
 
 export const CompoundAccountsSchema =

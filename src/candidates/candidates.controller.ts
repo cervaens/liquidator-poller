@@ -65,9 +65,15 @@ export class CandidatesController {
         {},
       );
     }
-    this.amqpConnection.publish('liquidator-exchange', 'trigger-liquidations', {
-      protocol: query.protocol || '',
-    });
+    setTimeout(() => {
+      this.amqpConnection.publish(
+        'liquidator-exchange',
+        'trigger-liquidations',
+        {
+          protocol: query.protocol || '',
+        },
+      );
+    }, 1000);
     return 'Triggered liquidations';
   }
 
