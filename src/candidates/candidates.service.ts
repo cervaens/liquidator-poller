@@ -209,13 +209,14 @@ export class CandidatesService {
         this.activeModuleCandidates[msg.protocol] &&
         this.activeModuleCandidates[msg.protocol][protocolAccount.address] &&
         protocolAccount.health !== 0 &&
-        protocolAccount.health < 1 &&
         this.activeModuleCandidates[msg.protocol][protocolAccount.address]
           .health !== protocolAccount.health
       ) {
         this.activeModuleCandidates[msg.protocol][protocolAccount.address] =
           protocolAccount;
-        checkLiquidations = true;
+        if (protocolAccount.health < 1) {
+          checkLiquidations = true;
+        }
         // updateList[protocolAccount._id] = msg.timestamp;
       }
     }

@@ -232,6 +232,7 @@ export class IronbankPollerService {
     const promiseExecution = async () => {
       for (const accountId of Object.keys(promises)) {
         const tokens = [];
+        let gotAnError = false;
         for (const tokenId of Object.keys(promises[accountId])) {
           try {
             const res = await promises[accountId][tokenId];
@@ -241,10 +242,13 @@ export class IronbankPollerService {
               supply_balance_itoken: parseFloat(res[1]),
             });
           } catch (error) {
+            gotAnError = true;
             this.logger.error(error.message);
           }
         }
-        updatedAccounts.push({ address: accountId, _id: accountId, tokens });
+        if (!gotAnError) {
+          updatedAccounts.push({ address: accountId, _id: accountId, tokens });
+        }
       }
     };
 

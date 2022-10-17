@@ -19,7 +19,7 @@ export class IbAccountsService {
   ) {}
 
   private readonly logger = new Logger(IbAccountsService.name);
-  private allActiveCandidates: Record<string, number> = {};
+  public allActiveCandidates: Record<string, number> = {};
   private protocol = 'IronBank';
 
   @RabbitSubscribe({
