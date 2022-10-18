@@ -282,9 +282,11 @@ export class IronbankPollerService {
         continue;
       }
       try {
-        this.tokenContract[tokenAddress] = new (this.web3Provider.getProvider(
-          'AWS',
-        ).eth.Contract)(iTokenAbi as AbiItem[], tokenAddress);
+        this.tokenContract[tokenAddress] =
+          new (this.web3Provider.getNextProvider().eth.Contract)(
+            iTokenAbi as AbiItem[],
+            tokenAddress,
+          );
       } catch (err) {
         this.logger.debug(
           'Error instanciating iToken contract: ' + tokenAddress + ' ' + err,

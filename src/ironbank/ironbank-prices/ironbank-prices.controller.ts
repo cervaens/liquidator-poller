@@ -11,10 +11,12 @@ export class IronbankPricesController {
     @Inject(AppService) private appService: AppService, // private readonly amqpConnection: AmqpConnection,
   ) {}
 
-  private stableCoinsStr = '/EUR|USD|DAI|CHF|GBP/';
-  // private iTokenPrices: Record<string, any>;
+  private stableCoinsStr = '/EUR|USD|DAI|CHF|GBP|MIM/';
+  private largeUpdatePeriodStr = '/SNX|CRV|JPY|KRW|CVX/';
+  private stableAndLargeStr = this.stableCoinsStr + this.largeUpdatePeriodStr;
 
   async onApplicationBootstrap(): Promise<void> {
+    this.stableAndLargeStr.replace('//', '|');
     setInterval(() => {
       if (
         this.appService.amItheMaster() &&
@@ -29,7 +31,16 @@ export class IronbankPricesController {
         this.appService.amItheMaster() &&
         this.appService.getControlIdStatus('IB-poller-init-finished')
       ) {
-        this.pollNonStableCoins();
+        this.pollLongPeriodCoins();
+      }
+    }, parseInt(process.env.IB_POLLING_PRICES_MEDIUM));
+
+    setInterval(() => {
+      if (
+        this.appService.amItheMaster() &&
+        this.appService.getControlIdStatus('IB-poller-init-finished')
+      ) {
+        this.pollAllCoins();
       }
     }, parseInt(process.env.IB_POLLING_PRICES_SHORT));
   }
@@ -39,9 +50,16 @@ export class IronbankPricesController {
     this.ironBankPrices.getTokensUnderlyingPrice(tokens);
   }
 
-  async pollNonStableCoins() {
+  async pollLongPeriodCoins() {
     const tokens = this.ironBankPrices.getITokensFiltered(
-      this.stableCoinsStr,
+      this.largeUpdatePeriodStr,
+    );
+    this.ironBankPrices.getTokensUnderlyingPrice(tokens);
+  }
+
+  async pollAllCoins() {
+    const tokens = this.ironBankPrices.getITokensFiltered(
+      this.stableAndLargeStr,
       true,
     );
     this.ironBankPrices.getTokensUnderlyingPrice(tokens);

@@ -8,7 +8,8 @@ import { AbiItem } from 'web3-utils';
 @Injectable()
 export class IronbankPricesService {
   private readonly logger = new Logger(IronbankPricesService.name);
-  private chainlinkProxyContract;
+  private chainlinkProxyContract = [];
+  private chainlinkCurrentIndex = 0;
   constructor(
     private readonly amqpConnection: AmqpConnection,
     private readonly provider: Web3ProviderService,
@@ -19,7 +20,20 @@ export class IronbankPricesService {
   private protocol = 'IronBank';
 
   async onModuleInit(): Promise<void> {
-    this.chainlinkProxyContract = await this.initChainlinkProxyContract();
+    for (const prov of this.provider.web3Providers) {
+      this.chainlinkProxyContract.push(
+        await this.initChainlinkProxyContract(prov),
+      );
+    }
+  }
+
+  getChainLinkContractNextProvider() {
+    this.chainlinkCurrentIndex += 1;
+    if (this.chainlinkCurrentIndex >= this.chainlinkProxyContract.length) {
+      this.chainlinkCurrentIndex = 0;
+    }
+    console.log(this.chainlinkCurrentIndex);
+    return this.chainlinkProxyContract[this.chainlinkCurrentIndex];
   }
 
   @RabbitSubscribe({
@@ -39,8 +53,8 @@ export class IronbankPricesService {
   }
 
   async getTokenPrice(tokenSymbol: string) {
-    return this.chainlinkProxyContract.methods
-      .getUnderlyingPrice(tokenSymbol)
+    return this.getChainLinkContractNextProvider()
+      .methods.getUnderlyingPrice(tokenSymbol)
       .call()
       .catch((err) => {
         this.logger.error(`Couldn't get price for ${tokenSymbol}: ${err}`);
@@ -51,9 +65,11 @@ export class IronbankPricesService {
     this.logger.debug('Getting iToken prices');
     const tokenPricesUpdated = {};
     const promises: Record<string, Promise<any>> = {};
+    const contract = this.getChainLinkContractNextProvider();
+    const index = this.chainlinkCurrentIndex;
 
     for (const token of tokens) {
-      promises[token.address] = this.chainlinkProxyContract.methods
+      promises[token.address] = contract.methods
         .getUnderlyingPrice(token.address)
         .call()
         .catch((err) => {
@@ -83,7 +99,10 @@ export class IronbankPricesService {
     await promiseExecution();
     if (Object.keys(tokenPricesUpdated).length > 0) {
       this.logger.debug(
-        '☑️ *Got Prices* for IronBank: ' + JSON.stringify(tokenPricesUpdated),
+        '☑️ *Got Prices* from ' +
+          this.provider.providersList[index] +
+          ' for IronBank: ' +
+          JSON.stringify(tokenPricesUpdated),
       );
       this.amqpConnection.publish('liquidator-exchange', 'prices-polled', {
         protocol: 'IronBank',
@@ -93,11 +112,11 @@ export class IronbankPricesService {
     return tokenPricesUpdated;
   }
 
-  async initChainlinkProxyContract() {
+  async initChainlinkProxyContract(provider) {
     // init new web3 with our infura key
 
     try {
-      return new this.provider.web3.eth.Contract(
+      return new provider.eth.Contract(
         chainlinkProxyContractAbi as AbiItem[],
         process.env.IB_CHAINLINK_PROXY ||
           '0xD5734c42E2e593933231bE61BAc2B94ACdc44DC4',

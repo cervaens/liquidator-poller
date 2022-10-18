@@ -56,6 +56,12 @@ export class CandidatesController {
     return this.candidatesService.getCandidates();
   }
 
+  @Get('reset')
+  resetCandidates(): string {
+    this.amqpConnection.publish('liquidator-exchange', 'candidates-reset', {});
+    return 'Candidates are being refreshed';
+  }
+
   @Get('liquidate')
   liquidateCandidates(@Query() query: Record<string, any>): string {
     if (query.force === 'true') {

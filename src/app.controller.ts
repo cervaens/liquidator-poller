@@ -1,16 +1,13 @@
-import { Controller, Get, Inject, Logger, Patch } from '@nestjs/common';
+import { Controller, Get, Logger, Patch } from '@nestjs/common';
 import { AppService } from './app.service';
-import { CtokenController } from './mongodb/ctoken/ctoken.controller';
 
 @Controller()
 export class AppController {
   private readonly logger = new Logger(AppController.name);
   constructor(private readonly appService: AppService) {}
 
-  @Inject(CtokenController)
-  private readonly ctokenController: CtokenController;
-
   async onApplicationBootstrap(): Promise<void> {
+    this.appService.setNodeId();
     this.appService.sendJoining();
     setInterval(() => {
       // Check if there's a master already
