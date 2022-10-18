@@ -1,11 +1,11 @@
 import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
 import { Body, Controller, Get, Logger, Post } from '@nestjs/common';
-// import { TxManagerService } from './tx-manager.service';
+import { TxManagerService } from './tx-manager.service';
 
 @Controller('tx-manager')
 export class TxManagerController {
   constructor(
-    // private readonly txManagerService: TxManagerService,
+    private readonly txManagerService: TxManagerService,
     private readonly amqpConnection: AmqpConnection,
   ) {}
   private readonly logger = new Logger(TxManagerController.name);
@@ -30,6 +30,17 @@ export class TxManagerController {
     );
 
     return `Blacklisted ${body.account}`;
+  }
+
+  @Post('real-txs/')
+  setRealTxs(@Body() body): string {
+    if (!body || typeof body.enabled !== 'boolean') {
+      return 'Please include boolean enable.';
+    }
+    this.logger.debug(`Setting Real transactions to ${body.enabled}`);
+    this.txManagerService.setRealTxs(body.enabled);
+
+    return `Real transactions are now ${body.enabled ? 'enabled' : 'disabled'}`;
   }
 
   @Get('clear-liquidations')

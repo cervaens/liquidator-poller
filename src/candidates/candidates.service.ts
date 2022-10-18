@@ -33,6 +33,23 @@ export class CandidatesService {
     return result;
   }
 
+  @RabbitSubscribe({
+    exchange: 'liquidator-exchange',
+    routingKey: 'candidates-reset',
+  })
+  public resetCandidates() {
+    // plus 3000 just to count with mq latency
+    const timestamp = new Date().getTime() + 3000;
+    this.amqpConnection.publish('liquidator-exchange', 'candidates-list', {
+      action: 'deleteBelowTimestamp',
+      timestamp,
+    });
+    this.activeModuleCandidates = {};
+    this.logger.debug(
+      'Worker nr. candidates: ' + JSON.stringify(this.getNrCandidates()),
+    );
+  }
+
   getCandidates(): Record<string, Record<string, any>> {
     return this.activeModuleCandidates;
   }

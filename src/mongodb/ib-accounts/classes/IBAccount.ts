@@ -47,6 +47,19 @@ export class IBAccount extends StandardAccount {
           this.liqBorrow.valueUSD;
   }
 
+  private uniswapNonSupportedList = [
+    'MIM',
+    'YFI',
+    'ibGBP',
+    'ibEUR',
+    'EURS',
+    'DPI',
+    'ibAUD',
+    'ibJPY',
+    'ibKRW',
+    'ibCHF',
+  ];
+
   public updateAccount(
     iToken: Record<string, any>,
     chainlinkPricesUSD: Record<string, any>,
@@ -75,8 +88,6 @@ export class IBAccount extends StandardAccount {
         return;
       }
       const underSymbol = iToken[token.address].underlyingSymbol;
-      //TODO: changed token.address by address just till I build the prices part
-      // const underlyingAddress = iToken[token.address].address;
       const decimals_underlying = iToken[token.address].decimals_underlying;
       const exchangeRate = iToken[token.address].exchangeRate;
 
@@ -90,20 +101,22 @@ export class IBAccount extends StandardAccount {
           10 ** 8;
         totalDepositUSD += colFactor * valueUSD;
 
-        const collateralObj = {
-          valueUSD,
-          symbol_underlying: underSymbol,
-          tokenAddress: token.address,
-          units_underlying,
-          // decimals_underlying,
-        };
-        if (!top2Collateral[0] || valueUSD > top2Collateral[0].valueUSD) {
-          top2Collateral.unshift(collateralObj);
-        } else if (
-          !top2Collateral[1] ||
-          valueUSD > top2Collateral[1].valueUSD
-        ) {
-          top2Collateral[1] = collateralObj;
+        if (!this.uniswapNonSupportedList.includes(underSymbol)) {
+          const collateralObj = {
+            valueUSD,
+            symbol_underlying: underSymbol,
+            tokenAddress: token.address,
+            units_underlying,
+            // decimals_underlying,
+          };
+          if (!top2Collateral[0] || valueUSD > top2Collateral[0].valueUSD) {
+            top2Collateral.unshift(collateralObj);
+          } else if (
+            !top2Collateral[1] ||
+            valueUSD > top2Collateral[1].valueUSD
+          ) {
+            top2Collateral[1] = collateralObj;
+          }
         }
       }
       if (token.borrow_balance_underlying > 0) {
@@ -115,17 +128,19 @@ export class IBAccount extends StandardAccount {
 
         totalBorrowUSD += valueUSD;
 
-        const borrowObj = {
-          valueUSD,
-          symbol_underlying: underSymbol,
-          tokenAddress: token.address,
-          units_underlying: token.borrow_balance_underlying,
-          decimals_underlying,
-        };
-        if (!top2Borrow[0] || valueUSD > top2Borrow[0].valueUSD) {
-          top2Borrow.unshift(borrowObj);
-        } else if (!top2Borrow[1] || valueUSD > top2Borrow[1].valueUSD) {
-          top2Borrow[1] = borrowObj;
+        if (!this.uniswapNonSupportedList.includes(underSymbol)) {
+          const borrowObj = {
+            valueUSD,
+            symbol_underlying: underSymbol,
+            tokenAddress: token.address,
+            units_underlying: token.borrow_balance_underlying,
+            decimals_underlying,
+          };
+          if (!top2Borrow[0] || valueUSD > top2Borrow[0].valueUSD) {
+            top2Borrow.unshift(borrowObj);
+          } else if (!top2Borrow[1] || valueUSD > top2Borrow[1].valueUSD) {
+            top2Borrow[1] = borrowObj;
+          }
         }
       }
     }
