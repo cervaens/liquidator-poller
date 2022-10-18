@@ -62,6 +62,10 @@ export class TxManagerService {
     // const promises = [];
 
     for (const candidate of msg) {
+      // We might receive liquidate-many while on init and we need to wait for liquidation statuses
+      if (!this.liquidationsStatus[candidate.protocol]) {
+        continue;
+      }
       const { repayToken, profitUSD, seizeToken, borrower } = candidate;
 
       this.logger.debug(
@@ -93,9 +97,6 @@ export class TxManagerService {
         continue;
       }
 
-      if (!this.liquidationsStatus[candidate.protocol]) {
-        this.liquidationsStatus[candidate.protocol] = {};
-      }
       this.liquidationsStatus[candidate.protocol][borrower] = {
         status: 'ongoing',
         timestamp: now,

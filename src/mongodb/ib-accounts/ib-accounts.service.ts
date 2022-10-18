@@ -21,6 +21,7 @@ export class IbAccountsService {
   private readonly logger = new Logger(IbAccountsService.name);
   public allActiveCandidates: Record<string, number> = {};
   private protocol = 'IronBank';
+  private sentInitLiqStatus = false;
 
   @RabbitSubscribe({
     exchange: 'liquidator-exchange',
@@ -141,14 +142,16 @@ export class IbAccountsService {
       msg[this.protocol][account.address] = account.liquidationStatus;
     }
 
-    if (Object.keys(msg[this.protocol]).length > 0) {
+    if (Object.keys(msg[this.protocol]).length > 0 || !this.sentInitLiqStatus) {
       this.amqpConnection.publish(
         'liquidator-exchange',
         'liquidations-called',
         msg,
       );
-      this.logger.debug('Sent liquidation status');
+      this.logger.debug('Sent liquidation status' + JSON.stringify(msg));
+      this.sentInitLiqStatus = true;
     }
+    return;
   }
 
   async updateBalances(
@@ -370,7 +373,10 @@ export class IbAccountsService {
     }
 
     // Sometimes a node goes down and candidates get lost
-    if (curNumberCandidates > Object.keys(this.allActiveCandidates).length) {
+    if (
+      curNumberCandidates > Object.keys(this.allActiveCandidates).length &&
+      this.appService.amItheMaster()
+    ) {
       this.logger.debug('IronBank: Reloading candidates from DB');
       this.getCandidatesFromDB();
     }

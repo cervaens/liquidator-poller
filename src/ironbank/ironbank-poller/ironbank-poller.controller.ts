@@ -45,15 +45,14 @@ export class IronbankPollerController {
     this.logger.debug('Waiting to listen from other workers...');
     setInterval(async () => {
       if (this.appService.amItheMaster() && !amITheMaster) {
-        amITheMaster = true;
         this.ibPollerService.getAccountsFromUnitroller();
         const tokens = await this.pollIBTokens();
         await Promise.all([
           this.ironBankPrices.getTokensUnderlyingPrice(tokens),
           this.ibAccountsService.getCandidatesFromDB(),
         ]);
-        this.pollAccounts();
-
+        await this.ibAccountsService.sendLiquidationStatus();
+        amITheMaster = true;
         this.appService.setControlIdStatus('IB-poller-init-finished', true);
       } else if (!this.appService.amItheMaster() && amITheMaster) {
         // unsubscribe if for some reason stops being master

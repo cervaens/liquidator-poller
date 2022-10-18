@@ -11,7 +11,6 @@ export class IbAccountsController {
   private readonly logger = new Logger(IbAccountsController.name);
 
   async onApplicationBootstrap(): Promise<void> {
-    // At init the master will start a poll
     this.logger.debug('Waiting to listen from other workers...');
     setTimeout(async () => {
       if (this.appService.amItheMaster()) {
@@ -22,10 +21,10 @@ export class IbAccountsController {
     setInterval(async () => {
       if (
         this.appService.amItheMaster() &&
-        Object.keys(this.ibAccountsService.allActiveCandidates).length === 0
+        Object.keys(this.ibAccountsService.allActiveCandidates).length !== 0
       ) {
         this.ibAccountsService.getCandidatesFromDB();
       }
-    }, 10000);
+    }, 120000);
   }
 }
