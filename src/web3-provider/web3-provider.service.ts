@@ -53,7 +53,7 @@ export class Web3ProviderService {
   public web3Ws: Web3;
   public web3Providers = [];
   public web3WsProviders = [];
-  private providersList = JSON.parse(process.env.WEB3_PROVIDERS) || ['AWS'];
+  public providersList = JSON.parse(process.env.WEB3_PROVIDERS) || ['AWS'];
   private providersWsList = JSON.parse(process.env.WEB3_WS_PROVIDERS) || [
     'AWS',
   ];

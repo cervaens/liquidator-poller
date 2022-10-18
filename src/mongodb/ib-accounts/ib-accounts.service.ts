@@ -148,7 +148,7 @@ export class IbAccountsService {
         'liquidations-called',
         msg,
       );
-      this.logger.debug('Sent liquidation status' + JSON.stringify(msg));
+      this.logger.debug('Sent liquidation status');
       this.sentInitLiqStatus = true;
     }
     return;

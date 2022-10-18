@@ -16,7 +16,8 @@ export class TxManagerService {
     process.env.LIQUIDATOR_ADDRESS ||
     '0xCa1D199b6F53Af7387ac543Af8e8a34455BBe5E0';
   private liquidationsStatus: Record<string, Record<string, any>> = {};
-  private nonce: number;
+  private realTxsEnabled =
+    process.env.LIQUIDATIONS_REAL_TXS_ENABLED === 'true' ? true : false;
 
   constructor(
     private readonly provider: Web3ProviderService,
@@ -40,6 +41,10 @@ export class TxManagerService {
   async onModuleInit(): Promise<void> {
     this.liquidatorContract = await this.initLiquidatorContract();
     await this.subscribeToLiquidatorEvents();
+  }
+
+  setRealTxs(value) {
+    this.realTxsEnabled = value;
   }
 
   getNrLiquidations(): Record<string, number> {
@@ -124,7 +129,7 @@ export class TxManagerService {
               ? estimated
               : tx.gasLimit;
 
-          if (process.env.LIQUIDATIONS_REAL_TXS_ENABLED === 'true' || false) {
+          if (this.realTxsEnabled) {
             this.logger.debug(
               ` * CREATING TX * in ${candidate.protocol} for account ${borrower} `,
             );
