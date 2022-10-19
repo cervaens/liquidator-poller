@@ -60,8 +60,23 @@ export class CandidatesController {
     }, this.candidatesTimeout);
   }
   @Get()
-  getCandidates(): Record<string, Record<string, any>> {
-    return this.candidatesService.getCandidates();
+  getCandidates(
+    @Query() query: Record<string, any>,
+  ): Array<Record<string, Record<string, any>>> {
+    const candidates = this.candidatesService.getCandidates();
+    let retArray = [];
+
+    for (const protocol of Object.keys(candidates)) {
+      if (query.protocol && query.protocol !== protocol) {
+        continue;
+      }
+      if (!query.account) {
+        retArray = retArray.concat(Object.values(candidates[protocol]));
+      } else if (candidates[protocol][query.account]) {
+        retArray = retArray.concat(candidates[protocol][query.account]);
+      }
+    }
+    return retArray;
   }
 
   @Get('reset')

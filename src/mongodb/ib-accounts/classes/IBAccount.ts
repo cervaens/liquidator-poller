@@ -1,5 +1,17 @@
 import { StandardAccount } from '../../../classes/StandardAccount';
 
+const uniswapNonSupportedList = [
+  'MIM',
+  'YFI',
+  'ibGBP',
+  'ibEUR',
+  'EURS',
+  'DPI',
+  'ibAUD',
+  'ibJPY',
+  'ibKRW',
+  'ibCHF',
+];
 export class IBAccount extends StandardAccount {
   public address: string;
   public _id: string;
@@ -14,6 +26,7 @@ export class IBAccount extends StandardAccount {
   public lastUpdated: number;
   private closeFactor = 0.5;
   private liquidationIncentive = 1.08;
+  private protocol = 'IronBank';
 
   constructor(json: Record<string, any>) {
     super(json);
@@ -46,19 +59,6 @@ export class IBAccount extends StandardAccount {
           this.liqCollateral.valueUSD) /
           this.liqBorrow.valueUSD;
   }
-
-  private uniswapNonSupportedList = [
-    'MIM',
-    'YFI',
-    'ibGBP',
-    'ibEUR',
-    'EURS',
-    'DPI',
-    'ibAUD',
-    'ibJPY',
-    'ibKRW',
-    'ibCHF',
-  ];
 
   public updateAccount(
     iToken: Record<string, any>,
@@ -101,7 +101,7 @@ export class IBAccount extends StandardAccount {
           10 ** 8;
         totalDepositUSD += colFactor * valueUSD;
 
-        if (!this.uniswapNonSupportedList.includes(underSymbol)) {
+        if (!uniswapNonSupportedList.includes(underSymbol)) {
           const collateralObj = {
             valueUSD,
             symbol_underlying: underSymbol,
@@ -128,7 +128,7 @@ export class IBAccount extends StandardAccount {
 
         totalBorrowUSD += valueUSD;
 
-        if (!this.uniswapNonSupportedList.includes(underSymbol)) {
+        if (!uniswapNonSupportedList.includes(underSymbol)) {
           const borrowObj = {
             valueUSD,
             symbol_underlying: underSymbol,
