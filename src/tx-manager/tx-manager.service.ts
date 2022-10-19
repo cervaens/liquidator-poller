@@ -141,7 +141,9 @@ export class TxManagerService {
             });
           } else {
             this.logger.debug(
-              `Real liquidations disabled. Tx ${JSON.stringify(
+              `Real liquidations disabled. Tx in ${
+                candidate.protocol
+              } for account ${borrower} with tx: ${JSON.stringify(
                 tx,
               )} was not sent`,
             );
