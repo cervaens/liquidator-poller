@@ -1,5 +1,13 @@
 import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
-import { Controller, Get, Logger, Param, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Logger,
+  Param,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { CompoundAccount } from 'src/mongodb/compound-accounts/classes/CompoundAccount';
 import { CandidatesService } from './candidates.service';
 
@@ -102,6 +110,19 @@ export class CandidatesController {
     ]);
 
     return `Liquidating ${params.account}`;
+  }
+
+  @Post('same-token/')
+  setRealTxs(@Body() body): string {
+    if (!body || typeof body.enabled !== 'boolean') {
+      return 'Please include boolean enable.';
+    }
+    this.logger.debug(`Setting same token candidates to ${body.enabled}`);
+    this.candidatesService.setSameTokenCandidates(body.enabled);
+
+    return `Same token candidates are now ${
+      body.enabled ? 'enabled' : 'disabled'
+    }`;
   }
 
   @Get('ready-for-liquidation')

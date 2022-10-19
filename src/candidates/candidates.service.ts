@@ -13,6 +13,8 @@ export class CandidatesService {
   > = {};
   private readonly logger = new Logger(CandidatesService.name);
   private nextInit = 0;
+  private enableCandidatesWithSameToken =
+    process.env.CANDIDATE_ALLOW_SAME_TOKEN === 'true' ? true : false;
 
   private protocolClass = {
     Compound: CompoundAccount,
@@ -31,6 +33,10 @@ export class CandidatesService {
       result.total += result[protocol];
     }
     return result;
+  }
+
+  setSameTokenCandidates(value: boolean) {
+    this.enableCandidatesWithSameToken = value;
   }
 
   @RabbitSubscribe({
@@ -96,7 +102,10 @@ export class CandidatesService {
       if (
         candidate.profitUSD >
           parseInt(process.env.LIQUIDATION_MIN_USD_PROFIT) &&
-        candidate.getCalculatedHealth() < 1
+        candidate.getCalculatedHealth() < 1 &&
+        (this.enableCandidatesWithSameToken ||
+          candidate.liqBorrow.tokenAddress !==
+            candidate.liqCollateral.tokenAddress)
       ) {
         candidatesToLiquidate.push(candidate);
       }

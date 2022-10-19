@@ -185,7 +185,9 @@ export class TxManagerService {
     routingKey: 'liquidations-clear',
   })
   async clearLiquidationsList() {
-    this.liquidationsStatus = {};
+    for (const protocol of Object.keys(this.liquidationsStatus)) {
+      this.liquidationsStatus[protocol] = {};
+    }
     this.logger.debug(
       'Current nr liqs: ' + JSON.stringify(this.getNrLiquidations()),
     );
