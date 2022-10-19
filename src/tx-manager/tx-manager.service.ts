@@ -56,6 +56,10 @@ export class TxManagerService {
     return result;
   }
 
+  getCurrentLiquidations(): Record<string, Record<string, any>> {
+    return this.liquidationsStatus;
+  }
+
   @RabbitSubscribe({
     exchange: 'liquidator-exchange',
     routingKey: 'liquidate-many',
@@ -141,7 +145,9 @@ export class TxManagerService {
             });
           } else {
             this.logger.debug(
-              `Real liquidations disabled. Tx ${JSON.stringify(
+              `Real liquidations disabled. Tx in ${
+                candidate.protocol
+              } for account ${borrower} with tx: ${JSON.stringify(
                 tx,
               )} was not sent`,
             );
@@ -182,8 +188,17 @@ export class TxManagerService {
     exchange: 'liquidator-exchange',
     routingKey: 'liquidations-clear',
   })
-  async clearLiquidationsList() {
-    this.liquidationsStatus = {};
+  async clearLiquidationsList(msg: Record<string, string>) {
+    for (const protocol of Object.keys(this.liquidationsStatus)) {
+      if (msg.protocol && msg.protocol !== protocol) {
+        continue;
+      }
+      if (msg.account && this.liquidationsStatus[protocol][msg.account]) {
+        delete this.liquidationsStatus[protocol][msg.account];
+      } else if (!msg.account) {
+        this.liquidationsStatus[protocol] = {};
+      }
+    }
     this.logger.debug(
       'Current nr liqs: ' + JSON.stringify(this.getNrLiquidations()),
     );

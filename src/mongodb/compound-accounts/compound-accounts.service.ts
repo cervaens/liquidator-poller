@@ -15,6 +15,7 @@ export class CompoundAccountsService {
   private readonly logger = new Logger(CompoundAccountsService.name);
   private allActiveCandidates: Record<string, number> = {};
   private protocol = 'Compound';
+  private sentInitLiqStatus = false;
 
   constructor(
     @InjectModel(CompoundAccounts.name)
@@ -38,16 +39,14 @@ export class CompoundAccountsService {
     exchange: 'liquidator-exchange',
     routingKey: 'liquidations-clear',
   })
-  async clearLiquidationsList() {
+  async clearLiquidationsList(msg: Record<string, string>) {
+    const query = msg.account ? { _id: msg.account } : {};
     this.compoundAccountsModel
-      .updateMany(
-        {},
-        {
-          $set: {
-            liquidationStatus: {},
-          },
+      .updateMany(query, {
+        $set: {
+          liquidationStatus: {},
         },
-      )
+      })
       .exec();
   }
 
@@ -88,13 +87,14 @@ export class CompoundAccountsService {
       msg[this.protocol][account.address] = account.liquidationStatus;
     }
 
-    if (Object.keys(msg[this.protocol]).length > 0) {
+    if (Object.keys(msg[this.protocol]).length > 0 || !this.sentInitLiqStatus) {
       this.amqpConnection.publish(
         'liquidator-exchange',
         'liquidations-called',
         msg,
       );
       this.logger.debug('Sent liquidation status');
+      this.sentInitLiqStatus = true;
     }
   }
 
