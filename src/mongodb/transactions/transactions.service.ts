@@ -57,9 +57,13 @@ export class TransactionsService {
     msg: Record<string, any | Record<string, any>>,
   ) {
     const {
-      0: borrower,
-      1: repayToken,
-      2: seizeToken,
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      0: compTroller,
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      1: ethAddress,
+      2: borrower,
+      3: repayToken,
+      4: seizeToken,
     } = web3Con.eth.abi.decodeParameters(
       ['address', 'address', 'address'],
       msg.tx.data.slice(10),

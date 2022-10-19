@@ -32,7 +32,6 @@ export class IronbankPricesService {
     if (this.chainlinkCurrentIndex >= this.chainlinkProxyContract.length) {
       this.chainlinkCurrentIndex = 0;
     }
-    console.log(this.chainlinkCurrentIndex);
     return this.chainlinkProxyContract[this.chainlinkCurrentIndex];
   }
 

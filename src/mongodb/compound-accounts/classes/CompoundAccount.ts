@@ -13,6 +13,7 @@ export class CompoundAccount extends StandardAccount {
   public liqBorrow: Record<string, any> = { valueUSD: 0 };
   private closeFactor = 0.5;
   private liquidationIncentive = 1.08;
+  private protocol = 'Compound';
 
   constructor(json: Record<string, any>) {
     super(json);

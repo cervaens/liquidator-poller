@@ -1,5 +1,5 @@
 import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
-import { Controller, Get, Logger, Param, Query } from '@nestjs/common';
+import { Body, Controller, Get, Logger, Post, Query } from '@nestjs/common';
 import { CompoundAccount } from 'src/mongodb/compound-accounts/classes/CompoundAccount';
 import { CandidatesService } from './candidates.service';
 
@@ -52,8 +52,23 @@ export class CandidatesController {
     }, this.candidatesTimeout);
   }
   @Get()
-  getCandidates(): Record<string, Record<string, any>> {
-    return this.candidatesService.getCandidates();
+  getCandidates(
+    @Query() query: Record<string, any>,
+  ): Array<Record<string, Record<string, any>>> {
+    const candidates = this.candidatesService.getCandidates();
+    let retArray = [];
+
+    for (const protocol of Object.keys(candidates)) {
+      if (query.protocol && query.protocol !== protocol) {
+        continue;
+      }
+      if (!query.account) {
+        retArray = retArray.concat(Object.values(candidates[protocol]));
+      } else if (candidates[protocol][query.account]) {
+        retArray = retArray.concat(candidates[protocol][query.account]);
+      }
+    }
+    return retArray;
   }
 
   @Get('reset')
@@ -83,25 +98,31 @@ export class CandidatesController {
     return 'Triggered liquidations';
   }
 
-  @Get('liquidate/:account')
-  liquidateCandidate(@Param() params): string {
-    const candidates = this.candidatesService.getCandidates();
+  @Post('liquidate')
+  liquidateCandidate(@Body() body): string {
+    if (!body || !body.account || !body.protocol) {
+      return 'Please add account and protocol.';
+    }
 
-    this.logger.debug(`Liquidating ${params.account}`);
+    this.amqpConnection.publish('liquidator-exchange', 'trigger-liquidations', {
+      account: body.account,
+      protocol: body.protocol,
+    });
 
-    const liqCand = {
-      repayToken: candidates[params.account].liqBorrow.tokenAddress,
-      amount: candidates[params.account].getLiqAmount(),
-      seizeToken: candidates[params.account].liqCollateral.tokenAddress,
-      borrower: candidates[params.account].address,
-      profitUSD: candidates[params.account].profitUSD,
-    };
+    return `Trying to liquidate ${body.account}`;
+  }
 
-    this.amqpConnection.publish('liquidator-exchange', 'liquidate-many', [
-      liqCand,
-    ]);
+  @Post('same-token/')
+  setRealTxs(@Body() body): string {
+    if (!body || typeof body.enabled !== 'boolean') {
+      return 'Please include boolean enable.';
+    }
+    this.logger.debug(`Setting same token candidates to ${body.enabled}`);
+    this.candidatesService.setSameTokenCandidates(body.enabled);
 
-    return `Liquidating ${params.account}`;
+    return `Same token candidates are now ${
+      body.enabled ? 'enabled' : 'disabled'
+    }`;
   }
 
   @Get('ready-for-liquidation')
