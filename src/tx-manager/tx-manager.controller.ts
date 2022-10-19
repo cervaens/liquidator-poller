@@ -43,15 +43,21 @@ export class TxManagerController {
     return `Real transactions are now ${body.enabled ? 'enabled' : 'disabled'}`;
   }
 
-  @Get('clear-liquidations')
-  liquidationsClear(): string {
-    this.logger.debug(`Clearing liquidations list.`);
+  @Get('current-liquidations')
+  currentLiquidations(): Record<string, Record<string, any>> {
+    return this.txManagerService.getCurrentLiquidations();
+  }
 
-    this.amqpConnection.publish(
-      'liquidator-exchange',
-      'liquidations-clear',
-      {},
-    );
+  @Post('clear-liquidations')
+  liquidationsClear(@Body() body): string {
+    this.logger.debug(`Clearing liquidations list.`);
+    const account = body.account || '';
+    const protocol = body.protocol || '';
+
+    this.amqpConnection.publish('liquidator-exchange', 'liquidations-clear', {
+      account,
+      protocol,
+    });
 
     return `Cleared liquidations list`;
   }

@@ -39,16 +39,14 @@ export class CompoundAccountsService {
     exchange: 'liquidator-exchange',
     routingKey: 'liquidations-clear',
   })
-  async clearLiquidationsList() {
+  async clearLiquidationsList(msg: Record<string, string>) {
+    const query = msg.account ? { _id: msg.account } : {};
     this.compoundAccountsModel
-      .updateMany(
-        {},
-        {
-          $set: {
-            liquidationStatus: {},
-          },
+      .updateMany(query, {
+        $set: {
+          liquidationStatus: {},
         },
-      )
+      })
       .exec();
   }
 

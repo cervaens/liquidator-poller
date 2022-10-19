@@ -56,6 +56,10 @@ export class TxManagerService {
     return result;
   }
 
+  getCurrentLiquidations(): Record<string, Record<string, any>> {
+    return this.liquidationsStatus;
+  }
+
   @RabbitSubscribe({
     exchange: 'liquidator-exchange',
     routingKey: 'liquidate-many',
@@ -184,9 +188,16 @@ export class TxManagerService {
     exchange: 'liquidator-exchange',
     routingKey: 'liquidations-clear',
   })
-  async clearLiquidationsList() {
+  async clearLiquidationsList(msg: Record<string, string>) {
     for (const protocol of Object.keys(this.liquidationsStatus)) {
-      this.liquidationsStatus[protocol] = {};
+      if (msg.protocol && msg.protocol !== protocol) {
+        continue;
+      }
+      if (msg.account && this.liquidationsStatus[protocol][msg.account]) {
+        delete this.liquidationsStatus[protocol][msg.account];
+      } else if (!msg.account) {
+        this.liquidationsStatus[protocol] = {};
+      }
     }
     this.logger.debug(
       'Current nr liqs: ' + JSON.stringify(this.getNrLiquidations()),

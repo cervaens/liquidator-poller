@@ -257,7 +257,13 @@ export class CandidatesService {
     routingKey: 'trigger-liquidations',
   })
   checkCandidatesLiquidations(msg: Record<string, any>) {
-    const candidates = this.getCandidatesForLiquidation(msg.protocol);
+    let candidates = this.getCandidatesForLiquidation(msg.protocol);
+
+    if (msg.account) {
+      candidates = candidates.filter(
+        (candidate) => candidate.address === msg.account,
+      );
+    }
 
     let candidatesArray = [];
     this.logger.debug(

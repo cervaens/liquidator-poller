@@ -1,13 +1,5 @@
 import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
-import {
-  Body,
-  Controller,
-  Get,
-  Logger,
-  Param,
-  Post,
-  Query,
-} from '@nestjs/common';
+import { Body, Controller, Get, Logger, Post, Query } from '@nestjs/common';
 import { CompoundAccount } from 'src/mongodb/compound-accounts/classes/CompoundAccount';
 import { CandidatesService } from './candidates.service';
 
@@ -106,25 +98,18 @@ export class CandidatesController {
     return 'Triggered liquidations';
   }
 
-  @Get('liquidate/:account')
-  liquidateCandidate(@Param() params): string {
-    const candidates = this.candidatesService.getCandidates();
+  @Post('liquidate')
+  liquidateCandidate(@Body() body): string {
+    if (!body || !body.account || !body.protocol) {
+      return 'Please add account and protocol.';
+    }
 
-    this.logger.debug(`Liquidating ${params.account}`);
+    this.amqpConnection.publish('liquidator-exchange', 'trigger-liquidations', {
+      account: body.account,
+      protocol: body.protocol,
+    });
 
-    const liqCand = {
-      repayToken: candidates[params.account].liqBorrow.tokenAddress,
-      amount: candidates[params.account].getLiqAmount(),
-      seizeToken: candidates[params.account].liqCollateral.tokenAddress,
-      borrower: candidates[params.account].address,
-      profitUSD: candidates[params.account].profitUSD,
-    };
-
-    this.amqpConnection.publish('liquidator-exchange', 'liquidate-many', [
-      liqCand,
-    ]);
-
-    return `Liquidating ${params.account}`;
+    return `Trying to liquidate ${body.account}`;
   }
 
   @Post('same-token/')
