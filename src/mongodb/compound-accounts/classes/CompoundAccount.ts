@@ -1,5 +1,7 @@
 import { StandardAccount } from '../../../classes/StandardAccount';
 
+const uniswapNonSupportedList = ['SAI', 'WBTC2'];
+
 export class CompoundAccount extends StandardAccount {
   public address: string;
   public _id: string;
@@ -51,7 +53,8 @@ export class CompoundAccount extends StandardAccount {
   public isCandidate() {
     return (
       this.health >= parseFloat(process.env.CANDIDATE_MIN_HEALTH) &&
-      this.health <= parseFloat(process.env.CANDIDATE_MAX_HEALTH)
+      this.health <= parseFloat(process.env.CANDIDATE_MAX_HEALTH) &&
+      this.total_borrow_value_in_eth > 2
     );
   }
 
@@ -103,20 +106,22 @@ export class CompoundAccount extends StandardAccount {
           10 ** 6;
         totalDepositUSD += colFactor * valueUSD;
 
-        const collateralObj = {
-          valueUSD,
-          symbol_underlying: underSymbol,
-          tokenAddress: token.address,
-          units_underlying: token.supply_balance_underlying,
-          decimals_underlying,
-        };
-        if (!top2Collateral[0] || valueUSD > top2Collateral[0].valueUSD) {
-          top2Collateral.unshift(collateralObj);
-        } else if (
-          !top2Collateral[1] ||
-          valueUSD > top2Collateral[1].valueUSD
-        ) {
-          top2Collateral[1] = collateralObj;
+        if (!uniswapNonSupportedList.includes(underSymbol)) {
+          const collateralObj = {
+            valueUSD,
+            symbol_underlying: underSymbol,
+            tokenAddress: token.address,
+            units_underlying: token.supply_balance_underlying,
+            decimals_underlying,
+          };
+          if (!top2Collateral[0] || valueUSD > top2Collateral[0].valueUSD) {
+            top2Collateral.unshift(collateralObj);
+          } else if (
+            !top2Collateral[1] ||
+            valueUSD > top2Collateral[1].valueUSD
+          ) {
+            top2Collateral[1] = collateralObj;
+          }
         }
       }
       if (token.borrow_balance_underlying > 0) {
@@ -128,19 +133,25 @@ export class CompoundAccount extends StandardAccount {
 
         totalBorrowUSD += valueUSD;
 
-        const borrowObj = {
-          valueUSD,
-          symbol_underlying: underSymbol,
-          tokenAddress: token.address,
-          units_underlying: token.borrow_balance_underlying,
-          decimals_underlying,
-        };
-        if (!top2Borrow[0] || valueUSD > top2Borrow[0].valueUSD) {
-          top2Borrow.unshift(borrowObj);
-        } else if (!top2Borrow[1] || valueUSD > top2Borrow[1].valueUSD) {
-          top2Borrow[1] = borrowObj;
+        if (!uniswapNonSupportedList.includes(underSymbol)) {
+          const borrowObj = {
+            valueUSD,
+            symbol_underlying: underSymbol,
+            tokenAddress: token.address,
+            units_underlying: token.borrow_balance_underlying,
+            decimals_underlying,
+          };
+          if (!top2Borrow[0] || valueUSD > top2Borrow[0].valueUSD) {
+            top2Borrow.unshift(borrowObj);
+          } else if (!top2Borrow[1] || valueUSD > top2Borrow[1].valueUSD) {
+            top2Borrow[1] = borrowObj;
+          }
         }
       }
+    }
+
+    if (top2Collateral.length === 0 || top2Borrow.length === 0) {
+      return;
     }
 
     const ableToPickBest = !(

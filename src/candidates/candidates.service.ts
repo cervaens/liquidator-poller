@@ -95,6 +95,12 @@ export class CandidatesService {
       return [];
     }
 
+    this.logger.debug(
+      `${protocol}: Checking ${
+        Object.keys(this.activeModuleCandidates[protocol]).length
+      } accounts for liquidation`,
+    );
+
     for (const candidate of Object.values(
       this.activeModuleCandidates[protocol],
     )) {
@@ -267,7 +273,7 @@ export class CandidatesService {
 
     let candidatesArray = [];
     this.logger.debug(
-      `${msg.protocol}: Checking ${candidates.length} accounts for liquidation`,
+      `${msg.protocol}: Trying to liquidate ${candidates.length} accounts`,
     );
     for (let i = 0; i < candidates.length; i++) {
       const liqCand = {

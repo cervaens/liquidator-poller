@@ -257,10 +257,6 @@ export class IronbankPollerService {
     this.logger.debug('IB: Finished polling accounts balances');
     // While I dont develop prices poll I pass the tokens obj
 
-    this.amqpConnection.publish('liquidator-exchange', 'ib-accounts-polled', {
-      accounts: updatedAccounts,
-    });
-
     await this.ibAccounts.calculateHealthAndStore(
       updatedAccounts,
       this.tokenObj,

@@ -12,7 +12,7 @@ export class IbAccountsController {
 
   async onApplicationBootstrap(): Promise<void> {
     this.logger.debug('Waiting to listen from other workers...');
-    setTimeout(async () => {
+    setTimeout(() => {
       if (this.appService.amItheMaster()) {
         this.ibAccountsService.sendLiquidationStatus();
       }
