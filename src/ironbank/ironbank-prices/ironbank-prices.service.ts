@@ -60,14 +60,20 @@ export class IronbankPricesService {
       });
   }
 
-  async getTokensUnderlyingPrice(tokens: Array<Record<string, any>>) {
+  @RabbitSubscribe({
+    exchange: 'liquidator-exchange',
+    routingKey: 'poll-ib-prices',
+  })
+  async getTokensUnderlyingPrice(
+    msg: Record<string, Array<Record<string, any>>>,
+  ) {
     this.logger.debug('Getting iToken prices');
     const tokenPricesUpdated = {};
     const promises: Record<string, Promise<any>> = {};
     const contract = this.getChainLinkContractNextProvider();
     const index = this.chainlinkCurrentIndex;
 
-    for (const token of tokens) {
+    for (const token of msg.tokens) {
       promises[token.address] = contract.methods
         .getUnderlyingPrice(token.address)
         .call()
@@ -108,7 +114,6 @@ export class IronbankPricesService {
         prices: tokenPricesUpdated,
       });
     }
-    return tokenPricesUpdated;
   }
 
   async initChainlinkProxyContract(provider) {

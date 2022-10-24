@@ -146,11 +146,12 @@ export class CompoundAccountsService {
       return;
     }
     for (const account of msg.accounts) {
-      const compoundAccount = new CompoundAccount(account);
+      const compoundAccount = new CompoundAccount(account, true);
+      compoundAccount.updateAccount(msg.cTokens, msg.cTokenPrices);
       if (compoundAccount.isCandidate()) {
         !this.allActiveCandidates[compoundAccount._id] || msg.init
-          ? candidatesNew.push(account)
-          : candidatesUpdated.push(account);
+          ? candidatesNew.push(compoundAccount)
+          : candidatesUpdated.push(compoundAccount);
       }
 
       queries.push({

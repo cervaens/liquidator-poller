@@ -15,6 +15,8 @@ export class CompoundPollerService {
   // private activeCandidatesList: Array<string> = [];
   private initOngoing = false;
   private protocol = 'Compound';
+  private tokenObj: Record<string, any> = {};
+  private cTokenPrices: Record<string, Record<string, number>> = {};
 
   // Init is necessary so that the activeCandidateList is cleared
   // to re-spread all candidates including the new joined app
@@ -32,6 +34,36 @@ export class CompoundPollerService {
 
   async sleep(millis: number) {
     return new Promise((resolve) => setTimeout(resolve, millis));
+  }
+
+  @RabbitSubscribe({
+    exchange: 'liquidator-exchange',
+    routingKey: 'prices-polled',
+  })
+  async updatePricesHandler(msg: Record<string, any>) {
+    if (msg.protocol !== this.protocol) {
+      return;
+    }
+    this.cTokenPrices = { ...this.cTokenPrices, ...msg.prices };
+  }
+
+  @RabbitSubscribe({
+    exchange: 'liquidator-exchange',
+    routingKey: 'prices-updated',
+  })
+  public async pricesUpdated(msg: Record<string, any>) {
+    for (const priceObj of msg.prices) {
+      if (
+        !this.cTokenPrices[priceObj.underlyingAddress] ||
+        this.cTokenPrices[priceObj.underlyingAddress].blockNumber <
+          priceObj.blockNumber
+      ) {
+        this.cTokenPrices[priceObj.underlyingAddress] = {
+          blockNumber: priceObj.blockNumber,
+          price: priceObj.price,
+        };
+      }
+    }
   }
 
   async fetchCtokens(withConfig: Record<string, any>) {
@@ -57,12 +89,11 @@ export class CompoundPollerService {
         )) ||
       [];
 
-    const tokenObj = {};
     for (const token of tokens) {
-      tokenObj[token.symbol] = token;
+      this.tokenObj[token.symbol] = token;
     }
     this.amqpConnection.publish('liquidator-exchange', 'tokens-polled', {
-      tokens: tokenObj,
+      tokens: this.tokenObj,
       protocol: this.protocol,
     });
 
@@ -78,6 +109,14 @@ export class CompoundPollerService {
     queue: 'fetchaccounts',
   })
   async fetchAccounts(msg: Record<string, boolean>) {
+    if (
+      !this.tokenObj ||
+      !this.cTokenPrices ||
+      Object.keys(this.tokenObj).length === 0 ||
+      Object.keys(this.cTokenPrices).length === 0
+    ) {
+      return;
+    }
     const timestamp = new Date().getTime();
     if (msg.init) {
       this.amqpConnection.publish(
@@ -114,6 +153,8 @@ export class CompoundPollerService {
       accounts: firstPage.data && firstPage.data.accounts,
       init: msg.init,
       timestamp,
+      cTokens: this.tokenObj,
+      cTokenPrices: this.cTokenPrices,
     });
 
     const pageCount =
@@ -144,6 +185,8 @@ export class CompoundPollerService {
               accounts: res.data && res.data.accounts,
               init: msg.init,
               timestamp,
+              cTokens: this.tokenObj,
+              cTokenPrices: this.cTokenPrices,
             },
           );
         } catch (error) {

@@ -1,5 +1,7 @@
 import { StandardAccount } from '../../../classes/StandardAccount';
 
+const uniswapNonSupportedList = ['SAI', 'WBTC2'];
+
 export class CompoundAccount extends StandardAccount {
   public address: string;
   public _id: string;
@@ -15,17 +17,28 @@ export class CompoundAccount extends StandardAccount {
   private liquidationIncentive = 1.08;
   private protocol = 'Compound';
 
-  constructor(json: Record<string, any>) {
+  constructor(json: Record<string, any>, needsParsing = false) {
     super(json);
-    this.health = parseFloat(json.health.value);
-    this.tokens = this.tokensArrayToObj(json.tokens);
-    this.total_borrow_value_in_eth = parseFloat(
-      json.total_borrow_value_in_eth && json.total_borrow_value_in_eth.value,
-    );
-    this.total_collateral_value_in_eth = parseFloat(
-      json.total_collateral_value_in_eth &&
-        json.total_collateral_value_in_eth.value,
-    );
+    if (needsParsing) {
+      this.health = parseFloat(json.health.value);
+      this.tokens = this.tokensArrayToObj(json.tokens);
+      this.total_borrow_value_in_eth = parseFloat(
+        json.total_borrow_value_in_eth && json.total_borrow_value_in_eth.value,
+      );
+      this.total_collateral_value_in_eth = parseFloat(
+        json.total_collateral_value_in_eth &&
+          json.total_collateral_value_in_eth.value,
+      );
+    } else {
+      this.health = json.health;
+      this.tokens = json.tokens;
+      this.total_borrow_value_in_eth = json.total_borrow_value_in_eth;
+      this.total_collateral_value_in_eth = json.total_collateral_value_in_eth;
+      this.profitUSD = json.profitUSD;
+      this.calculatedHealth = json.calculatedHealth;
+      this.liqCollateral = json.liqCollateral;
+      this.liqBorrow = json.liqBorrow;
+    }
   }
 
   private tokensArrayToObj(tokens: Array<Record<string, any>>) {
@@ -50,8 +63,11 @@ export class CompoundAccount extends StandardAccount {
 
   public isCandidate() {
     return (
-      this.health >= parseFloat(process.env.CANDIDATE_MIN_HEALTH) &&
-      this.health <= parseFloat(process.env.CANDIDATE_MAX_HEALTH)
+      this.getHealth() >= parseFloat(process.env.CANDIDATE_MIN_HEALTH) &&
+      this.getHealth() <= parseFloat(process.env.CANDIDATE_MAX_HEALTH) &&
+      this.profitUSD >= parseFloat(process.env.LIQUIDATION_MIN_USD_PROFIT) &&
+      this.liqBorrow.valueUSD > 0 &&
+      this.liqCollateral.valueUSD > 0
     );
   }
 
@@ -68,8 +84,8 @@ export class CompoundAccount extends StandardAccount {
           this.liqBorrow.valueUSD;
   }
 
-  public getCalculatedHealth(): number {
-    return this.calculatedHealth;
+  public getHealth(): number {
+    return this.calculatedHealth || this.health;
   }
 
   public updateAccount(
@@ -103,20 +119,22 @@ export class CompoundAccount extends StandardAccount {
           10 ** 6;
         totalDepositUSD += colFactor * valueUSD;
 
-        const collateralObj = {
-          valueUSD,
-          symbol_underlying: underSymbol,
-          tokenAddress: token.address,
-          units_underlying: token.supply_balance_underlying,
-          decimals_underlying,
-        };
-        if (!top2Collateral[0] || valueUSD > top2Collateral[0].valueUSD) {
-          top2Collateral.unshift(collateralObj);
-        } else if (
-          !top2Collateral[1] ||
-          valueUSD > top2Collateral[1].valueUSD
-        ) {
-          top2Collateral[1] = collateralObj;
+        if (!uniswapNonSupportedList.includes(underSymbol)) {
+          const collateralObj = {
+            valueUSD,
+            symbol_underlying: underSymbol,
+            tokenAddress: token.address,
+            units_underlying: token.supply_balance_underlying,
+            decimals_underlying,
+          };
+          if (!top2Collateral[0] || valueUSD > top2Collateral[0].valueUSD) {
+            top2Collateral.unshift(collateralObj);
+          } else if (
+            !top2Collateral[1] ||
+            valueUSD > top2Collateral[1].valueUSD
+          ) {
+            top2Collateral[1] = collateralObj;
+          }
         }
       }
       if (token.borrow_balance_underlying > 0) {
@@ -128,19 +146,25 @@ export class CompoundAccount extends StandardAccount {
 
         totalBorrowUSD += valueUSD;
 
-        const borrowObj = {
-          valueUSD,
-          symbol_underlying: underSymbol,
-          tokenAddress: token.address,
-          units_underlying: token.borrow_balance_underlying,
-          decimals_underlying,
-        };
-        if (!top2Borrow[0] || valueUSD > top2Borrow[0].valueUSD) {
-          top2Borrow.unshift(borrowObj);
-        } else if (!top2Borrow[1] || valueUSD > top2Borrow[1].valueUSD) {
-          top2Borrow[1] = borrowObj;
+        if (!uniswapNonSupportedList.includes(underSymbol)) {
+          const borrowObj = {
+            valueUSD,
+            symbol_underlying: underSymbol,
+            tokenAddress: token.address,
+            units_underlying: token.borrow_balance_underlying,
+            decimals_underlying,
+          };
+          if (!top2Borrow[0] || valueUSD > top2Borrow[0].valueUSD) {
+            top2Borrow.unshift(borrowObj);
+          } else if (!top2Borrow[1] || valueUSD > top2Borrow[1].valueUSD) {
+            top2Borrow[1] = borrowObj;
+          }
         }
       }
+    }
+
+    if (top2Collateral.length === 0 || top2Borrow.length === 0) {
+      return;
     }
 
     const ableToPickBest = !(
@@ -160,10 +184,10 @@ export class CompoundAccount extends StandardAccount {
 
     const seizeIdx = Number(ableToPickBest ? 0 : !repayIdx);
 
-    this.liqBorrow = top2Borrow[repayIdx] || {};
-    this.liqCollateral = top2Collateral[seizeIdx] || {};
+    this.liqBorrow = top2Borrow[repayIdx] || { valueUSD: 0 };
+    this.liqCollateral = top2Collateral[seizeIdx] || { valueUSD: 0 };
 
-    this.calculatedHealth = totalDepositUSD / totalBorrowUSD;
+    this.calculatedHealth = totalDepositUSD / totalBorrowUSD || 0;
     this.profitUSD =
       Math.min(
         this.liqBorrow.valueUSD * this.closeFactor,

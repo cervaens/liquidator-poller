@@ -1,4 +1,5 @@
 // import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
+import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
 import { Controller, Inject } from '@nestjs/common';
 import { AppService } from 'src/app.service';
 // import { IronbankPollerController } from '../ironbank-poller/ironbank-poller.controller';
@@ -8,6 +9,7 @@ import { IronbankPricesService } from './ironbank-prices.service';
 export class IronbankPricesController {
   constructor(
     private readonly ironBankPrices: IronbankPricesService,
+    private readonly amqpConnection: AmqpConnection,
     @Inject(AppService) private appService: AppService, // private readonly amqpConnection: AmqpConnection,
   ) {}
 
@@ -47,14 +49,18 @@ export class IronbankPricesController {
 
   async pollStableCoins() {
     const tokens = this.ironBankPrices.getITokensFiltered(this.stableCoinsStr);
-    this.ironBankPrices.getTokensUnderlyingPrice(tokens);
+    this.amqpConnection.publish('liquidator-exchange', 'poll-ib-prices', {
+      tokens,
+    });
   }
 
   async pollLongPeriodCoins() {
     const tokens = this.ironBankPrices.getITokensFiltered(
       this.largeUpdatePeriodStr,
     );
-    this.ironBankPrices.getTokensUnderlyingPrice(tokens);
+    this.amqpConnection.publish('liquidator-exchange', 'poll-ib-prices', {
+      tokens,
+    });
   }
 
   async pollAllCoins() {
@@ -62,6 +68,8 @@ export class IronbankPricesController {
       this.stableAndLargeStr,
       true,
     );
-    this.ironBankPrices.getTokensUnderlyingPrice(tokens);
+    this.amqpConnection.publish('liquidator-exchange', 'poll-ib-prices', {
+      tokens,
+    });
   }
 }
