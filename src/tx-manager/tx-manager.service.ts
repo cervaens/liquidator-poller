@@ -18,6 +18,7 @@ export class TxManagerService {
   private liquidationsStatus: Record<string, Record<string, any>> = {};
   private realTxsEnabled =
     process.env.LIQUIDATIONS_REAL_TXS_ENABLED === 'true' ? true : false;
+  private disabledProtocols: Record<string, boolean> = {};
 
   constructor(
     private readonly provider: Web3ProviderService,
@@ -41,6 +42,18 @@ export class TxManagerService {
   async onModuleInit(): Promise<void> {
     this.liquidatorContract = await this.initLiquidatorContract();
     await this.subscribeToLiquidatorEvents();
+  }
+
+  @RabbitSubscribe({
+    exchange: 'liquidator-exchange',
+    routingKey: 'tx-protocol-status',
+  })
+  async updateProtocolStatus(msg: Record<string, any>) {
+    this.disabledProtocols[msg.protocol] = !msg.enable;
+
+    this.logger.debug(
+      `Changed protocol ${msg.protocol} enabled to ${msg.enabled}`,
+    );
   }
 
   setRealTxs(value) {
@@ -73,6 +86,13 @@ export class TxManagerService {
     for (const candidate of msg) {
       // We might receive liquidate-many while on init and we need to wait for liquidation statuses
       if (!this.liquidationsStatus[candidate.protocol]) {
+        this.logger.debug(`No liquidation status yet. Discarding liquidations`);
+        continue;
+      }
+      if (this.disabledProtocols[candidate.protocol]) {
+        this.logger.debug(
+          `Protocol ${candidate.protocol} is disabled. Discarding liquidation`,
+        );
         continue;
       }
       const { repayToken, profitUSD, seizeToken, borrower } = candidate;
