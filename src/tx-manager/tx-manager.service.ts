@@ -89,8 +89,10 @@ export class TxManagerService {
       if (
         this.liquidationsStatus[candidate.protocol] &&
         this.liquidationsStatus[candidate.protocol][borrower] &&
-        (this.liquidationsStatus[candidate.protocol][borrower].timestamp >
-          now - (parseInt(process.env.LIQUIDATIONS_CLEAN_TIME) || 3600000) ||
+        ((this.liquidationsStatus[candidate.protocol][borrower].status ===
+          'ongoing' &&
+          this.liquidationsStatus[candidate.protocol][borrower].timestamp >
+            now - (parseInt(process.env.LIQUIDATIONS_CLEAN_TIME) || 3600000)) ||
           !this.liquidationsStatus[candidate.protocol][borrower].timestamp)
       ) {
         if (
