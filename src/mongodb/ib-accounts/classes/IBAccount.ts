@@ -33,17 +33,24 @@ export class IBAccount extends StandardAccount {
     this.tokens = json.tokens;
     this.health = json.health || 0;
     this.lastUpdated = new Date().getTime();
+
+    this.total_borrow_value_in_eth = json.total_borrow_value_in_eth;
+    this.total_collateral_value_in_eth = json.total_collateral_value_in_eth;
+    this.profitUSD = json.profitUSD;
+    this.calculatedHealth = json.calculatedHealth;
+    this.liqCollateral = json.liqCollateral;
+    this.liqBorrow = json.liqBorrow;
   }
 
   public isCandidate() {
     return (
-      this.health >= parseFloat(process.env.CANDIDATE_MIN_HEALTH) &&
-      this.health <= parseFloat(process.env.CANDIDATE_MAX_HEALTH) &&
+      this.getHealth() >= parseFloat(process.env.CANDIDATE_MIN_HEALTH) &&
+      this.getHealth() <= parseFloat(process.env.CANDIDATE_MAX_HEALTH) &&
       this.profitUSD >= parseFloat(process.env.LIQUIDATION_MIN_USD_PROFIT)
     );
   }
 
-  public getCalculatedHealth(): number {
+  public getHealth(): number {
     return this.health;
   }
 
@@ -80,9 +87,12 @@ export class IBAccount extends StandardAccount {
 
     for (const token of this.tokens) {
       // There are suspended markets not outputted by the API
+      // We are discarding this amounts for balance
       if (Object.keys(iToken).length > 0 && !iToken[token.address]) {
-        return;
+        continue;
       }
+
+      // If the token is valid but no price for some reason we abort the whole calculation
       if (!chainlinkPricesUSD[token.address]) {
         console.log('No price for ' + token.address);
         return;
@@ -158,10 +168,10 @@ export class IBAccount extends StandardAccount {
 
     const seizeIdx = Number(ableToPickBest ? 0 : !repayIdx);
 
-    this.liqBorrow = top2Borrow[repayIdx] || {};
-    this.liqCollateral = top2Collateral[seizeIdx] || {};
+    this.liqBorrow = top2Borrow[repayIdx] || { valueUSD: 0 };
+    this.liqCollateral = top2Collateral[seizeIdx] || { valueUSD: 0 };
 
-    this.health = totalDepositUSD / totalBorrowUSD;
+    this.health = totalDepositUSD / totalBorrowUSD || 0;
     this.profitUSD =
       Math.min(
         this.liqBorrow.valueUSD * this.closeFactor,

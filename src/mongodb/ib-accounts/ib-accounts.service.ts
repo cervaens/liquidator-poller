@@ -284,8 +284,8 @@ export class IbAccountsService {
 
       if (ibAccount.isCandidate()) {
         !this.allActiveCandidates[ibAccount._id]
-          ? candidatesNew.push(account)
-          : candidatesUpdated.push(account);
+          ? candidatesNew.push(ibAccount)
+          : candidatesUpdated.push(ibAccount);
 
         // Trigger immediate liquidation check
         // if (ibAccount.health < 1) {

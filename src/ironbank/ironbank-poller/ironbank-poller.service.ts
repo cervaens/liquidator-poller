@@ -208,21 +208,25 @@ export class IronbankPollerService {
     }
     const accounts = await this.ibAccounts.findAllSortedAndCandidates();
     this.logger.debug(`IB: Polling ${accounts.length} accounts balances`);
-    // this.logger.debug(
-    //   `IB: Polling ${accounts.length} accounts balances: ${JSON.stringify(
-    //     accounts.map((account) => account.address),
-    //   )}`,
-    // );
+
     const promises: Record<string, Record<string, Promise<any>>> = {};
 
     for (const account of accounts) {
+      let continueToken = false;
       if (!promises[account._id]) {
         promises[account._id] = {};
       }
       for (const token of account.tokens) {
         try {
-          promises[account._id][token.address] =
-            this.getAccountBalanceFromToken(account._id, token.address);
+          if (!this.iTokenPrices[token.address]) {
+            continueToken = true;
+            delete promises[account._id];
+            continue;
+          }
+          if (!continueToken && this.tokenObj[token.address]) {
+            promises[account._id][token.address] =
+              this.getAccountBalanceFromToken(account._id, token.address);
+          }
         } catch (error) {
           this.logger.error(error.message);
         }
@@ -256,10 +260,6 @@ export class IronbankPollerService {
     // this.logger.debug('Updating accounts' + JSON.stringify(updatedAccounts));
     this.logger.debug('IB: Finished polling accounts balances');
     // While I dont develop prices poll I pass the tokens obj
-
-    this.amqpConnection.publish('liquidator-exchange', 'ib-accounts-polled', {
-      accounts: updatedAccounts,
-    });
 
     await this.ibAccounts.calculateHealthAndStore(
       updatedAccounts,

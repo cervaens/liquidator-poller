@@ -61,4 +61,20 @@ export class TxManagerController {
 
     return `Cleared liquidations list`;
   }
+
+  @Post('protocol-status')
+  protocolStatus(@Body() body): string {
+    if (!body || !body.protocol || typeof body.enabled !== 'boolean') {
+      return 'Please include the "protocol" and boolean "enabled".';
+    }
+    this.logger.debug(
+      `Changing protocol ${body.protocol} enabled to ${body.enabled}`,
+    );
+    this.amqpConnection.publish('liquidator-exchange', 'tx-protocol-status', {
+      protocol: body.protocol,
+      enabled: body.enabled,
+    });
+
+    return `Changed protocol ${body.protocol} enabled to ${body.enabled}`;
+  }
 }
