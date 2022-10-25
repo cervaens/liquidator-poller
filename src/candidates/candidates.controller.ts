@@ -1,6 +1,7 @@
 import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
 import { Body, Controller, Get, Logger, Post, Query } from '@nestjs/common';
-import { CompoundAccount } from 'src/mongodb/compound-accounts/classes/CompoundAccount';
+import { ApiOperation } from '@nestjs/swagger';
+import { QueryLiquidateDto, QueryCandidateDto, EnableDto } from '../app.dto';
 import { CandidatesService } from './candidates.service';
 
 @Controller('candidates')
@@ -51,9 +52,13 @@ export class CandidatesController {
       // }
     }, this.candidatesTimeout);
   }
+
+  @ApiOperation({
+    description: `Get all candidates from all protocols or a specific protocol or for a specific account`,
+  })
   @Get()
   getCandidates(
-    @Query() query: Record<string, any>,
+    @Query() query: QueryCandidateDto,
   ): Array<Record<string, Record<string, any>>> {
     const candidates = this.candidatesService.getCandidates();
     let retArray = [];
@@ -71,49 +76,55 @@ export class CandidatesController {
     return retArray;
   }
 
+  @ApiOperation({
+    description: `Clear all candidates so that they're reloaded`,
+  })
   @Get('reset')
   resetCandidates(): string {
     this.amqpConnection.publish('liquidator-exchange', 'candidates-reset', {});
     return 'Candidates are being refreshed';
   }
 
-  @Get('liquidate')
-  liquidateCandidates(@Query() query: Record<string, any>): string {
-    if (query.force === 'true') {
+  @ApiOperation({ description: 'Liquidate a specific account in a protocol' })
+  @Post('liquidate')
+  liquidateCandidate(@Body() body: QueryLiquidateDto): string {
+    if (body.force) {
       this.amqpConnection.publish(
         'liquidator-exchange',
         'liquidations-clear',
         {},
       );
-    }
-    setTimeout(() => {
+      setTimeout(() => {
+        this.amqpConnection.publish(
+          'liquidator-exchange',
+          'trigger-liquidations',
+          {
+            account: body.account || '',
+            protocol: body.protocol || '',
+          },
+        );
+      }, 1000);
+    } else {
       this.amqpConnection.publish(
         'liquidator-exchange',
         'trigger-liquidations',
         {
-          protocol: query.protocol || '',
+          account: body.account || '',
+          protocol: body.protocol || '',
         },
       );
-    }, 1000);
-    return 'Triggered liquidations';
-  }
-
-  @Post('liquidate')
-  liquidateCandidate(@Body() body): string {
-    if (!body || !body.account || !body.protocol) {
-      return 'Please add account and protocol.';
     }
 
-    this.amqpConnection.publish('liquidator-exchange', 'trigger-liquidations', {
-      account: body.account,
-      protocol: body.protocol,
-    });
-
-    return `Trying to liquidate ${body.account}`;
+    return `Triggered liquidations for ${
+      body.account || body.protocol ? JSON.stringify(body) : 'all protocols'
+    }`;
   }
 
+  @ApiOperation({
+    description: 'Enable/Disable same repay/seize token liquidation',
+  })
   @Post('same-token/')
-  setRealTxs(@Body() body): string {
+  setRealTxs(@Body() body: EnableDto): string {
     if (!body || typeof body.enabled !== 'boolean') {
       return 'Please include boolean enable.';
     }
@@ -123,10 +134,5 @@ export class CandidatesController {
     return `Same token candidates are now ${
       body.enabled ? 'enabled' : 'disabled'
     }`;
-  }
-
-  @Get('ready-for-liquidation')
-  getReadyForLiq(): Array<CompoundAccount> {
-    return this.candidatesService.getCandidatesForLiquidation('Compound');
   }
 }

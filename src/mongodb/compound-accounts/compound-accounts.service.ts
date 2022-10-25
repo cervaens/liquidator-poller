@@ -5,8 +5,6 @@ import {
   CompoundAccounts,
   CompoundAccountsDocument,
 } from './compound-accounts.schema';
-// import { CompoundAccountsDto } from './dto/create-ctoken.dto';
-// import { NotFoundException } from '@nestjs/common';
 import { CompoundAccount } from './classes/CompoundAccount';
 import { AmqpConnection, RabbitSubscribe } from '@golevelup/nestjs-rabbitmq';
 
