@@ -22,6 +22,8 @@ export class IbAccountsService {
   public allActiveCandidates: Record<string, number> = {};
   private protocol = 'IronBank';
   private sentInitLiqStatus = false;
+  private enableCandidatesWithSameToken =
+    process.env.CANDIDATE_ALLOW_SAME_TOKEN === 'true' ? true : false;
 
   @RabbitSubscribe({
     exchange: 'liquidator-exchange',
@@ -36,6 +38,14 @@ export class IbAccountsService {
         },
       })
       .exec();
+  }
+
+  @RabbitSubscribe({
+    exchange: 'liquidator-exchange',
+    routingKey: 'set-same-token',
+  })
+  setSameTokenCandidates(msg: Record<string, boolean>) {
+    this.enableCandidatesWithSameToken = msg.enabled;
   }
 
   @RabbitSubscribe({
@@ -280,7 +290,11 @@ export class IbAccountsService {
 
     for (const account of accounts) {
       const ibAccount = new IBAccount(account);
-      ibAccount.updateAccount(iTokens, prices);
+      ibAccount.updateAccount(
+        iTokens,
+        prices,
+        this.enableCandidatesWithSameToken,
+      );
 
       if (ibAccount.isCandidate()) {
         !this.allActiveCandidates[ibAccount._id]

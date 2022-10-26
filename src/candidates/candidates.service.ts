@@ -108,6 +108,7 @@ export class CandidatesService {
         candidate.updateAccount(
           this.tokens[protocolKey],
           this.pricesUSD[protocolKey],
+          this.enableCandidatesWithSameToken,
         );
         if (
           candidate.profitUSD >

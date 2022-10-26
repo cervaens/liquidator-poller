@@ -91,6 +91,7 @@ export class CompoundAccount extends StandardAccount {
   public updateAccount(
     cToken: Record<string, any>,
     uAddressPricesUSD: Record<string, any>,
+    sameTokenEnabled = false,
   ) {
     if (
       !cToken ||
@@ -176,9 +177,7 @@ export class CompoundAccount extends StandardAccount {
     //       10 ** cToken.cETH.decimals
     // );
 
-    const ableToPickBest = !(
-      top2Collateral[0].tokenAddress === top2Borrow[0].tokenAddress
-    );
+    const ableToPickBest = sameTokenEnabled;
 
     const repayIdx =
       !ableToPickBest &&

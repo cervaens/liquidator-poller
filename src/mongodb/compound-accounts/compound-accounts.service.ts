@@ -14,6 +14,8 @@ export class CompoundAccountsService {
   private allActiveCandidates: Record<string, number> = {};
   private protocol = 'Compound';
   private sentInitLiqStatus = false;
+  private enableCandidatesWithSameToken =
+    process.env.CANDIDATE_ALLOW_SAME_TOKEN === 'true' ? true : false;
 
   constructor(
     @InjectModel(CompoundAccounts.name)
@@ -23,6 +25,14 @@ export class CompoundAccountsService {
 
   getAllActiveCandidates(): Record<string, number> {
     return this.allActiveCandidates;
+  }
+
+  @RabbitSubscribe({
+    exchange: 'liquidator-exchange',
+    routingKey: 'set-same-token',
+  })
+  setSameTokenCandidates(msg: Record<string, boolean>) {
+    this.enableCandidatesWithSameToken = msg.enabled;
   }
 
   @RabbitSubscribe({
@@ -145,7 +155,11 @@ export class CompoundAccountsService {
     }
     for (const account of msg.accounts) {
       const compoundAccount = new CompoundAccount(account, true);
-      compoundAccount.updateAccount(msg.cTokens, msg.cTokenPrices);
+      compoundAccount.updateAccount(
+        msg.cTokens,
+        msg.cTokenPrices,
+        this.enableCandidatesWithSameToken,
+      );
       if (compoundAccount.isCandidate()) {
         !this.allActiveCandidates[compoundAccount._id] || msg.init
           ? candidatesNew.push(compoundAccount)
