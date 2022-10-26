@@ -91,6 +91,7 @@ export class CompoundAccount extends StandardAccount {
   public updateAccount(
     cToken: Record<string, any>,
     uAddressPricesUSD: Record<string, any>,
+    sameTokenEnabled = false,
   ) {
     if (
       !cToken ||
@@ -167,18 +168,22 @@ export class CompoundAccount extends StandardAccount {
       return;
     }
 
-    const ableToPickBest = !(
-      top2Collateral[0].tokenAddress === top2Borrow[0].tokenAddress &&
-      top2Collateral[0].tokenAddress === cToken.cETH.address &&
-      top2Borrow[0].units_underlying * this.closeFactor >=
-        ((parseInt(cToken.cETH.walletBalance) || 0) *
-          cToken.cETH.exchangeRate) /
-          10 ** cToken.cETH.decimals
-    );
+    // const ableToPickBest = !(
+    //   top2Collateral[0].tokenAddress === top2Borrow[0].tokenAddress &&
+    //   top2Collateral[0].tokenAddress === cToken.cETH.address &&
+    //   top2Borrow[0].units_underlying * this.closeFactor >=
+    //     ((parseInt(cToken.cETH.walletBalance) || 0) *
+    //       cToken.cETH.exchangeRate) /
+    //       10 ** cToken.cETH.decimals
+    // );
+
+    const ableToPickBest = sameTokenEnabled;
+
     const repayIdx =
       !ableToPickBest &&
       top2Borrow[1] &&
-      top2Borrow[1].valueUSD > (top2Collateral[1] && top2Collateral[1].valueUSD)
+      top2Borrow[1].valueUSD * this.closeFactor >
+        (top2Collateral[1] && top2Collateral[1].valueUSD)
         ? 1
         : 0;
 
