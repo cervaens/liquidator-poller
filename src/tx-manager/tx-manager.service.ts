@@ -215,7 +215,11 @@ export class TxManagerService {
       if (msg.protocol && msg.protocol !== protocol) {
         continue;
       }
-      if (msg.account && this.liquidationsStatus[protocol][msg.account]) {
+      if (
+        msg.account &&
+        this.liquidationsStatus[protocol] &&
+        this.liquidationsStatus[protocol][msg.account]
+      ) {
         delete this.liquidationsStatus[protocol][msg.account];
       } else if (!msg.account) {
         this.liquidationsStatus[protocol] = {};

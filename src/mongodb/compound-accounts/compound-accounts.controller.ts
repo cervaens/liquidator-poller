@@ -12,9 +12,7 @@ export class CompoundAccountsController {
 
   async onApplicationBootstrap(): Promise<void> {
     setTimeout(async () => {
-      if (this.appService.amItheMaster()) {
-        this.compoundAccountsService.sendLiquidationStatus();
-      }
+      this.compoundAccountsService.sendLiquidationStatus();
     }, parseInt(process.env.WAIT_TIME_FOR_OTHER_WORKERS) + 1000);
   }
 }
