@@ -70,6 +70,7 @@ export class IBAccount extends StandardAccount {
   public updateAccount(
     iToken: Record<string, any>,
     chainlinkPricesUSD: Record<string, any>,
+    sameTokenEnabled = false,
   ) {
     if (
       !iToken ||
@@ -158,11 +159,12 @@ export class IBAccount extends StandardAccount {
     if (top2Collateral.length === 0 || top2Borrow.length === 0) {
       return;
     }
-    const ableToPickBest = true;
+    const ableToPickBest = sameTokenEnabled;
     const repayIdx =
       !ableToPickBest &&
       top2Borrow[1] &&
-      top2Borrow[1].valueUSD > (top2Collateral[1] && top2Collateral[1].valueUSD)
+      top2Borrow[1].valueUSD * this.closeFactor >
+        (top2Collateral[1] && top2Collateral[1].valueUSD)
         ? 1
         : 0;
 

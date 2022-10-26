@@ -2,7 +2,6 @@ import { Body, Controller, Param, Logger } from '@nestjs/common';
 
 import { CtokenService } from './ctoken.service';
 import ParamsWithId from '../utils/paramsWithId';
-import CtokenDto from './dto/create-ctoken.dto';
 import { CompoundToken } from './classes/CompoundToken';
 import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
 
@@ -47,16 +46,8 @@ export class CtokenController {
     return this.ctokenService.findOne(id);
   }
 
-  async createCtoken(@Body() ctoken: CtokenDto) {
-    return this.ctokenService.create(ctoken);
-  }
-
   async createMany(@Body() ctokens: Array<CompoundToken>) {
     return await this.ctokenService.createMany(ctokens);
-  }
-
-  async updateCtoken(@Param() { id }: ParamsWithId, @Body() ctoken: CtokenDto) {
-    return this.ctokenService.update(id, ctoken);
   }
 
   async updateCtokenPriceFromAddressOrSymbol(

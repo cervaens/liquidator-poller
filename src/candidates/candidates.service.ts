@@ -35,8 +35,12 @@ export class CandidatesService {
     return result;
   }
 
-  setSameTokenCandidates(value: boolean) {
-    this.enableCandidatesWithSameToken = value;
+  @RabbitSubscribe({
+    exchange: 'liquidator-exchange',
+    routingKey: 'set-same-token',
+  })
+  setSameTokenCandidates(msg: Record<string, boolean>) {
+    this.enableCandidatesWithSameToken = msg.enabled;
   }
 
   @RabbitSubscribe({
@@ -88,32 +92,34 @@ export class CandidatesService {
 
   getCandidatesForLiquidation(protocol: string): Array<any> {
     const candidatesToLiquidate = [];
-    if (
-      !this.activeModuleCandidates[protocol] ||
-      Object.keys(this.activeModuleCandidates[protocol]).length === 0
-    ) {
-      return [];
-    }
 
-    this.logger.debug(
-      `${protocol}: Checking ${
-        Object.keys(this.activeModuleCandidates[protocol]).length
-      } accounts for liquidation`,
-    );
-
-    for (const candidate of Object.values(
-      this.activeModuleCandidates[protocol],
-    )) {
-      candidate.updateAccount(this.tokens[protocol], this.pricesUSD[protocol]);
-      if (
-        candidate.profitUSD >
-          parseInt(process.env.LIQUIDATION_MIN_USD_PROFIT) &&
-        candidate.getHealth() < 1 &&
-        (this.enableCandidatesWithSameToken ||
-          candidate.liqBorrow.tokenAddress !==
-            candidate.liqCollateral.tokenAddress)
-      ) {
-        candidatesToLiquidate.push(candidate);
+    for (const protocolKey of Object.keys(this.activeModuleCandidates)) {
+      if (protocol && protocolKey !== protocol) {
+        continue;
+      }
+      this.logger.debug(
+        `${protocolKey}: Checking ${
+          Object.keys(this.activeModuleCandidates[protocolKey]).length
+        } accounts for liquidation`,
+      );
+      for (const candidate of Object.values(
+        this.activeModuleCandidates[protocolKey],
+      )) {
+        candidate.updateAccount(
+          this.tokens[protocolKey],
+          this.pricesUSD[protocolKey],
+          this.enableCandidatesWithSameToken,
+        );
+        if (
+          candidate.profitUSD >
+            parseInt(process.env.LIQUIDATION_MIN_USD_PROFIT) &&
+          candidate.getHealth() < 1 &&
+          (this.enableCandidatesWithSameToken ||
+            candidate.liqBorrow.tokenAddress !==
+              candidate.liqCollateral.tokenAddress)
+        ) {
+          candidatesToLiquidate.push(candidate);
+        }
       }
     }
 
@@ -253,10 +259,16 @@ export class CandidatesService {
           protocolAccount.address
         ].getHealth() !== protocolAccount.getHealth()
       ) {
-        this.activeModuleCandidates[msg.protocol][protocolAccount.address] =
-          protocolAccount;
-        if (protocolAccount.getHealth() < 1) {
-          checkLiquidations = true;
+        if (protocolAccount.isCandidate()) {
+          this.activeModuleCandidates[msg.protocol][protocolAccount.address] =
+            protocolAccount;
+          if (protocolAccount.getHealth() < 1) {
+            checkLiquidations = true;
+          }
+        } else {
+          delete this.activeModuleCandidates[msg.protocol][
+            protocolAccount.address
+          ];
         }
         // updateList[protocolAccount._id] = msg.timestamp;
       }
@@ -282,7 +294,9 @@ export class CandidatesService {
 
     let candidatesArray = [];
     this.logger.debug(
-      `${msg.protocol}: Trying to liquidate ${candidates.length} accounts`,
+      `${msg.protocol || 'All protocols'}: Trying to liquidate ${
+        candidates.length
+      } accounts`,
     );
     for (let i = 0; i < candidates.length; i++) {
       const liqCand = {
@@ -291,7 +305,7 @@ export class CandidatesService {
         seizeToken: candidates[i].liqCollateral.tokenAddress,
         borrower: candidates[i].address,
         profitUSD: candidates[i].profitUSD,
-        protocol: msg.protocol,
+        protocol: candidates[i].protocol,
       };
       candidatesArray.push(liqCand);
       if (candidatesArray.length === 10) {

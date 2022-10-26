@@ -1,4 +1,5 @@
 import { Controller, Get, Logger, Patch } from '@nestjs/common';
+import { ApiOperation } from '@nestjs/swagger';
 import { AppService } from './app.service';
 
 @Controller()
@@ -30,11 +31,17 @@ export class AppController {
     }, 2500);
   }
 
-  @Get()
+  @ApiOperation({
+    description: `Returns if this worker is the master`,
+  })
+  @Get('am-i-master')
   amITheMaster(): boolean {
     return this.appService.amItheMaster();
   }
 
+  @ApiOperation({
+    description: `Set this worker as not a master`,
+  })
   @Patch('no-master')
   setNoMaster(): boolean {
     return this.appService.setImNoMaster();
