@@ -35,8 +35,12 @@ export class CandidatesService {
     return result;
   }
 
-  setSameTokenCandidates(value: boolean) {
-    this.enableCandidatesWithSameToken = value;
+  @RabbitSubscribe({
+    exchange: 'liquidator-exchange',
+    routingKey: 'set-same-token',
+  })
+  setSameTokenCandidates(msg: Record<string, boolean>) {
+    this.enableCandidatesWithSameToken = msg.enabled;
   }
 
   @RabbitSubscribe({
@@ -254,10 +258,16 @@ export class CandidatesService {
           protocolAccount.address
         ].getHealth() !== protocolAccount.getHealth()
       ) {
-        this.activeModuleCandidates[msg.protocol][protocolAccount.address] =
-          protocolAccount;
-        if (protocolAccount.getHealth() < 1) {
-          checkLiquidations = true;
+        if (protocolAccount.isCandidate()) {
+          this.activeModuleCandidates[msg.protocol][protocolAccount.address] =
+            protocolAccount;
+          if (protocolAccount.getHealth() < 1) {
+            checkLiquidations = true;
+          }
+        } else {
+          delete this.activeModuleCandidates[msg.protocol][
+            protocolAccount.address
+          ];
         }
         // updateList[protocolAccount._id] = msg.timestamp;
       }

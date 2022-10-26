@@ -150,6 +150,8 @@ export class CompoundAccountsService {
         !this.allActiveCandidates[compoundAccount._id] || msg.init
           ? candidatesNew.push(compoundAccount)
           : candidatesUpdated.push(compoundAccount);
+      } else if (this.allActiveCandidates[compoundAccount._id]) {
+        candidatesUpdated.push(compoundAccount);
       }
 
       queries.push({

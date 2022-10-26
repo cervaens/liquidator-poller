@@ -129,7 +129,9 @@ export class CandidatesController {
       return 'Please include boolean enable.';
     }
     this.logger.debug(`Setting same token candidates to ${body.enabled}`);
-    this.candidatesService.setSameTokenCandidates(body.enabled);
+    this.amqpConnection.publish('liquidator-exchange', 'set-same-token', {
+      enabled: body.enabled,
+    });
 
     return `Same token candidates are now ${
       body.enabled ? 'enabled' : 'disabled'
