@@ -46,7 +46,9 @@ export class TxManagerController {
       return 'Please include boolean enable.';
     }
     this.logger.debug(`Setting Real transactions to ${body.enabled}`);
-    this.txManagerService.setRealTxs(body.enabled);
+    this.amqpConnection.publish('liquidator-exchange', 'set-real-txs', {
+      enabled: body.enabled,
+    });
 
     return `Real transactions are now ${body.enabled ? 'enabled' : 'disabled'}`;
   }
