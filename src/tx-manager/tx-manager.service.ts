@@ -56,6 +56,10 @@ export class TxManagerService {
     );
   }
 
+  @RabbitSubscribe({
+    exchange: 'liquidator-exchange',
+    routingKey: 'set-real-txs',
+  })
   setRealTxs(value) {
     this.realTxsEnabled = value;
   }
