@@ -14,8 +14,8 @@ export class WalletService {
   private nonceErrored = 0;
   private lastParsedNonce = 0;
   public network: Record<string, any>;
-  private walletAddress = process.env.ACCOUNT_ADDRESS_B;
-  private walletSecret = process.env.ACCOUNT_SECRET_B;
+  private walletAddress = process.env.ACCOUNT_ADDRESS_A;
+  private walletSecret = process.env.ACCOUNT_SECRET_A;
   private tokenContract = {};
 
   constructor(

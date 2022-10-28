@@ -235,12 +235,16 @@ export class IbAccountsService {
   }
 
   getCandidatesFromDBqueryObj() {
+    const expr = this.enableCandidatesWithSameToken
+      ? {}
+      : { $ne: ['$liqBorrow.tokenAddress', '$liqCollateral.tokenAddress'] };
     return {
       health: {
         $gte: parseFloat(process.env.CANDIDATE_MIN_HEALTH),
         $lte: parseFloat(process.env.CANDIDATE_MAX_HEALTH),
       },
       profitUSD: { $gte: parseFloat(process.env.LIQUIDATION_MIN_USD_PROFIT) },
+      $expr: expr,
     };
   }
 
