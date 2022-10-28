@@ -124,7 +124,7 @@ export class CandidatesController {
     description: 'Enable/Disable same repay/seize token liquidation',
   })
   @Post('same-token/')
-  setRealTxs(@Body() body: EnableDto): string {
+  setSameToken(@Body() body: EnableDto): string {
     if (!body || typeof body.enabled !== 'boolean') {
       return 'Please include boolean enable.';
     }
