@@ -225,11 +225,13 @@ export class WalletService {
         errStr.includes('already known')
       ) {
         this.logger.debug('Attempting rebase');
+        this.rebase();
       }
       // Certain errors are expected (and handled naturally by structure
       // of this queue) so we don't need to log them:
       else if (!errStr.includes('Transaction was not mined within ')) {
         this.logger.debug('Off-chain ' + errStr);
+        this.rebase();
       }
       this.amqpConnection.publish('liquidator-exchange', 'tx-processed', {
         tx,

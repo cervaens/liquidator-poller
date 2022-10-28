@@ -218,7 +218,13 @@ export class IronbankPollerService {
       }
       for (const token of account.tokens) {
         try {
-          if (!this.iTokenPrices[token.address]) {
+          // Sometimes prices are not yet tottaly filled-in
+          // but also there are tokens that should not be considered
+          // as they are deprecated
+          if (
+            !this.iTokenPrices[token.address] &&
+            this.tokenObj[token.address]
+          ) {
             continueToken = true;
             delete promises[account._id];
             continue;

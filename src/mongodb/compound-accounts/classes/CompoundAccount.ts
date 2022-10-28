@@ -177,7 +177,9 @@ export class CompoundAccount extends StandardAccount {
     //       10 ** cToken.cETH.decimals
     // );
 
-    const ableToPickBest = sameTokenEnabled;
+    const ableToPickBest =
+      sameTokenEnabled ||
+      top2Collateral[0].symbol_underlying !== top2Borrow[0].symbol_underlying;
 
     const repayIdx =
       !ableToPickBest &&

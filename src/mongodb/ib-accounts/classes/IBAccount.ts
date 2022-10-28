@@ -159,7 +159,9 @@ export class IBAccount extends StandardAccount {
     if (top2Collateral.length === 0 || top2Borrow.length === 0) {
       return;
     }
-    const ableToPickBest = sameTokenEnabled;
+    const ableToPickBest =
+      sameTokenEnabled ||
+      top2Collateral[0].symbol_underlying !== top2Borrow[0].symbol_underlying;
     const repayIdx =
       !ableToPickBest &&
       top2Borrow[1] &&
