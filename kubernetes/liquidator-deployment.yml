@@ -31,9 +31,11 @@ spec:
         - name: aws-registry
       containers:
         - name: liquidator-poller
-          image: 082576982398.dkr.ecr.ca-central-1.amazonaws.com/liquidator-poller:1.8.3
+          image: 082576982398.dkr.ecr.ca-central-1.amazonaws.com/liquidator-poller:1.14.1
           ports:
             - containerPort: 3000
           envFrom:
             - secretRef:
                 name: prod-secrets
+            - secretRef:
+                name: wallet-secrets
