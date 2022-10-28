@@ -178,7 +178,13 @@ export class CompoundAccountsService {
     }
 
     // BulkWrite returns the nr docs modified and its the fastest to execute
-    const res = await this.compoundAccountsModel.bulkWrite(queries);
+    const res = await this.compoundAccountsModel
+      .bulkWrite(queries)
+      .catch((err) => {
+        this.logger.debug(
+          `Error while updating compound accounts in mongo: ${err}`,
+        );
+      });
     if (
       candidatesNew.length > 0 ||
       (res && res.result && res.result.nModified)
