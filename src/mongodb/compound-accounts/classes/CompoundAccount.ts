@@ -1,6 +1,7 @@
 import { StandardAccount } from '../../../classes/StandardAccount';
 
 const uniswapNonSupportedList = ['SAI', 'WBTC2'];
+const protocolSameTokenDiscard = ['ETH', 'USDC', 'ZRX', 'BAT'];
 
 export class CompoundAccount extends StandardAccount {
   public address: string;
@@ -68,6 +69,18 @@ export class CompoundAccount extends StandardAccount {
       this.profitUSD >= parseFloat(process.env.LIQUIDATION_MIN_USD_PROFIT) &&
       this.liqBorrow.valueUSD > 0 &&
       this.liqCollateral.valueUSD > 0
+    );
+  }
+
+  private isAbleToPickBest(
+    sameTokenEnabled: boolean,
+    collateralUnderlying: string,
+    borrowUnderlying: string,
+  ) {
+    return (
+      collateralUnderlying !== borrowUnderlying ||
+      (sameTokenEnabled &&
+        !protocolSameTokenDiscard.includes(collateralUnderlying))
     );
   }
 
@@ -177,9 +190,11 @@ export class CompoundAccount extends StandardAccount {
     //       10 ** cToken.cETH.decimals
     // );
 
-    const ableToPickBest =
-      sameTokenEnabled ||
-      top2Collateral[0].symbol_underlying !== top2Borrow[0].symbol_underlying;
+    const ableToPickBest = this.isAbleToPickBest(
+      sameTokenEnabled,
+      top2Collateral[0].symbol_underlying,
+      top2Borrow[0].symbol_underlying,
+    );
 
     const repayIdx =
       !ableToPickBest &&
