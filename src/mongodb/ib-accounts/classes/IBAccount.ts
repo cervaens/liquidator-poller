@@ -12,6 +12,9 @@ const uniswapNonSupportedList = [
   'ibKRW',
   'ibCHF',
 ];
+
+const protocolSameTokenDiscard = ['WETH', 'USDC'];
+
 export class IBAccount extends StandardAccount {
   public address: string;
   public _id: string;
@@ -65,6 +68,18 @@ export class IBAccount extends StandardAccount {
           10 ** this.liqBorrow.decimals_underlying *
           this.liqCollateral.valueUSD) /
           this.liqBorrow.valueUSD;
+  }
+
+  private isAbleToPickBest(
+    sameTokenEnabled,
+    collateralUnderlying,
+    borrowUnderlying,
+  ) {
+    return (
+      collateralUnderlying !== borrowUnderlying ||
+      (sameTokenEnabled &&
+        !protocolSameTokenDiscard.includes(collateralUnderlying))
+    );
   }
 
   public updateAccount(
@@ -159,9 +174,11 @@ export class IBAccount extends StandardAccount {
     if (top2Collateral.length === 0 || top2Borrow.length === 0) {
       return;
     }
-    const ableToPickBest =
-      sameTokenEnabled ||
-      top2Collateral[0].symbol_underlying !== top2Borrow[0].symbol_underlying;
+    const ableToPickBest = this.isAbleToPickBest(
+      sameTokenEnabled,
+      top2Collateral[0].symbol_underlying,
+      top2Borrow[0].symbol_underlying,
+    );
     const repayIdx =
       !ableToPickBest &&
       top2Borrow[1] &&
