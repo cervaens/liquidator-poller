@@ -202,6 +202,9 @@ export class CompoundAccountsService {
       }
 
       if (candidatesUpdated.length > 0) {
+        // this.logger.debug(
+        //   `Pushing ${candidatesUpdated.length} account for update`,
+        // );
         this.amqpConnection.publish(
           'liquidator-exchange',
           'candidates-updated',

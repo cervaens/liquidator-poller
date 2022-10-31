@@ -12,6 +12,7 @@ export class CompoundAccount extends StandardAccount {
   public total_collateral_value_in_eth: number;
   public profitUSD: number;
   public calculatedHealth: number;
+  public lastUpdated: number;
   public liqCollateral: Record<string, any> = { valueUSD: 0 };
   public liqBorrow: Record<string, any> = { valueUSD: 0 };
   private closeFactor = 0.5;
@@ -20,6 +21,7 @@ export class CompoundAccount extends StandardAccount {
 
   constructor(json: Record<string, any>, needsParsing = false) {
     super(json);
+    this.lastUpdated = new Date().getTime();
     if (needsParsing) {
       this.health = parseFloat(json.health.value);
       this.tokens = this.tokensArrayToObj(json.tokens);
