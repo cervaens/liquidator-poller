@@ -167,7 +167,7 @@ export class TxManagerService {
               tx,
               profitUSD,
               protocol: candidate.protocol,
-              accountAddress: candidate.address,
+              accountAddress: borrower,
             });
           } else {
             this.logger.debug(

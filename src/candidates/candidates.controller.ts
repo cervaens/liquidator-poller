@@ -14,6 +14,9 @@ export class CandidatesController {
   private candidatesTimeout =
     parseInt(process.env.PERIOD_CLEAN_CANDIDATES) || 4000;
 
+  private candidatesUpdateTolerance =
+    parseInt(process.env.NON_UPDATED_CANDIDATE_TOLERANCE) || 190000;
+
   async onApplicationBootstrap(): Promise<void> {
     // We have to periodicaly send the full module list of candidates
     // so that we can identify disconnected workers that deprecated
@@ -27,7 +30,16 @@ export class CandidatesController {
         }
         const candidateIds = {};
         Object.keys(candidates[protocol]).forEach((id) => {
-          candidateIds[id] = time;
+          // Deleting non updates candidades, important for Compound
+          // as if accounts are repaied they wont be returned from the API
+          if (
+            time - candidates[protocol][id].lastUpdated >
+            this.candidatesUpdateTolerance
+          ) {
+            this.candidatesService.deleteCandidate(protocol, id);
+          } else {
+            candidateIds[id] = time;
+          }
         });
 
         this.amqpConnection.publish('liquidator-exchange', 'candidates-list', {

@@ -53,6 +53,9 @@ export class CompoundAccounts {
   liqBorrow: Liquidation;
 
   @Prop()
+  lastUpdated: Date;
+
+  @Prop()
   calculatedHealth: number;
 
   @Prop()
