@@ -86,6 +86,11 @@ export class CandidatesService {
     this.logger.debug('Got token balance: ' + JSON.stringify(msg));
   }
 
+  deleteCandidate(protocol, accountAddress) {
+    this.logger.debug(`Deleting candidate ${accountAddress} from ${protocol} `);
+    delete this.activeModuleCandidates[protocol][accountAddress];
+  }
+
   getIsNextInit() {
     return this.nextInit;
   }
@@ -241,15 +246,9 @@ export class CandidatesService {
   })
   public async updateCandidates(msg: Record<string, any>) {
     let checkLiquidations = false;
-    // const updateList = {};
-    for (const account of msg.accounts) {
-      // TODO: deal with account classes here
-      const protocolAccount = new this.protocolClass[msg.protocol](account);
 
-      // protocolAccount.updateAccount(
-      //   this.tokens[msg.protocol],
-      //   this.pricesUSD[msg.protocol],
-      // );
+    for (const account of msg.accounts) {
+      const protocolAccount = new this.protocolClass[msg.protocol](account);
 
       if (
         this.activeModuleCandidates[msg.protocol] &&
@@ -266,11 +265,15 @@ export class CandidatesService {
             checkLiquidations = true;
           }
         } else {
-          delete this.activeModuleCandidates[msg.protocol][
-            protocolAccount.address
-          ];
+          this.deleteCandidate(msg.protocol, protocolAccount.address);
         }
-        // updateList[protocolAccount._id] = msg.timestamp;
+      } else if (
+        this.activeModuleCandidates[msg.protocol] &&
+        this.activeModuleCandidates[msg.protocol][protocolAccount.address]
+      ) {
+        this.activeModuleCandidates[msg.protocol][
+          protocolAccount.address
+        ].lastUpdated = protocolAccount.lastUpdated;
       }
     }
 
