@@ -25,6 +25,11 @@ export class EnableDto {
   enabled: boolean;
 }
 
+export class ProfitDto {
+  @ApiProperty()
+  profit: number;
+}
+
 export class ProtocolEnableDto {
   @ApiPropertyOptional({
     description: `Protocol name`,
