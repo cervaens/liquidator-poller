@@ -1,7 +1,12 @@
 import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
 import { Body, Controller, Get, Logger, Post, Query } from '@nestjs/common';
 import { ApiOperation } from '@nestjs/swagger';
-import { QueryLiquidateDto, QueryCandidateDto, EnableDto } from '../app.dto';
+import {
+  QueryLiquidateDto,
+  QueryCandidateDto,
+  EnableDto,
+  ProfitDto,
+} from '../app.dto';
 import { CandidatesService } from './candidates.service';
 
 @Controller('candidates')
@@ -148,5 +153,22 @@ export class CandidatesController {
     return `Same token candidates are now ${
       body.enabled ? 'enabled' : 'disabled'
     }`;
+  }
+
+  @ApiOperation({
+    description:
+      "Sets a candidate's minimum profit in USD to be cosidered for liquidation",
+  })
+  @Post('set-profit/')
+  setProfit(@Body() body: ProfitDto): string {
+    if (!body || typeof body.profit !== 'number') {
+      return 'Please include a valid profit.';
+    }
+    this.logger.debug(`Setting minimum profit to ${body.profit} USD`);
+    this.amqpConnection.publish('liquidator-exchange', 'set-min-profit', {
+      profit: body.profit,
+    });
+
+    return `Minimum profit is now ${body.profit} USD`;
   }
 }
