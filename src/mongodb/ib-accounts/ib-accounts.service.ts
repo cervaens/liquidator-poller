@@ -24,6 +24,7 @@ export class IbAccountsService {
   private sentInitLiqStatus = false;
   private enableCandidatesWithSameToken =
     process.env.CANDIDATE_ALLOW_SAME_TOKEN === 'true' ? true : false;
+  private minProfit = parseFloat(process.env.LIQUIDATION_MIN_USD_PROFIT) || 50;
 
   @RabbitSubscribe({
     exchange: 'liquidator-exchange',
@@ -46,6 +47,14 @@ export class IbAccountsService {
   })
   setSameTokenCandidates(msg: Record<string, boolean>) {
     this.enableCandidatesWithSameToken = msg.enabled;
+  }
+
+  @RabbitSubscribe({
+    exchange: 'liquidator-exchange',
+    routingKey: 'set-min-profit',
+  })
+  setMinProfit(msg: Record<string, number>) {
+    this.minProfit = msg.profit;
   }
 
   @RabbitSubscribe({
@@ -243,7 +252,7 @@ export class IbAccountsService {
         $gte: parseFloat(process.env.CANDIDATE_MIN_HEALTH),
         $lte: parseFloat(process.env.CANDIDATE_MAX_HEALTH),
       },
-      profitUSD: { $gte: parseFloat(process.env.LIQUIDATION_MIN_USD_PROFIT) },
+      profitUSD: { $gte: this.minProfit },
       $expr: expr,
     };
   }
@@ -300,7 +309,7 @@ export class IbAccountsService {
         this.enableCandidatesWithSameToken,
       );
 
-      if (ibAccount.isCandidate()) {
+      if (ibAccount.isCandidate(this.minProfit)) {
         !this.allActiveCandidates[ibAccount._id]
           ? candidatesNew.push(ibAccount)
           : candidatesUpdated.push(ibAccount);

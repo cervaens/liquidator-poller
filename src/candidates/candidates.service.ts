@@ -15,6 +15,7 @@ export class CandidatesService {
   private nextInit = 0;
   private enableCandidatesWithSameToken =
     process.env.CANDIDATE_ALLOW_SAME_TOKEN === 'true' ? true : false;
+  private minProfit = parseInt(process.env.LIQUIDATION_MIN_USD_PROFIT) || 50;
 
   private protocolClass = {
     Compound: CompoundAccount,
@@ -41,6 +42,14 @@ export class CandidatesService {
   })
   setSameTokenCandidates(msg: Record<string, boolean>) {
     this.enableCandidatesWithSameToken = msg.enabled;
+  }
+
+  @RabbitSubscribe({
+    exchange: 'liquidator-exchange',
+    routingKey: 'set-min-profit',
+  })
+  setMinProfit(msg: Record<string, number>) {
+    this.minProfit = msg.profit;
   }
 
   @RabbitSubscribe({
@@ -116,8 +125,7 @@ export class CandidatesService {
           this.enableCandidatesWithSameToken,
         );
         if (
-          candidate.profitUSD >
-            parseInt(process.env.LIQUIDATION_MIN_USD_PROFIT) &&
+          candidate.profitUSD > this.minProfit &&
           candidate.getHealth() < 1 &&
           (this.enableCandidatesWithSameToken ||
             candidate.liqBorrow.tokenAddress !==
@@ -258,7 +266,7 @@ export class CandidatesService {
           protocolAccount.address
         ].getHealth() !== protocolAccount.getHealth()
       ) {
-        if (protocolAccount.isCandidate()) {
+        if (protocolAccount.isCandidate(this.minProfit)) {
           this.activeModuleCandidates[msg.protocol][protocolAccount.address] =
             protocolAccount;
           if (protocolAccount.getHealth() < 1) {

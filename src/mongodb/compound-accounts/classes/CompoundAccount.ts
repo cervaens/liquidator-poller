@@ -64,11 +64,11 @@ export class CompoundAccount extends StandardAccount {
     return tokensArray;
   }
 
-  public isCandidate() {
+  public isCandidate(minProfit: number) {
     return (
       this.getHealth() >= parseFloat(process.env.CANDIDATE_MIN_HEALTH) &&
       this.getHealth() <= parseFloat(process.env.CANDIDATE_MAX_HEALTH) &&
-      this.profitUSD >= parseFloat(process.env.LIQUIDATION_MIN_USD_PROFIT) &&
+      this.profitUSD >= minProfit &&
       this.liqBorrow.valueUSD > 0 &&
       this.liqCollateral.valueUSD > 0
     );

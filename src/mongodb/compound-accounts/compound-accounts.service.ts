@@ -16,6 +16,7 @@ export class CompoundAccountsService {
   private sentInitLiqStatus = false;
   private enableCandidatesWithSameToken =
     process.env.CANDIDATE_ALLOW_SAME_TOKEN === 'true' ? true : false;
+  private minProfit = parseFloat(process.env.LIQUIDATION_MIN_USD_PROFIT) || 50;
 
   constructor(
     @InjectModel(CompoundAccounts.name)
@@ -33,6 +34,14 @@ export class CompoundAccountsService {
   })
   setSameTokenCandidates(msg: Record<string, boolean>) {
     this.enableCandidatesWithSameToken = msg.enabled;
+  }
+
+  @RabbitSubscribe({
+    exchange: 'liquidator-exchange',
+    routingKey: 'set-min-profit',
+  })
+  setMinProfit(msg: Record<string, number>) {
+    this.minProfit = msg.profit;
   }
 
   @RabbitSubscribe({
@@ -160,7 +169,7 @@ export class CompoundAccountsService {
         msg.cTokenPrices,
         this.enableCandidatesWithSameToken,
       );
-      if (compoundAccount.isCandidate()) {
+      if (compoundAccount.isCandidate(this.minProfit)) {
         !this.allActiveCandidates[compoundAccount._id] || msg.init
           ? candidatesNew.push(compoundAccount)
           : candidatesUpdated.push(compoundAccount);
