@@ -2,9 +2,7 @@
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const Web3 = require('web3');
 
-const provider = new Web3(
-  'wss://eth-mainnet.alchemyapi.io/v2/***REMOVED***',
-);
+const provider = new Web3(process.env.WEB3_HTTP_PROVIDER);
 
 const options = {
   address: '0xc029784F0B3cCEd83c9f98FdB857989b4FB9D1E7',
