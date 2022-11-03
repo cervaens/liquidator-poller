@@ -65,7 +65,7 @@ export class TransactionsService {
       3: repayToken,
       4: seizeToken,
     } = web3Con.eth.abi.decodeParameters(
-      ['address', 'address', 'address'],
+      ['address', 'address', 'address', 'address', 'address'],
       msg.tx.data.slice(10),
     );
 
