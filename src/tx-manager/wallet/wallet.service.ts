@@ -17,6 +17,9 @@ export class WalletService {
   private walletAddress = process.env.ACCOUNT_ADDRESS_A;
   private walletSecret = process.env.ACCOUNT_SECRET_A;
   private tokenContract = {};
+  private gasPriceGwei = 30;
+  private maxPriorityFeePerGasGwei = 25;
+  private maxFeePerGasAddToPrice = 15;
 
   constructor(
     private readonly provider: Web3ProviderService,
@@ -26,7 +29,8 @@ export class WalletService {
 
   async onModuleInit(): Promise<void> {
     const chainID = await this.provider.web3.eth.getChainId();
-    this.nonce = await this.getLowestLiquidNonce();
+    this.rebase();
+    this.getGasPrice();
     switch (chainID) {
       case 1:
         this.network = {
@@ -89,7 +93,24 @@ export class WalletService {
   })
   async executeTx(msg: Record<string, any>) {
     if (this.appService.amItheMaster()) {
-      this.signAndSend(msg.tx, msg.profitUSD, msg.protocol, msg.accountAddress);
+      const estimatedFees =
+        msg.estimatedGas * (this.gasPriceGwei + this.maxFeePerGasAddToPrice);
+
+      if (msg.profitUSD < 100 && estimatedFees > 45000000) {
+        this.logger.debug(
+          `Cancelling TX creation: Profit too short and risky. Estimated fees ${estimatedFees}. Gas Price: ${this.gasPriceGwei}`,
+        );
+      } else {
+        this.logger.debug(
+          ` * CREATING TX * in ${msg.protocol} for account ${msg.accountAddress} `,
+        );
+        this.signAndSend(
+          msg.tx,
+          msg.profitUSD,
+          msg.protocol,
+          msg.accountAddress,
+        );
+      }
     }
   }
 
@@ -155,7 +176,12 @@ export class WalletService {
   }
 
   async getGasPrice() {
-    return this.provider.web3.eth.getGasPrice();
+    return this.provider.web3.eth.getGasPrice().then((res) => {
+      if (res) {
+        this.gasPriceGwei = parseInt(res) * 10 ** -9;
+        this.logger.debug(`Gas Price now at ${this.gasPriceGwei}`);
+      }
+    });
   }
 
   signAndSend(tx, profitUSD, protocol, accountAddress) {
@@ -224,12 +250,12 @@ export class WalletService {
         errStr.includes('replacement transaction underpriced') ||
         errStr.includes('already known')
       ) {
-        this.logger.debug('Attempting rebase');
+        this.logger.debug('Attempting rebase: ' + errStr);
         this.rebase();
       }
       // Certain errors are expected (and handled naturally by structure
       // of this queue) so we don't need to log them:
-      else if (!errStr.includes('Transaction was not mined within ')) {
+      else {
         this.logger.debug('Off-chain ' + errStr);
         this.rebase();
       }
@@ -238,6 +264,16 @@ export class WalletService {
         errStr,
         profitUSD,
       });
+
+      const updateLiqStatus = {};
+      updateLiqStatus[protocol] = {};
+      updateLiqStatus[protocol][accountAddress] = { status: 'Errored' };
+
+      this.amqpConnection.publish(
+        'liquidator-exchange',
+        'liquidations-called',
+        updateLiqStatus,
+      );
     });
   }
 
@@ -263,13 +299,21 @@ export class WalletService {
     tx.from = this.walletAddress;
     tx.type = '0x02';
 
-    tx.maxPriorityFeePerGas = '0x5D21DBA00'; // 12500000000 WEI, 12.5 GWEI for eth 1600 and gas 400000 gives around 8USDs
+    tx.maxPriorityFeePerGas =
+      '0x' + (this.maxPriorityFeePerGasGwei * 10 ** 9).toString(16); // 25000000000 WEI, 25 GWEI for eth 1600 and gas 400000 gives around 16USDs
     // putting a very high fee as I got Transaction maxFeePerGas (2500000020) is too low for the next block, which has a baseFeePerGas of 7757457203
     // we need to implement here a block-level base fee fetch: https://ethereum.stackexchange.com/questions/123453/error-transactions-maxfeepergas-0-is-less-than-the-blocks-basefeepergas-52
-    tx.maxFeePerGas = '0x6FC23AC00'; // 30000000000 or 30 GWEI for eth 1600 and gas 400000 gives around 19.2USDs
+    tx.maxFeePerGas =
+      '0x' +
+      (
+        +(this.gasPriceGwei + this.maxFeePerGasAddToPrice).toFixed() *
+        10 ** 9
+      ).toString(16); // 30000000000 or 30 GWEI for eth 1600 and gas 400000 gives around 19.2USDs
     // Need to have the following LOCALLY as chain needs to go 31337
     tx.chainId = '0x' + this.network.chainId.toString(16);
     tx = FeeMarketEIP1559Transaction.fromTxData(tx, this.network);
+
+    // this.logger.debug(`${JSON.stringify(tx)}`);
 
     const signedTx = tx.sign(Buffer.from(this.walletSecret, 'hex'));
     return '0x' + signedTx.serialize().toString('hex');
