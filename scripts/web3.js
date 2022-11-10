@@ -4,15 +4,15 @@ const Web3 = require('web3');
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const AWSHttpProvider = require('@aws/web3-http-provider');
 
-const provider = new Web3(
-  new AWSHttpProvider(
-    'https://nd-loh4pdwx2zdobgyrnxi3njy6ma.ethereum.managedblockchain.us-east-1.amazonaws.com',
-  ),
-);
-
 // const provider = new Web3(
-//   'wss://eth-mainnet.alchemyapi.io/v2/***REMOVED***',
+//   new AWSHttpProvider(
+//     'https://nd-loh4pdwx2zdobgyrnxi3njy6ma.ethereum.managedblockchain.us-east-1.amazonaws.com',
+//   ),
 // );
+
+const provider = new Web3(
+  'wss://eth-mainnet.alchemyapi.io/v2/***REMOVED***',
+);
 
 // const provider = new Web3('http://127.0.0.1:8546');
 
@@ -246,6 +246,6 @@ function getAllLiquidations(fromBlock) {
   }, 4000);
 }
 
-// getAllLiquidations(15772592);
-getRPC();
+getAllLiquidations(15772592);
+// getRPC();
 // testDecode2();

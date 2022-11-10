@@ -18,7 +18,10 @@ export class TxManagerService {
   private liquidationsStatus: Record<string, Record<string, any>> = {};
   private realTxsEnabled =
     process.env.LIQUIDATIONS_REAL_TXS_ENABLED === 'true' ? true : false;
-  private disabledProtocols: Record<string, boolean> = {};
+  private disabledProtocols: Record<string, boolean> = {
+    Compound: process.env.COMPOUND_DISABLE_TXS === 'true',
+    IronBank: process.env.IRONBANK_DISABLE_TXS === 'true',
+  };
 
   constructor(
     private readonly provider: Web3ProviderService,
