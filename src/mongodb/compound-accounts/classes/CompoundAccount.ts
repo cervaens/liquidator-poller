@@ -1,6 +1,6 @@
 import { StandardAccount } from '../../../classes/StandardAccount';
 
-const uniswapNonSupportedList = ['SAI', 'WBTC2'];
+const uniswapNonSupportedList = ['WBTC2'];
 const protocolSameTokenDiscard = ['ETH', 'USDC', 'ZRX', 'BAT'];
 
 export class CompoundAccount extends StandardAccount {
