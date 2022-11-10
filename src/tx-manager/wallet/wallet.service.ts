@@ -224,12 +224,12 @@ export class WalletService {
         errStr.includes('replacement transaction underpriced') ||
         errStr.includes('already known')
       ) {
-        this.logger.debug('Attempting rebase');
+        this.logger.debug('Attempting rebase: ' + errStr);
         this.rebase();
       }
       // Certain errors are expected (and handled naturally by structure
       // of this queue) so we don't need to log them:
-      else if (!errStr.includes('Transaction was not mined within ')) {
+      else {
         this.logger.debug('Off-chain ' + errStr);
         this.rebase();
       }
@@ -238,6 +238,16 @@ export class WalletService {
         errStr,
         profitUSD,
       });
+
+      const updateLiqStatus = {};
+      updateLiqStatus[protocol] = {};
+      updateLiqStatus[protocol][accountAddress] = { status: 'Errored' };
+
+      this.amqpConnection.publish(
+        'liquidator-exchange',
+        'liquidations-called',
+        updateLiqStatus,
+      );
     });
   }
 
@@ -263,7 +273,7 @@ export class WalletService {
     tx.from = this.walletAddress;
     tx.type = '0x02';
 
-    tx.maxPriorityFeePerGas = '0x5D21DBA00'; // 12500000000 WEI, 12.5 GWEI for eth 1600 and gas 400000 gives around 8USDs
+    tx.maxPriorityFeePerGas = '0x5D21DBA00'; // 25000000000 WEI, 25 GWEI for eth 1600 and gas 400000 gives around 16USDs
     // putting a very high fee as I got Transaction maxFeePerGas (2500000020) is too low for the next block, which has a baseFeePerGas of 7757457203
     // we need to implement here a block-level base fee fetch: https://ethereum.stackexchange.com/questions/123453/error-transactions-maxfeepergas-0-is-less-than-the-blocks-basefeepergas-52
     tx.maxFeePerGas = '0x6FC23AC00'; // 30000000000 or 30 GWEI for eth 1600 and gas 400000 gives around 19.2USDs

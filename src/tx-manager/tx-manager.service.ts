@@ -183,6 +183,18 @@ export class TxManagerService {
           this.logger.debug(
             `Revert during gas estimation: ${e.name} ${e.message} for account  ${candidate.borrower}, repaying amount ${candidate.amount} of ${candidate.repayToken}, seizing ${candidate.seizeToken}`,
           );
+
+          const updateLiqStatus = {};
+          updateLiqStatus[candidate.protocol] = {};
+          updateLiqStatus[candidate.protocol][borrower] = {
+            status: 'Reverted',
+          };
+
+          this.amqpConnection.publish(
+            'liquidator-exchange',
+            'liquidations-called',
+            updateLiqStatus,
+          );
         });
       // );
     }
