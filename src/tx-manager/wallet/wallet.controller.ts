@@ -17,6 +17,7 @@ export class WalletController {
       if (this.appService.amItheMaster()) {
         this.logger.debug('Rebasing wallet nonce');
         this.walletService.rebase();
+        this.walletService.getGasPrice();
       }
     }, 60000);
   }

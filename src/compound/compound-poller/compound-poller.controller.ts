@@ -25,7 +25,7 @@ export class CompoundPollerController {
       if (this.appService.amItheMaster() && !amITheMaster) {
         const tokenUAddresses = await this.pollCTokens();
         this.compoundPricesHelper.pollAndStorePrices(tokenUAddresses);
-        this.pollCethWalletBalance();
+        // this.pollCethWalletBalance();
         this.pollAccounts(true);
         amITheMaster = true;
       }
@@ -46,11 +46,11 @@ export class CompoundPollerController {
       }
     }, parseInt(process.env.COMPOUND_POLLING_SCHEDULE_ACCOUNTS));
 
-    setInterval(() => {
-      if (this.appService.amItheMaster()) {
-        this.pollCethWalletBalance();
-      }
-    }, parseInt(process.env.COMPOUND_POLLING_SCHEDULE_CETH_WALLET_BALANCE));
+    // setInterval(() => {
+    //   if (this.appService.amItheMaster()) {
+    //     this.pollCethWalletBalance();
+    //   }
+    // }, parseInt(process.env.COMPOUND_POLLING_SCHEDULE_CETH_WALLET_BALANCE));
   }
 
   private readonly logger = new Logger(CompoundPollerController.name);

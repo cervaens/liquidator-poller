@@ -153,21 +153,22 @@ export class TxManagerService {
 
       this.wallet
         .estimateGas(tx)
-        .then((estimated) => {
+        .then((estimatedGas) => {
           tx.gasLimit =
-            tx.gasLimit && tx.gasLimit < (estimated || 0)
-              ? estimated
+            tx.gasLimit && tx.gasLimit < (estimatedGas || 0)
+              ? estimatedGas
               : tx.gasLimit;
 
           if (this.realTxsEnabled) {
             this.logger.debug(
-              ` * CREATING TX * in ${candidate.protocol} for account ${borrower} `,
+              ` Requesting TX creation for account ${borrower} in protocol ${candidate.protocol} `,
             );
             this.amqpConnection.publish('liquidator-exchange', 'execute-tx', {
               tx,
               profitUSD,
               protocol: candidate.protocol,
               accountAddress: borrower,
+              estimatedGas,
             });
           } else {
             this.logger.debug(
@@ -182,6 +183,18 @@ export class TxManagerService {
         .catch((e) => {
           this.logger.debug(
             `Revert during gas estimation: ${e.name} ${e.message} for account  ${candidate.borrower}, repaying amount ${candidate.amount} of ${candidate.repayToken}, seizing ${candidate.seizeToken}`,
+          );
+
+          const updateLiqStatus = {};
+          updateLiqStatus[candidate.protocol] = {};
+          updateLiqStatus[candidate.protocol][borrower] = {
+            status: 'Reverted',
+          };
+
+          this.amqpConnection.publish(
+            'liquidator-exchange',
+            'liquidations-called',
+            updateLiqStatus,
           );
         });
       // );
