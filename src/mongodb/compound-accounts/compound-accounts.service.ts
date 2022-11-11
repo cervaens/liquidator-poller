@@ -11,7 +11,7 @@ import { AmqpConnection, RabbitSubscribe } from '@golevelup/nestjs-rabbitmq';
 @Injectable()
 export class CompoundAccountsService {
   private readonly logger = new Logger(CompoundAccountsService.name);
-  private allActiveCandidates: Record<string, number> = {};
+  private allActiveCandidates: Record<string, Record<any, any>> = {};
   private protocol = 'Compound';
   private sentInitLiqStatus = false;
   private enableCandidatesWithSameToken =
@@ -24,7 +24,7 @@ export class CompoundAccountsService {
     private readonly amqpConnection: AmqpConnection,
   ) {}
 
-  getAllActiveCandidates(): Record<string, number> {
+  getAllActiveCandidates(): Record<string, Record<any, any>> {
     return this.allActiveCandidates;
   }
 
@@ -131,7 +131,7 @@ export class CompoundAccountsService {
       this.allActiveCandidates = { ...this.allActiveCandidates, ...msg.ids };
     } else if (msg.action === 'deleteBelowTimestamp') {
       for (const id of Object.keys(this.allActiveCandidates)) {
-        if (this.allActiveCandidates[id] < msg.timestamp) {
+        if (this.allActiveCandidates[id].time < msg.timestamp) {
           delete this.allActiveCandidates[id];
         }
       }

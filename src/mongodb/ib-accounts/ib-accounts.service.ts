@@ -19,7 +19,7 @@ export class IbAccountsService {
   ) {}
 
   private readonly logger = new Logger(IbAccountsService.name);
-  public allActiveCandidates: Record<string, number> = {};
+  public allActiveCandidates: Record<string, Record<any, any>> = {};
   private protocol = 'IronBank';
   private sentInitLiqStatus = false;
   private enableCandidatesWithSameToken =
@@ -384,7 +384,7 @@ export class IbAccountsService {
       this.allActiveCandidates = { ...this.allActiveCandidates, ...msg.ids };
     } else if (msg.action === 'deleteBelowTimestamp') {
       for (const id of Object.keys(this.allActiveCandidates)) {
-        if (this.allActiveCandidates[id] < msg.timestamp) {
+        if (this.allActiveCandidates[id].time < msg.timestamp) {
           delete this.allActiveCandidates[id];
         }
       }

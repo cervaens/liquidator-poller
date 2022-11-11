@@ -35,7 +35,7 @@ export class CandidatesController {
         }
         const candidateIds = {};
         Object.keys(candidates[protocol]).forEach((id) => {
-          // Deleting non updates candidades, important for Compound
+          // Deleting non updated candidades, important for Compound
           // as if accounts are repaied they wont be returned from the API
           if (
             time - candidates[protocol][id].lastUpdated >
@@ -43,7 +43,13 @@ export class CandidatesController {
           ) {
             this.candidatesService.deleteCandidate(protocol, id);
           } else {
-            candidateIds[id] = time;
+            candidateIds[id] = { time, tokens: [] };
+            if (candidates[protocol][id].isStrongCandidate()) {
+              this.logger.debug(
+                `Sending candidate ${id} from protocol ${protocol} as strong candidate`,
+              );
+              candidateIds[id].tokens = candidates[protocol][id].tokens;
+            }
           }
         });
 

@@ -4,17 +4,6 @@ const uniswapNonSupportedList = ['WBTC2'];
 const protocolSameTokenDiscard = ['ETH', 'USDC', 'ZRX', 'BAT'];
 
 export class CompoundAccount extends StandardAccount {
-  public address: string;
-  public _id: string;
-  public health: number;
-  public tokens: Array<Record<string, any>>;
-  public total_borrow_value_in_eth: number;
-  public total_collateral_value_in_eth: number;
-  public profitUSD: number;
-  public calculatedHealth: number;
-  public lastUpdated: number;
-  public liqCollateral: Record<string, any> = { valueUSD: 0 };
-  public liqBorrow: Record<string, any> = { valueUSD: 0 };
   private closeFactor = 0.5;
   private liquidationIncentive = 1.08;
   private protocol = 'Compound';
@@ -99,10 +88,6 @@ export class CompoundAccount extends StandardAccount {
           this.liqBorrow.valueUSD;
   }
 
-  public getHealth(): number {
-    return this.calculatedHealth || this.health;
-  }
-
   public updateAccount(
     cToken: Record<string, any>,
     uAddressPricesUSD: Record<string, any>,
@@ -183,15 +168,6 @@ export class CompoundAccount extends StandardAccount {
       return;
     }
 
-    // const ableToPickBest = !(
-    //   top2Collateral[0].tokenAddress === top2Borrow[0].tokenAddress &&
-    //   top2Collateral[0].tokenAddress === cToken.cETH.address &&
-    //   top2Borrow[0].units_underlying * this.closeFactor >=
-    //     ((parseInt(cToken.cETH.walletBalance) || 0) *
-    //       cToken.cETH.exchangeRate) /
-    //       10 ** cToken.cETH.decimals
-    // );
-
     const ableToPickBest = this.isAbleToPickBest(
       sameTokenEnabled,
       top2Collateral[0].symbol_underlying,
@@ -212,6 +188,8 @@ export class CompoundAccount extends StandardAccount {
     this.liqCollateral = top2Collateral[seizeIdx] || { valueUSD: 0 };
 
     this.calculatedHealth = totalDepositUSD / totalBorrowUSD || 0;
+    this.totalDepositUSD = totalDepositUSD;
+    this.totalBorrowUSD = totalBorrowUSD;
     this.profitUSD =
       Math.min(
         this.liqBorrow.valueUSD * this.closeFactor,
