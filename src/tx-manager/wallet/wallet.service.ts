@@ -18,7 +18,7 @@ export class WalletService {
   private walletSecret = process.env.ACCOUNT_SECRET_A;
   private tokenContract = {};
   private gasPriceGwei = 30;
-  private maxPriorityFeePerGasGwei = 25;
+  private maxPriorityFeePerGasGwei = 20;
   private maxFeePerGasAddToPrice = 15;
 
   constructor(

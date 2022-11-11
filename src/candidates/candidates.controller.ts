@@ -43,12 +43,18 @@ export class CandidatesController {
           ) {
             this.candidatesService.deleteCandidate(protocol, id);
           } else {
-            candidateIds[id] = { time, tokens: [] };
+            candidateIds[id] = time;
             if (candidates[protocol][id].isStrongCandidate()) {
-              this.logger.debug(
-                `Sending candidate ${id} from protocol ${protocol} as strong candidate`,
+              this.amqpConnection.publish(
+                'liquidator-exchange',
+                'strong-candidate',
+                {
+                  address: id,
+                  time,
+                  tokens: candidates[protocol][id].tokens,
+                  protocol,
+                },
               );
-              candidateIds[id].tokens = candidates[protocol][id].tokens;
             }
           }
         });

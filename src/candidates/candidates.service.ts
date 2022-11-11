@@ -191,7 +191,7 @@ export class CandidatesService {
 
     for (const account of msg.accounts) {
       const protocolAccount = new this.protocolClass[msg.protocol](account);
-      candidateIds[protocolAccount._id] = { time: msg.timestamp };
+      candidateIds[protocolAccount._id] = msg.timestamp;
       // protocolAccount.updateAccount(
       //   this.tokens[msg.protocol],
       //   this.pricesUSD[msg.protocol],

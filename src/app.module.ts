@@ -16,6 +16,7 @@ import { TxManagerModule } from './tx-manager/tx-manager.module';
 import { CompoundModule } from './compound/compound.module';
 import { MongodbModule } from './mongodb/mongodb.module';
 import { IronbankModule } from './ironbank/ironbank.module';
+import { BlocknativeModule } from './blocknative/blocknative.module';
 
 @Global()
 @Module({
@@ -52,6 +53,7 @@ import { IronbankModule } from './ironbank/ironbank.module';
     CompoundModule,
     MongodbModule,
     IronbankModule,
+    BlocknativeModule,
   ],
   controllers: [AppController],
   providers: [
