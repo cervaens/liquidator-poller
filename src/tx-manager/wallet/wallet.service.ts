@@ -215,7 +215,10 @@ export class WalletService {
 
       const updateLiqStatus = {};
       updateLiqStatus[protocol] = {};
-      updateLiqStatus[protocol][accountAddress] = { status: 'Processed' };
+      updateLiqStatus[protocol][accountAddress] = {
+        status: 'Processed',
+        timestamp: new Date().getTime(),
+      };
 
       this.amqpConnection.publish(
         'liquidator-exchange',
@@ -267,7 +270,10 @@ export class WalletService {
 
       const updateLiqStatus = {};
       updateLiqStatus[protocol] = {};
-      updateLiqStatus[protocol][accountAddress] = { status: 'Errored' };
+      updateLiqStatus[protocol][accountAddress] = {
+        status: 'Errored',
+        timestamp: new Date().getTime(),
+      };
 
       this.amqpConnection.publish(
         'liquidator-exchange',

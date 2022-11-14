@@ -198,6 +198,7 @@ export class TxManagerService {
           updateLiqStatus[candidate.protocol] = {};
           updateLiqStatus[candidate.protocol][borrower] = {
             status: 'Reverted',
+            timestamp: new Date().getTime(),
           };
 
           this.amqpConnection.publish(

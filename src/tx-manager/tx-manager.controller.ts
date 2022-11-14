@@ -1,7 +1,12 @@
 import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
 import { Body, Controller, Get, Logger, Post } from '@nestjs/common';
 import { ApiOperation } from '@nestjs/swagger';
-import { EnableDto, ProtocolEnableDto, QueryCandidateDto } from 'src/app.dto';
+import {
+  EnableDto,
+  ProtocolEnableDto,
+  QueryCandidateDto,
+  QueryCustomTxDto,
+} from 'src/app.dto';
 import { TxManagerService } from './tx-manager.service';
 
 @Controller('tx-manager')
@@ -78,6 +83,35 @@ export class TxManagerController {
     return `Cleared liquidations list for ${
       Object.keys(body).length > 0 ? JSON.stringify(body) : 'all protocols'
     }`;
+  }
+
+  @ApiOperation({
+    description: `Clears the liquidations blacklist or removes an account for a specific protocol from the liquidations blacklist.`,
+  })
+  @Post('custom-liquidation')
+  customLiquidation(@Body() body: QueryCustomTxDto): string {
+    if (
+      !body ||
+      !body.protocol ||
+      !body.account ||
+      !body.repayToken ||
+      !body.seizeToken
+    ) {
+      return 'Please include "protocol", "account", "repayToken" and "seizeToken".';
+    }
+    this.logger.debug(
+      `Creating liquidation tx with values: ${body.protocol} borrower: ${body.account}, repayToken: ${body.repayToken}, seizeToken: ${body.seizeToken}`,
+    );
+
+    const tx = {
+      protocol: body.protocol,
+      borrower: body.account,
+      repayToken: body.repayToken,
+      seizeToken: body.seizeToken,
+    };
+    this.amqpConnection.publish('liquidator-exchange', 'liquidate-many', [tx]);
+
+    return `Sent liquidation transfer: ${JSON.stringify(tx)}`;
   }
 
   @ApiOperation({
