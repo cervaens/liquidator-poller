@@ -5,6 +5,7 @@ import { AbiItem } from 'web3-utils';
 import { AmqpConnection, RabbitSubscribe } from '@golevelup/nestjs-rabbitmq';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
+import { AppService } from 'src/app.service';
 
 @Injectable()
 export class BlocknativeService {
@@ -12,6 +13,7 @@ export class BlocknativeService {
     private readonly web3Provider: Web3ProviderService,
     private readonly amqpConnection: AmqpConnection,
     private readonly httpService: HttpService,
+    private readonly appService: AppService,
   ) {}
   private readonly logger = new Logger(BlocknativeService.name);
   private aggregators: Record<string, any> = {};
@@ -85,7 +87,7 @@ export class BlocknativeService {
     }
   }
 
-  public refreshList() {
+  async refreshList() {
     const newSet = new Set();
     for (const candidates of Object.values(
       this.allActiveCandidates['Compound'],
@@ -95,25 +97,29 @@ export class BlocknativeService {
           tokenObj.supply_balance_underlying > 0 ||
           tokenObj.borrow_balance_underlying > 0
         ) {
-          newSet.add(tokenObj.underlyingSymbol);
-          if (!this.currentTokensList.has(tokenObj.symbol)) {
-            this.addAddressToList(
-              this.getAggregatorFromSymbol(tokenObj.symbol),
-            );
+          newSet.add(tokenObj.symbol);
+          if (
+            !tokenObj.symbol.match(
+              process.env.COMPOUND_STATIC_ONE_USD_PRICES,
+            ) &&
+            !this.currentTokensList.has(tokenObj.symbol)
+          ) {
+            // Here it might add twice although thats ok
+            this.addSymbolToList(tokenObj.symbol);
           }
         }
       }
     }
     this.currentTokensList.forEach((tokenSymbol: string) => {
       if (!newSet.has(tokenSymbol)) {
-        this.removeAddressFromList(this.getAggregatorFromSymbol(tokenSymbol));
+        this.removeSymbolFromList(tokenSymbol);
       }
     });
   }
 
   private getAggregatorFromSymbol(symbol: string) {
     for (const aggregator of Object.keys(this.aggregators)) {
-      if (this.aggregators[aggregator].symbol === symbol) {
+      if (this.aggregators[aggregator].tokenSymbol === symbol) {
         return aggregator;
       }
     }
@@ -179,6 +185,10 @@ export class BlocknativeService {
     this.amqpConnection.publish('liquidator-exchange', 'prices-updated', {
       protocol: 'Compound',
       prices,
+      gasPrices: {
+        maxFeePerGas: tx.maxFeePerGas,
+        maxPriorityFeePerGas: tx.maxPriorityFeePerGas,
+      },
     });
 
     return true;
@@ -219,15 +229,37 @@ export class BlocknativeService {
     this.tokens[msg.protocol] = msg.tokens;
   }
 
-  async addAddressToList(address: string) {
-    await this.fetch('address', { address, method: 'post' });
-    this.currentTokensList.add(address);
+  async addSymbolToList(symbol: string) {
+    this.currentTokensList.add(symbol);
+    const address = this.getAggregatorFromSymbol(symbol);
+    this.logger.debug(
+      `Blocknative: Adding ${symbol} with address ${address} to list.`,
+    );
+    if (address && this.appService.amItheMaster()) {
+      const res = await this.fetch('address', { address, method: 'post' });
+      if (res.error) {
+        this.currentTokensList.delete(symbol);
+        this.logger.debug(
+          `Failed: Blocknative Adding ${symbol} has failed: ${res.error}`,
+        );
+      }
+    }
     return;
   }
 
-  async removeAddressFromList(address: string) {
-    await this.fetch('address', { address, method: 'delete' });
-    this.currentTokensList.delete(address);
+  async removeSymbolFromList(symbol: string) {
+    this.currentTokensList.delete(symbol);
+    const address = this.getAggregatorFromSymbol(symbol);
+    this.logger.debug(
+      `Blocknative: Removing ${symbol} with address ${address} to list.`,
+    );
+    const res = await this.fetch('address', { address, method: 'delete' });
+    if (res.error) {
+      this.currentTokensList.add(symbol);
+      this.logger.debug(
+        `Failed: Blocknative Removing ${symbol} has failed: ${res.error}`,
+      );
+    }
     return;
   }
 

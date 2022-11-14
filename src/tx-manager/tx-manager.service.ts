@@ -178,6 +178,7 @@ export class TxManagerService {
               protocol: candidate.protocol,
               accountAddress: borrower,
               estimatedGas,
+              gasPrices: candidate.gasPrices,
             });
           } else {
             this.logger.debug(

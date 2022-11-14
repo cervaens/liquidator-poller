@@ -244,7 +244,10 @@ export class CandidatesService {
       }
     }
     if (checkLiquidations) {
-      this.checkCandidatesLiquidations({ protocol: msg.protocol });
+      this.checkCandidatesLiquidations({
+        protocol: msg.protocol,
+        gasPrices: msg.gasPrices,
+      });
     }
   }
 
@@ -317,6 +320,7 @@ export class CandidatesService {
         borrower: candidates[i].address,
         profitUSD: candidates[i].profitUSD,
         protocol: candidates[i].protocol,
+        gasPrices: msg.gasPrices,
       };
       candidatesArray.push(liqCand);
       if (candidatesArray.length === 10) {

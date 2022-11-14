@@ -30,6 +30,8 @@ export class CompoundAccount extends StandardAccount {
       this.calculatedHealth = json.calculatedHealth;
       this.liqCollateral = json.liqCollateral;
       this.liqBorrow = json.liqBorrow;
+      this.totalDepositUSD = json.totalDepositUSD;
+      this.totalBorrowUSD = json.totalBorrowUSD;
     }
   }
 

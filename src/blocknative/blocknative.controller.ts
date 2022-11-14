@@ -29,7 +29,7 @@ export class BlocknativeController {
   @ApiOperation({
     description: 'get mempool data',
   })
-  @Post('NOmempool/')
+  @Post('mempool/')
   memPool(@Body() body): boolean {
     if (!body) {
       return false;
