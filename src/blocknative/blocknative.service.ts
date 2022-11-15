@@ -22,6 +22,7 @@ export class BlocknativeService {
     Compound: {},
   };
   private currentTokensList = new Set();
+  private enabled = process.env.BLOCKNATIVE_ENABLED === 'true' || false;
 
   private compoundProxyContracts = {
     cAAVE: '0x0238247E71AD0aB272203Af13bAEa72e99EE7c3c',
@@ -70,6 +71,9 @@ export class BlocknativeService {
     routingKey: 'strong-candidate',
   })
   public async updateAllCandidatesList(msg: Record<string, any>) {
+    if (!this.enabled) {
+      return;
+    }
     if (!this.allActiveCandidates[msg.protocol]) {
       this.allActiveCandidates[msg.protocol] = {};
     }
@@ -85,6 +89,16 @@ export class BlocknativeService {
     } else {
       this.allActiveCandidates[msg.protocol][msg.address].time = msg.time;
     }
+  }
+
+  @RabbitSubscribe({
+    exchange: 'liquidator-exchange',
+    routingKey: 'blocknative-status',
+  })
+  async updateBlocknativeStatus(msg: Record<string, any>) {
+    this.enabled = msg.enabled;
+
+    this.logger.debug(`Changed blocknative enabled to ${msg.enabled}`);
   }
 
   async refreshList() {

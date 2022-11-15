@@ -1,9 +1,11 @@
 import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
-import { Body, Controller, Logger, Post } from '@nestjs/common';
-import { ApiOperation } from '@nestjs/swagger';
+import { Body, Controller, Logger, Post, UseGuards } from '@nestjs/common';
+import { ApiBasicAuth, ApiOperation } from '@nestjs/swagger';
+import { EnableDto } from 'src/app.dto';
 import { AppService } from 'src/app.service';
+import { ACLGuard } from 'src/auth/acl.guard';
 import { BlocknativeService } from './blocknative.service';
-
+@ApiBasicAuth()
 @Controller('blocknative')
 export class BlocknativeController {
   constructor(
@@ -38,5 +40,22 @@ export class BlocknativeController {
     this.blocknativeService.processData(body);
 
     return true;
+  }
+
+  @ApiOperation({
+    description: `Enables/Disables blocknative module.`,
+  })
+  @Post('enable')
+  @UseGuards(ACLGuard)
+  protocolStatus(@Body() body: EnableDto): string {
+    if (!body || typeof body.enabled !== 'boolean') {
+      return 'Please include boolean "enabled".';
+    }
+    this.logger.debug(`Changing enabled to ${body.enabled}`);
+    this.amqpConnection.publish('liquidator-exchange', 'blocknative-status', {
+      enabled: body.enabled,
+    });
+
+    return `Changed enabled to ${body.enabled}`;
   }
 }
