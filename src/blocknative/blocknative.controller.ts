@@ -36,7 +36,9 @@ export class BlocknativeController {
     if (!body) {
       return false;
     }
-    this.logger.debug(`Mempool data received for aggregator ${body.to}`);
+    this.logger.debug(
+      `Mempool data received for aggregator ${JSON.stringify(body.to)}`,
+    );
     this.blocknativeService.processData(body);
 
     return true;

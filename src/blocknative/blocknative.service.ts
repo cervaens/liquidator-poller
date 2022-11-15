@@ -168,6 +168,8 @@ export class BlocknativeService {
 
     if (method !== '0xc9807539') {
       return 'Wrong method';
+    } else if (tx.status === 'confirmed') {
+      return 'Ignoring Confirmed status for now';
     }
 
     if (!this.aggregators[tx.to]) {
