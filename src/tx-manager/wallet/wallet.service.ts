@@ -18,7 +18,7 @@ export class WalletService {
   private walletSecret = process.env.ACCOUNT_SECRET_A;
   private tokenContract = {};
   private gasPriceGwei = 30;
-  private maxPriorityFeePerGasGwei = 25;
+  private maxPriorityFeePerGasGwei = 20;
   private maxFeePerGasAddToPrice = 15;
 
   constructor(
@@ -109,6 +109,7 @@ export class WalletService {
           msg.profitUSD,
           msg.protocol,
           msg.accountAddress,
+          msg.gasPrices,
         );
       }
     }
@@ -184,14 +185,14 @@ export class WalletService {
     });
   }
 
-  signAndSend(tx, profitUSD, protocol, accountAddress) {
+  signAndSend(tx, profitUSD, protocol, accountAddress, gasPrices) {
     tx.nonce = Web3Utils.toHex(this.nonce);
     this.logger.debug('Setting nonce: ' + this.nonce);
     this.nonce += 1;
     tx.gasLimit = Web3Utils.toHex(tx.gasLimit);
     // tx.gasPrice = Web3Utils.toHex(parseInt(tx.gasPrice));
 
-    const sentTx = this._send(this._sign(tx));
+    const sentTx = this._send(this._sign(tx, gasPrices));
     const sentDate = new Date();
 
     sentTx.on('transactionHash', (hash) => {
@@ -215,7 +216,10 @@ export class WalletService {
 
       const updateLiqStatus = {};
       updateLiqStatus[protocol] = {};
-      updateLiqStatus[protocol][accountAddress] = { status: 'Processed' };
+      updateLiqStatus[protocol][accountAddress] = {
+        status: 'Processed',
+        timestamp: new Date().getTime(),
+      };
 
       this.amqpConnection.publish(
         'liquidator-exchange',
@@ -245,7 +249,7 @@ export class WalletService {
         this.logger.debug(
           'Off-chain ' + errStr + ' errored nonce: ' + this.nonceErrored,
         );
-        this.signAndSend(tx, profitUSD, protocol, accountAddress);
+        this.signAndSend(tx, profitUSD, protocol, accountAddress, {});
       } else if (
         errStr.includes('replacement transaction underpriced') ||
         errStr.includes('already known')
@@ -267,7 +271,10 @@ export class WalletService {
 
       const updateLiqStatus = {};
       updateLiqStatus[protocol] = {};
-      updateLiqStatus[protocol][accountAddress] = { status: 'Errored' };
+      updateLiqStatus[protocol][accountAddress] = {
+        status: 'Errored',
+        timestamp: new Date().getTime(),
+      };
 
       this.amqpConnection.publish(
         'liquidator-exchange',
@@ -293,22 +300,26 @@ export class WalletService {
    * };
    * const signedTx = wallet._sign(tx);
    */
-  _sign(tx) {
+  _sign(tx, gasPrices) {
     // Set tx.from here since it must be signed by its sender.
     // i.e. this is the only valid value for tx.from
     tx.from = this.walletAddress;
     tx.type = '0x02';
 
-    tx.maxPriorityFeePerGas =
-      '0x' + (this.maxPriorityFeePerGasGwei * 10 ** 9).toString(16); // 25000000000 WEI, 25 GWEI for eth 1600 and gas 400000 gives around 16USDs
-    // putting a very high fee as I got Transaction maxFeePerGas (2500000020) is too low for the next block, which has a baseFeePerGas of 7757457203
-    // we need to implement here a block-level base fee fetch: https://ethereum.stackexchange.com/questions/123453/error-transactions-maxfeepergas-0-is-less-than-the-blocks-basefeepergas-52
-    tx.maxFeePerGas =
-      '0x' +
-      (
-        +(this.gasPriceGwei + this.maxFeePerGasAddToPrice).toFixed() *
-        10 ** 9
-      ).toString(16); // 30000000000 or 30 GWEI for eth 1600 and gas 400000 gives around 19.2USDs
+    if (gasPrices && gasPrices.maxFeePerGas && gasPrices.maxPriorityFeePerGas) {
+      tx = { ...tx, ...gasPrices };
+    } else {
+      tx.maxPriorityFeePerGas =
+        '0x' + (this.maxPriorityFeePerGasGwei * 10 ** 9).toString(16); // 25000000000 WEI, 25 GWEI for eth 1600 and gas 400000 gives around 16USDs
+      // putting a very high fee as I got Transaction maxFeePerGas (2500000020) is too low for the next block, which has a baseFeePerGas of 7757457203
+      // we need to implement here a block-level base fee fetch: https://ethereum.stackexchange.com/questions/123453/error-transactions-maxfeepergas-0-is-less-than-the-blocks-basefeepergas-52
+      tx.maxFeePerGas =
+        '0x' +
+        (
+          +(this.gasPriceGwei + this.maxFeePerGasAddToPrice).toFixed() *
+          10 ** 9
+        ).toString(16); // 30000000000 or 30 GWEI for eth 1600 and gas 400000 gives around 19.2USDs
+    }
     // Need to have the following LOCALLY as chain needs to go 31337
     tx.chainId = '0x' + this.network.chainId.toString(16);
     tx = FeeMarketEIP1559Transaction.fromTxData(tx, this.network);

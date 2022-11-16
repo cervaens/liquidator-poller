@@ -1,9 +1,16 @@
 import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
-import { Body, Controller, Get, Logger, Post } from '@nestjs/common';
-import { ApiOperation } from '@nestjs/swagger';
-import { EnableDto, ProtocolEnableDto, QueryCandidateDto } from 'src/app.dto';
+import { Body, Controller, Get, Logger, Post, UseGuards } from '@nestjs/common';
+import { ApiBasicAuth, ApiOperation } from '@nestjs/swagger';
+import {
+  EnableDto,
+  ProtocolEnableDto,
+  QueryCandidateDto,
+  QueryCustomTxDto,
+} from 'src/app.dto';
+import { ACLGuard } from 'src/auth/acl.guard';
 import { TxManagerService } from './tx-manager.service';
 
+@ApiBasicAuth()
 @Controller('tx-manager')
 export class TxManagerController {
   constructor(
@@ -16,6 +23,7 @@ export class TxManagerController {
     description: `Adds an account from a specific protocol to the liquidations blacklist. The account won't be liquidated till it is manually unblacklisted`,
   })
   @Post('blacklist/')
+  @UseGuards(ACLGuard)
   blackListAccount(@Body() body: QueryCandidateDto): string {
     if (!body || !body.protocol || !body.account) {
       return 'Please include account and protocol.';
@@ -41,6 +49,7 @@ export class TxManagerController {
     description: `Enables/Disables the creation of real liquidation transactions, versus only writing in logs that a tx would be created.`,
   })
   @Post('real-txs/')
+  @UseGuards(ACLGuard)
   setRealTxs(@Body() body: EnableDto): string {
     if (!body || typeof body.enabled !== 'boolean') {
       return 'Please include boolean enable.';
@@ -57,6 +66,7 @@ export class TxManagerController {
     description: `Gets all current ongoing/processed liquidations`,
   })
   @Get('current-liquidations')
+  @UseGuards(ACLGuard)
   currentLiquidations(): Record<string, Record<string, any>> {
     return this.txManagerService.getCurrentLiquidations();
   }
@@ -65,6 +75,7 @@ export class TxManagerController {
     description: `Clears the liquidations blacklist or removes an account for a specific protocol from the liquidations blacklist.`,
   })
   @Post('unblacklist')
+  @UseGuards(ACLGuard)
   liquidationsClear(@Body() body: QueryCandidateDto): string {
     this.logger.debug(`Clearing liquidations list.`);
     const account = body.account || '';
@@ -81,9 +92,40 @@ export class TxManagerController {
   }
 
   @ApiOperation({
+    description: `Clears the liquidations blacklist or removes an account for a specific protocol from the liquidations blacklist.`,
+  })
+  @Post('custom-liquidation')
+  @UseGuards(ACLGuard)
+  customLiquidation(@Body() body: QueryCustomTxDto): string {
+    if (
+      !body ||
+      !body.protocol ||
+      !body.account ||
+      !body.repayToken ||
+      !body.seizeToken
+    ) {
+      return 'Please include "protocol", "account", "repayToken" and "seizeToken".';
+    }
+    this.logger.debug(
+      `Creating liquidation tx with values: ${body.protocol} borrower: ${body.account}, repayToken: ${body.repayToken}, seizeToken: ${body.seizeToken}`,
+    );
+
+    const tx = {
+      protocol: body.protocol,
+      borrower: body.account,
+      repayToken: body.repayToken,
+      seizeToken: body.seizeToken,
+    };
+    this.amqpConnection.publish('liquidator-exchange', 'liquidate-many', [tx]);
+
+    return `Sent liquidation transfer: ${JSON.stringify(tx)}`;
+  }
+
+  @ApiOperation({
     description: `Enables/Disables liquidation transactions at a protocol level.`,
   })
   @Post('protocol-status')
+  @UseGuards(ACLGuard)
   protocolStatus(@Body() body: ProtocolEnableDto): string {
     if (!body || !body.protocol || typeof body.enabled !== 'boolean') {
       return 'Please include the "protocol" and boolean "enabled".';

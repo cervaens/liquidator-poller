@@ -16,17 +16,6 @@ const uniswapNonSupportedList = [
 const protocolSameTokenDiscard = ['WETH', 'USDC'];
 
 export class IBAccount extends StandardAccount {
-  public address: string;
-  public _id: string;
-  public health: number;
-  public tokens: Array<Record<string, any>>;
-  public total_borrow_value_in_eth: number;
-  public total_collateral_value_in_eth: number;
-  public profitUSD: number;
-  public calculatedHealth: number;
-  public liqCollateral: Record<string, any> = { valueUSD: 0 };
-  public liqBorrow: Record<string, any> = { valueUSD: 0 };
-  public lastUpdated: number;
   private closeFactor = 0.5;
   private liquidationIncentive = 1.08;
   private protocol = 'IronBank';
@@ -40,9 +29,10 @@ export class IBAccount extends StandardAccount {
     this.total_borrow_value_in_eth = json.total_borrow_value_in_eth;
     this.total_collateral_value_in_eth = json.total_collateral_value_in_eth;
     this.profitUSD = json.profitUSD;
-    this.calculatedHealth = json.calculatedHealth;
     this.liqCollateral = json.liqCollateral;
     this.liqBorrow = json.liqBorrow;
+    this.totalDepositUSD = json.totalDepositUSD;
+    this.totalBorrowUSD = json.totalBorrowUSD;
   }
 
   public isCandidate(minProfit: number) {
@@ -193,6 +183,8 @@ export class IBAccount extends StandardAccount {
     this.liqCollateral = top2Collateral[seizeIdx] || { valueUSD: 0 };
 
     this.health = totalDepositUSD / totalBorrowUSD || 0;
+    this.totalDepositUSD = totalDepositUSD;
+    this.totalBorrowUSD = totalBorrowUSD;
     this.profitUSD =
       Math.min(
         this.liqBorrow.valueUSD * this.closeFactor,

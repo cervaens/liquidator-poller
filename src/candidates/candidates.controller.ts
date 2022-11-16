@@ -1,6 +1,16 @@
 import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
-import { Body, Controller, Get, Logger, Post, Query } from '@nestjs/common';
-import { ApiOperation } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Get,
+  Logger,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
+import { ApiBasicAuth, ApiOperation } from '@nestjs/swagger';
+import { ACLGuard } from 'src/auth/acl.guard';
 import {
   QueryLiquidateDto,
   QueryCandidateDto,
@@ -9,6 +19,7 @@ import {
 } from '../app.dto';
 import { CandidatesService } from './candidates.service';
 
+@ApiBasicAuth()
 @Controller('candidates')
 export class CandidatesController {
   constructor(
@@ -35,7 +46,7 @@ export class CandidatesController {
         }
         const candidateIds = {};
         Object.keys(candidates[protocol]).forEach((id) => {
-          // Deleting non updates candidades, important for Compound
+          // Deleting non updated candidades, important for Compound
           // as if accounts are repaied they wont be returned from the API
           if (
             time - candidates[protocol][id].lastUpdated >
@@ -44,6 +55,18 @@ export class CandidatesController {
             this.candidatesService.deleteCandidate(protocol, id);
           } else {
             candidateIds[id] = time;
+            if (candidates[protocol][id].isStrongCandidate()) {
+              this.amqpConnection.publish(
+                'liquidator-exchange',
+                'strong-candidate',
+                {
+                  address: id,
+                  time,
+                  tokens: candidates[protocol][id].tokens,
+                  protocol,
+                },
+              );
+            }
           }
         });
 
@@ -74,9 +97,11 @@ export class CandidatesController {
     description: `Get all candidates from all protocols or a specific protocol or for a specific account`,
   })
   @Get()
+  @UseGuards(ACLGuard)
   getCandidates(
+    @Req() req,
     @Query() query: QueryCandidateDto,
-  ): Array<Record<string, Record<string, any>>> {
+  ): string | Array<Record<string, Record<string, any>>> {
     const candidates = this.candidatesService.getCandidates();
     let retArray = [];
 
@@ -97,6 +122,7 @@ export class CandidatesController {
     description: `Clear all candidates so that they're reloaded`,
   })
   @Get('reset')
+  @UseGuards(ACLGuard)
   resetCandidates(): string {
     this.amqpConnection.publish('liquidator-exchange', 'candidates-reset', {});
     return 'Candidates are being refreshed';
@@ -104,6 +130,7 @@ export class CandidatesController {
 
   @ApiOperation({ description: 'Liquidate a specific account in a protocol' })
   @Post('liquidate')
+  @UseGuards(ACLGuard)
   liquidateCandidate(@Body() body: QueryLiquidateDto): string {
     if (body.force) {
       this.amqpConnection.publish(
@@ -141,6 +168,7 @@ export class CandidatesController {
     description: 'Enable/Disable same repay/seize token liquidation',
   })
   @Post('same-token/')
+  @UseGuards(ACLGuard)
   setSameToken(@Body() body: EnableDto): string {
     if (!body || typeof body.enabled !== 'boolean') {
       return 'Please include boolean enable.';
@@ -160,6 +188,7 @@ export class CandidatesController {
       "Sets a candidate's minimum profit in USD to be cosidered for liquidation",
   })
   @Post('set-profit/')
+  @UseGuards(ACLGuard)
   setProfit(@Body() body: ProfitDto): string {
     if (!body || typeof body.profit !== 'number') {
       return 'Please include a valid profit.';
