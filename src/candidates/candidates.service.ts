@@ -233,8 +233,10 @@ export class CandidatesService {
       }
       if (
         !this.pricesUSD[msg.protocol][priceObj.underlyingAddress] ||
-        this.pricesUSD[msg.protocol][priceObj.underlyingAddress].blockNumber <
-          priceObj.blockNumber
+        (this.pricesUSD[msg.protocol][priceObj.underlyingAddress].blockNumber <
+          priceObj.blockNumber &&
+          this.pricesUSD[msg.protocol][priceObj.underlyingAddress].price !==
+            priceObj.price)
       ) {
         this.pricesUSD[msg.protocol][priceObj.underlyingAddress] = {
           blockNumber: priceObj.blockNumber,

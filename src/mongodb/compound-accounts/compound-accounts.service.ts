@@ -7,6 +7,7 @@ import {
 } from './compound-accounts.schema';
 import { CompoundAccount } from './classes/CompoundAccount';
 import { AmqpConnection, RabbitSubscribe } from '@golevelup/nestjs-rabbitmq';
+import { AppService } from 'src/app.service';
 
 @Injectable()
 export class CompoundAccountsService {
@@ -22,6 +23,7 @@ export class CompoundAccountsService {
     @InjectModel(CompoundAccounts.name)
     private compoundAccountsModel: Model<CompoundAccountsDocument>,
     private readonly amqpConnection: AmqpConnection,
+    private readonly appService: AppService,
   ) {}
 
   getAllActiveCandidates(): Record<string, number> {
@@ -57,6 +59,9 @@ export class CompoundAccountsService {
     routingKey: 'liquidations-clear',
   })
   async clearLiquidationsList(msg: Record<string, string>) {
+    if (!this.appService.amItheMaster()) {
+      return;
+    }
     const query = msg.account ? { _id: msg.account } : {};
     this.compoundAccountsModel
       .updateMany(query, {
@@ -72,7 +77,7 @@ export class CompoundAccountsService {
     routingKey: 'liquidations-called',
   })
   async updateAccountLiquidationStatus(msg: Record<string, any>) {
-    if (!msg[this.protocol]) {
+    if (!msg[this.protocol] || !this.appService.amItheMaster()) {
       return;
     }
     for (const accountAddress of Object.keys(msg[this.protocol])) {
