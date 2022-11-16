@@ -89,7 +89,9 @@ export class CompoundPricesWsHelperService {
         continue;
       }
       // Compound considers stable coins as 1 dollar
-      if (token.underlyingSymbol.match('USDC|USDT|TUSD|USDP')) {
+      if (
+        token.underlyingSymbol.match(process.env.COMPOUND_STATIC_ONE_USD_PRICES)
+      ) {
         tokenPrices[token.underlyingAddress] = {
           blockNumber: 0,
           price: '1000000',

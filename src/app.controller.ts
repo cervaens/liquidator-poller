@@ -1,6 +1,7 @@
-import { Controller, Get, Logger, Patch } from '@nestjs/common';
+import { Controller, Get, Logger, Patch, UseGuards } from '@nestjs/common';
 import { ApiOperation } from '@nestjs/swagger';
 import { AppService } from './app.service';
+import { ACLGuard } from './auth/acl.guard';
 
 @Controller()
 export class AppController {
@@ -35,6 +36,7 @@ export class AppController {
     description: `Returns if this worker is the master`,
   })
   @Get('am-i-master')
+  @UseGuards(ACLGuard)
   amITheMaster(): boolean {
     return this.appService.amItheMaster();
   }
@@ -43,6 +45,7 @@ export class AppController {
     description: `Set this worker as not a master`,
   })
   @Patch('no-master')
+  @UseGuards(ACLGuard)
   setNoMaster(): boolean {
     return this.appService.setImNoMaster();
   }

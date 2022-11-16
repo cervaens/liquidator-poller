@@ -20,6 +20,18 @@ export class QueryLiquidateDto extends QueryCandidateDto {
   force: boolean;
 }
 
+export class QueryCustomTxDto extends QueryCandidateDto {
+  @ApiPropertyOptional({
+    description: `Repay token address `,
+  })
+  repayToken: string;
+
+  @ApiPropertyOptional({
+    description: `Seize token address `,
+  })
+  seizeToken: string;
+}
+
 export class EnableDto {
   @ApiProperty()
   enabled: boolean;

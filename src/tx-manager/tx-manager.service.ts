@@ -96,13 +96,19 @@ export class TxManagerService {
         this.logger.debug(`No liquidation status yet. Discarding liquidations`);
         continue;
       }
+      const { repayToken, profitUSD, seizeToken, borrower } = candidate;
       if (this.disabledProtocols[candidate.protocol]) {
         this.logger.debug(
-          `Protocol ${candidate.protocol} is disabled. Discarding liquidation`,
+          `Protocol ${
+            candidate.protocol
+          } is disabled. Discarding liquidation for Borrower ${borrower}
+          Repaying ${repayToken} with amount ${candidate.amount}
+          Seizing  ${seizeToken} for estimated profit of ${parseFloat(
+            profitUSD,
+          ).toFixed(2)} USD`,
         );
         continue;
       }
-      const { repayToken, profitUSD, seizeToken, borrower } = candidate;
 
       this.logger.debug(
         `Liquidating account from ${candidate.protocol}
@@ -172,6 +178,7 @@ export class TxManagerService {
               protocol: candidate.protocol,
               accountAddress: borrower,
               estimatedGas,
+              gasPrices: candidate.gasPrices,
             });
           } else {
             this.logger.debug(
@@ -192,6 +199,7 @@ export class TxManagerService {
           updateLiqStatus[candidate.protocol] = {};
           updateLiqStatus[candidate.protocol][borrower] = {
             status: 'Reverted',
+            timestamp: new Date().getTime(),
           };
 
           this.amqpConnection.publish(

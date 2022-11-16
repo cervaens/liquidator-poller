@@ -87,25 +87,25 @@ async function testSubscription() {
   }
 
   console.log(validators);
-  providerWs.eth
-    .subscribe('pendingTransactions', function (error, result) {
-      //   if (!error) console.log(result);
-      if (error) console.log(`Error in subscription: ${error}`);
-    })
-    .on('data', async (transaction) => {
-      counter += 1;
-      if (counter % 100 === 0) console.log(counter);
+  // providerWs.eth
+  //   .subscribe('pendingTransactions', function (error, result) {
+  //     //   if (!error) console.log(result);
+  //     if (error) console.log(`Error in subscription: ${error}`);
+  //   })
+  //   .on('data', async (transaction) => {
+  //     counter += 1;
+  //     if (counter % 100 === 0) console.log(counter);
 
-      try {
-        const tx = await providerWs.eth.getTransaction(transaction);
-        if (tx && validators.includes(tx.to)) {
-          console.log(new Date());
-          console.log(tx);
-        }
-      } catch (err) {
-        console.error(`Error ${err}`);
-      }
-    });
+  //     try {
+  //       const tx = await providerWs.eth.getTransaction(transaction);
+  //       if (tx && validators.includes(tx.to)) {
+  //         console.log(new Date());
+  //         console.log(tx);
+  //       }
+  //     } catch (err) {
+  //       console.error(`Error ${err}`);
+  //     }
+  //   });
 }
 
 testSubscription();
