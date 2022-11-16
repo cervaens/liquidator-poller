@@ -1,7 +1,7 @@
 import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
 import { Body, Controller, Logger, Post, UseGuards } from '@nestjs/common';
 import { ApiBasicAuth, ApiOperation } from '@nestjs/swagger';
-import { EnableDto } from 'src/app.dto';
+import { BlockNativeDto, EnableDto } from 'src/app.dto';
 import { AppService } from 'src/app.service';
 import { ACLGuard } from 'src/auth/acl.guard';
 import { BlocknativeService } from './blocknative.service';
@@ -28,7 +28,7 @@ export class BlocknativeController {
     description: 'get mempool data',
   })
   @Post('mempool/')
-  memPool(@Body() body): boolean {
+  memPool(@Body() body: BlockNativeDto): boolean {
     if (!body) {
       return false;
     }

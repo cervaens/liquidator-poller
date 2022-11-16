@@ -52,3 +52,7 @@ export class ProtocolEnableDto {
   @ApiProperty()
   enabled: boolean;
 }
+
+export class BlockNativeDto {
+  to: string;
+}
