@@ -1,8 +1,9 @@
 import { Controller, Get, Logger, Patch, UseGuards } from '@nestjs/common';
-import { ApiOperation } from '@nestjs/swagger';
+import { ApiBasicAuth, ApiOperation } from '@nestjs/swagger';
 import { AppService } from './app.service';
 import { ACLGuard } from './auth/acl.guard';
 
+@ApiBasicAuth()
 @Controller()
 export class AppController {
   private readonly logger = new Logger(AppController.name);

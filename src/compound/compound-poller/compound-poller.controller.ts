@@ -1,10 +1,14 @@
-import { Controller, Inject, Logger } from '@nestjs/common';
+import { Controller, Get, Inject, Logger, UseGuards } from '@nestjs/common';
 import { CompoundPollerService } from './compound-poller.service';
 import { CtokenController } from '../../mongodb/ctoken/ctoken.controller';
 import { CompoundToken } from '../../mongodb/ctoken/classes/CompoundToken';
 import { AppService } from 'src/app.service';
 import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
 import { CompoundPricesWsHelperService } from 'src/compound/compound-prices-ws/compound-prices-ws-helper/compound-prices-ws-helper.service';
+import { ApiBasicAuth, ApiOperation } from '@nestjs/swagger';
+import { ACLGuard } from 'src/auth/acl.guard';
+
+@ApiBasicAuth()
 @Controller('compound-poller')
 export class CompoundPollerController {
   constructor(
@@ -54,6 +58,12 @@ export class CompoundPollerController {
   }
 
   private readonly logger = new Logger(CompoundPollerController.name);
+
+  @ApiOperation({
+    description: `Poll Compound tokens`,
+  })
+  @Get('poll-ctokens')
+  @UseGuards(ACLGuard)
   async pollCTokens() {
     this.logger.debug('Calling Ctokens endpoint');
     this.tokens = (await this.compoundPollerService.fetchCtokens({})).tokens;
@@ -64,6 +74,11 @@ export class CompoundPollerController {
     }));
   }
 
+  @ApiOperation({
+    description: `Poll Compound accounts`,
+  })
+  @Get('poll-accounts')
+  @UseGuards(ACLGuard)
   async pollAccounts(init = false) {
     this.logger.debug('Calling Accounts endpoint');
     this.amqpConnection.publish('liquidator-exchange', 'fetch-accounts', {

@@ -31,6 +31,9 @@ export class IbAccountsService {
     routingKey: 'liquidations-clear',
   })
   async clearLiquidationsList(msg: Record<string, string>) {
+    if (!this.appService.amItheMaster()) {
+      return;
+    }
     const query = msg.account ? { _id: msg.account } : {};
     this.ibAccountsModel
       .updateMany(query, {
@@ -62,7 +65,7 @@ export class IbAccountsService {
     routingKey: 'liquidations-called',
   })
   async updateAccountLiquidationStatus(msg: Record<string, any>) {
-    if (!msg[this.protocol]) {
+    if (!msg[this.protocol] || !this.appService.amItheMaster()) {
       return;
     }
     for (const accountAddress of Object.keys(msg[this.protocol])) {

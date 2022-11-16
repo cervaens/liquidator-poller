@@ -173,7 +173,7 @@ export class BlocknativeService {
     }
 
     if (!this.aggregators[tx.to]) {
-      this.logger.debug(`Couldn't find aggregator for address tx.to`);
+      this.logger.debug(`Couldn't find aggregator for address ${tx.to}`);
       return false;
     }
 

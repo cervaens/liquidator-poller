@@ -17,15 +17,11 @@ export class BlocknativeController {
 
   async onApplicationBootstrap(): Promise<void> {
     // At init the master will start a poll
-    this.logger.debug('Waiting to listen from other workers...');
+    this.blocknativeService.getValidators();
 
-    let amITheMaster = false;
     setInterval(async () => {
-      if (this.appService.amItheMaster() && !amITheMaster) {
-        this.blocknativeService.getValidators();
-        amITheMaster = true;
-      }
-    }, parseInt(process.env.WAIT_TIME_FOR_OTHER_WORKERS) + 1000);
+      this.blocknativeService.getValidators();
+    }, parseInt(process.env.BLOCKNATIVE_AGG_POLL_PERIOD));
   }
 
   @ApiOperation({
