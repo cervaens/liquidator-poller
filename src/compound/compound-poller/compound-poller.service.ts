@@ -115,6 +115,9 @@ export class CompoundPollerService {
       Object.keys(this.tokenObj).length === 0 ||
       Object.keys(this.cTokenPrices).length === 0
     ) {
+      this.logger.warn(
+        'Fetch accounts cancelled. Not enough token/prices info. ',
+      );
       return;
     }
     const timestamp = new Date().getTime();

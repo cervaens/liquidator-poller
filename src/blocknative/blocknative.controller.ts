@@ -1,7 +1,7 @@
 import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
 import { Body, Controller, Logger, Post, UseGuards } from '@nestjs/common';
 import { ApiBasicAuth, ApiOperation } from '@nestjs/swagger';
-import { EnableDto } from 'src/app.dto';
+import { BlockNativeDto, EnableDto } from 'src/app.dto';
 import { AppService } from 'src/app.service';
 import { ACLGuard } from 'src/auth/acl.guard';
 import { BlocknativeService } from './blocknative.service';
@@ -17,22 +17,18 @@ export class BlocknativeController {
 
   async onApplicationBootstrap(): Promise<void> {
     // At init the master will start a poll
-    this.logger.debug('Waiting to listen from other workers...');
+    this.blocknativeService.getValidators();
 
-    let amITheMaster = false;
     setInterval(async () => {
-      if (this.appService.amItheMaster() && !amITheMaster) {
-        this.blocknativeService.getValidators();
-        amITheMaster = true;
-      }
-    }, parseInt(process.env.WAIT_TIME_FOR_OTHER_WORKERS) + 1000);
+      this.blocknativeService.getValidators();
+    }, parseInt(process.env.BLOCKNATIVE_AGG_POLL_PERIOD));
   }
 
   @ApiOperation({
     description: 'get mempool data',
   })
   @Post('mempool/')
-  memPool(@Body() body): boolean {
+  memPool(@Body() body: BlockNativeDto): boolean {
     if (!body) {
       return false;
     }

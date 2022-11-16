@@ -173,7 +173,7 @@ export class BlocknativeService {
     }
 
     if (!this.aggregators[tx.to]) {
-      this.logger.debug(`Couldn't find aggregator for address tx.to`);
+      this.logger.debug(`Couldn't find aggregator for address ${tx.to}`);
       return false;
     }
 
@@ -234,7 +234,9 @@ export class BlocknativeService {
     );
 
     // 10 ** -2 so that at the end the parsing of 10 ** 6 works as it comes from blocknative as 10 ** 8
-    return observations[Math.floor(observations.length / 2)] * 10 ** -2;
+    return Math.floor(
+      observations[Math.floor(observations.length / 2)] * 10 ** -2,
+    );
   }
 
   @RabbitSubscribe({
