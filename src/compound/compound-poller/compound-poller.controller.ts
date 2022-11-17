@@ -24,16 +24,14 @@ export class CompoundPollerController {
     // At init the master will start a poll
     this.logger.debug('Waiting to listen from other workers...');
 
-    let amITheMaster = false;
-    setInterval(async () => {
-      if (this.appService.amItheMaster() && !amITheMaster) {
-        const tokenUAddresses = await this.pollCTokens();
-        this.compoundPricesHelper.pollAndStorePrices(tokenUAddresses);
-        // this.pollCethWalletBalance();
+    setTimeout(async () => {
+      const tokenUAddresses = await this.pollCTokens();
+      await this.compoundPricesHelper.pollAndStorePrices(tokenUAddresses);
+      // this.pollCethWalletBalance();
+      if (!this.compoundPollerService.isInitOngoing()) {
         this.pollAccounts(true);
-        amITheMaster = true;
       }
-    }, parseInt(process.env.WAIT_TIME_FOR_OTHER_WORKERS) + 1000);
+    }, parseInt(process.env.WAIT_TIME_FOR_OTHER_WORKERS));
 
     setInterval(() => {
       if (this.appService.amItheMaster()) {

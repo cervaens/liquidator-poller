@@ -24,43 +24,39 @@ export class IronbankPollerController {
   async onApplicationBootstrap(): Promise<void> {
     let amITheMaster = false;
 
+    setTimeout(async () => {
+      const tokens = await this.pollIBTokens();
+      await this.ironBankPrices.getTokensUnderlyingPrice({
+        tokens,
+        init: true,
+      });
+      this.appService.setControlIdStatus('IB-poller-init-finished', true);
+    }, parseInt(process.env.WAIT_TIME_FOR_OTHER_WORKERS));
+
+    this.logger.debug('Waiting to listen from other workers...');
+    setInterval(async () => {
+      if (this.appService.amItheMaster() && !amITheMaster) {
+        amITheMaster = true;
+        this.ibPollerService.getAccountsFromUnitroller();
+        this.ibAccountsService.sendLiquidationStatus();
+      } else if (!this.appService.amItheMaster() && amITheMaster) {
+        amITheMaster = false;
+        // unsubscribe if for some reason stops being master
+        this.ibPollerService.unsubscribeWs();
+      }
+    }, parseInt(process.env.WAIT_TIME_FOR_OTHER_WORKERS));
+
     setInterval(() => {
-      if (
-        amITheMaster
-        // !this.ibControlService.updatingMarkets
-      ) {
+      if (amITheMaster) {
         this.pollAccounts();
       }
     }, parseInt(process.env.IRONBANK_POLL_BALANCES_PERIOD));
 
     setInterval(() => {
-      if (
-        amITheMaster
-        // !this.ibControlService.updatingMarkets
-      ) {
+      if (amITheMaster) {
         this.pollIBTokens();
       }
     }, parseInt(process.env.IRONBANK_POLL_TOKENS_PERIOD));
-
-    this.logger.debug('Waiting to listen from other workers...');
-    setInterval(async () => {
-      if (this.appService.amItheMaster() && !amITheMaster) {
-        this.ibPollerService.getAccountsFromUnitroller();
-        const tokens = await this.pollIBTokens();
-        await Promise.all([
-          this.ironBankPrices.getTokensUnderlyingPrice({ tokens }),
-          this.ibAccountsService.getCandidatesFromDB(),
-        ]);
-        await this.ibAccountsService.sendLiquidationStatus();
-        amITheMaster = true;
-        this.appService.setControlIdStatus('IB-poller-init-finished', true);
-      } else if (!this.appService.amItheMaster() && amITheMaster) {
-        // unsubscribe if for some reason stops being master
-        this.ibPollerService.unsubscribeWs();
-        amITheMaster = false;
-        this.appService.setControlIdStatus('IB-poller-init-finished', false);
-      }
-    }, parseInt(process.env.WAIT_TIME_FOR_OTHER_WORKERS));
   }
 
   async pollAccounts() {

@@ -52,7 +52,11 @@ export class IronbankPollerService {
     if (msg.protocol !== this.protocol) {
       return;
     }
-    this.iTokenPrices = { ...this.iTokenPrices, ...msg.prices };
+    if (!msg.init) {
+      this.iTokenPrices = { ...this.iTokenPrices, ...msg.prices };
+    } else {
+      this.iTokenPrices = { ...msg.prices, ...this.iTokenPrices };
+    }
   }
 
   async fetchIBtokens(withConfig: Record<string, any>) {
