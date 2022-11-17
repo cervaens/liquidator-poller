@@ -148,6 +148,15 @@ export class CompoundAccountsService {
           Object.keys(this.allActiveCandidates).length,
       );
     }
+
+    // Sometimes a node goes down and candidates get lost
+    if (
+      curNumberCandidates > Object.keys(this.allActiveCandidates).length &&
+      this.appService.amItheMaster()
+    ) {
+      this.logger.debug('IronBank: Reloading candidates from DB');
+      this.getCandidatesFromDB();
+    }
   }
 
   @RabbitSubscribe({
@@ -230,5 +239,55 @@ export class CompoundAccountsService {
         );
       }
     }
+  }
+
+  getCandidatesFromDBqueryObj() {
+    const time = new Date(new Date().getTime() - 3600000);
+    const expr = this.enableCandidatesWithSameToken
+      ? {}
+      : { $ne: ['$liqBorrow.tokenAddress', '$liqCollateral.tokenAddress'] };
+    return {
+      health: {
+        $gte: parseFloat(process.env.CANDIDATE_MIN_HEALTH),
+        $lte: parseFloat(process.env.CANDIDATE_MAX_HEALTH),
+      },
+      lastUpdated: { $gt: time },
+      profitUSD: { $gte: this.minProfit },
+      $expr: expr,
+    };
+  }
+
+  async getCandidatesFromDB() {
+    let candidatesNew = [];
+    return this.compoundAccountsModel
+      .find(this.getCandidatesFromDBqueryObj())
+      .lean()
+      .then((candidates) => {
+        for (const candidate of candidates) {
+          if (this.allActiveCandidates[candidate._id]) {
+            continue;
+          }
+          candidatesNew.push(candidate);
+          if (candidatesNew.length === 10) {
+            this.amqpConnection.publish(
+              'liquidator-exchange',
+              'candidates-new',
+              {
+                accounts: candidatesNew,
+                protocol: this.protocol,
+                // timestamp: msg.timestamp,
+              },
+            );
+            candidatesNew = [];
+          }
+        }
+        if (candidatesNew.length > 0) {
+          this.amqpConnection.publish('liquidator-exchange', 'candidates-new', {
+            accounts: candidatesNew,
+            protocol: this.protocol,
+            // timestamp: msg.timestamp,
+          });
+        }
+      });
   }
 }

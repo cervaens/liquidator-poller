@@ -16,16 +16,16 @@ export class CompoundPricesWsController {
     let amITheMaster = false;
     setInterval(async () => {
       if (this.appService.amItheMaster() && !amITheMaster) {
+        amITheMaster = true;
         this.compoundPricesServicePrimary.subscribeToBlocks();
         this.compoundPricesServicePrimary.subscribeToPriceEvents();
         this.compoundPricesServiceSecondary.subscribeToBlocks();
         this.compoundPricesServiceSecondary.subscribeToPriceEvents();
-        amITheMaster = true;
       } else if (!this.appService.amItheMaster() && amITheMaster) {
+        amITheMaster = false;
         // unsubscribe if for some reason stops being master
         this.compoundPricesServicePrimary.unSubscribeWSs();
         this.compoundPricesServiceSecondary.unSubscribeWSs();
-        amITheMaster = false;
       }
     }, 5500);
   }

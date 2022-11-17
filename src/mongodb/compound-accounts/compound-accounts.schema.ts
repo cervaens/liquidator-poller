@@ -35,9 +35,6 @@ export class CompoundAccounts {
   tokens: Token[];
 
   @Prop({ required: true })
-  symbol: string;
-
-  @Prop({ required: true })
   health: number;
 
   @Prop()

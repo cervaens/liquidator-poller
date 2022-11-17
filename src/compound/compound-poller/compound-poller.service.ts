@@ -25,6 +25,7 @@ export class CompoundPollerService {
     routingKey: 'accounts-polling-init',
   })
   async setInitOngoing(msg: Record<string, boolean>) {
+    this.logger.debug(`Setting InitOngoing as ${msg.initOngoing}`);
     this.initOngoing = msg.initOngoing;
   }
 
@@ -44,7 +45,11 @@ export class CompoundPollerService {
     if (msg.protocol !== this.protocol) {
       return;
     }
-    this.cTokenPrices = { ...this.cTokenPrices, ...msg.prices };
+    if (!msg.init) {
+      this.cTokenPrices = { ...this.cTokenPrices, ...msg.prices };
+    } else {
+      this.cTokenPrices = { ...msg.prices, ...this.cTokenPrices };
+    }
   }
 
   @RabbitSubscribe({

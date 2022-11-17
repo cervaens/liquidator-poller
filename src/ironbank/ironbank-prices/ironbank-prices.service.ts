@@ -16,7 +16,7 @@ export class IronbankPricesService {
   ) {}
 
   private iTokens = {} as Record<string, any>;
-  private iTokenPrices = {} as Record<string, number>;
+  private iTokenPrices = {} as Record<string, Record<string, any>>;
   private protocol = 'IronBank';
 
   async onModuleInit(): Promise<void> {
@@ -24,6 +24,21 @@ export class IronbankPricesService {
       this.chainlinkProxyContract.push(
         await this.initChainlinkProxyContract(prov),
       );
+    }
+  }
+
+  @RabbitSubscribe({
+    exchange: 'liquidator-exchange',
+    routingKey: 'prices-polled',
+  })
+  async updatePricesHandler(msg: Record<string, any>) {
+    if (msg.protocol !== this.protocol) {
+      return;
+    }
+    if (!msg.init) {
+      this.iTokenPrices = { ...this.iTokenPrices, ...msg.prices };
+    } else {
+      this.iTokenPrices = { ...msg.prices, ...this.iTokenPrices };
     }
   }
 
@@ -63,10 +78,9 @@ export class IronbankPricesService {
   @RabbitSubscribe({
     exchange: 'liquidator-exchange',
     routingKey: 'poll-ib-prices',
+    queue: 'poll-ib-prices',
   })
-  async getTokensUnderlyingPrice(
-    msg: Record<string, Array<Record<string, any>>>,
-  ) {
+  async getTokensUnderlyingPrice(msg: Record<string, any>) {
     this.logger.debug('Getting iToken prices');
     const tokenPricesUpdated = {};
     const promises: Record<string, Promise<any>> = {};
@@ -91,9 +105,13 @@ export class IronbankPricesService {
       for (const token of Object.keys(promises)) {
         try {
           const res = await promises[token];
-          if (this.iTokenPrices[token] !== res && res) {
-            this.iTokenPrices[token] = res;
-            tokenPricesUpdated[token] = { blockNumber: 0, price: res };
+          if (
+            res &&
+            (!this.iTokenPrices[token] ||
+              this.iTokenPrices[token].price !== res)
+          ) {
+            this.iTokenPrices[token] = { blockNumber: 0, price: res };
+            tokenPricesUpdated[token] = this.iTokenPrices[token];
           }
         } catch (error) {
           this.logger.error(error.message);
@@ -109,10 +127,20 @@ export class IronbankPricesService {
           ' for IronBank: ' +
           JSON.stringify(tokenPricesUpdated),
       );
-      this.amqpConnection.publish('liquidator-exchange', 'prices-polled', {
+      const sendObj = {
         protocol: 'IronBank',
         prices: tokenPricesUpdated,
-      });
+      };
+
+      if (msg.init) {
+        sendObj['init'] = msg.init;
+      }
+
+      this.amqpConnection.publish(
+        'liquidator-exchange',
+        'prices-polled',
+        sendObj,
+      );
     }
   }
 
