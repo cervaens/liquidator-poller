@@ -152,11 +152,19 @@ export class CandidatesService {
     routingKey: 'prices-polled',
   })
   public async updatePrices(msg: Record<string, any>) {
-    this.pricesUSD[msg.protocol] = {
-      ...this.pricesUSD[msg.protocol],
-      ...msg.prices,
-    };
-    this.checkCandidatesLiquidations({ protocol: msg.protocol });
+    // Dont want to overwrite blockNumber
+    if (!msg.init) {
+      this.pricesUSD[msg.protocol] = {
+        ...this.pricesUSD[msg.protocol],
+        ...msg.prices,
+      };
+      this.checkCandidatesLiquidations({ protocol: msg.protocol });
+    } else {
+      this.pricesUSD[msg.protocol] = {
+        ...msg.prices,
+        ...this.pricesUSD[msg.protocol],
+      };
+    }
   }
 
   @RabbitSubscribe({

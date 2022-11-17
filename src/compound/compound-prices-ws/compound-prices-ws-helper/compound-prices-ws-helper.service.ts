@@ -130,6 +130,7 @@ export class CompoundPricesWsHelperService {
     this.amqpConnection.publish('liquidator-exchange', 'prices-polled', {
       protocol: 'Compound',
       prices: tokenPrices,
+      init: true,
     });
     return tokenPrices;
   }

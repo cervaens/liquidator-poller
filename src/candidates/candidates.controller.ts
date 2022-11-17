@@ -10,6 +10,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBasicAuth, ApiOperation } from '@nestjs/swagger';
+import { AppService } from 'src/app.service';
 import { ACLGuard } from 'src/auth/acl.guard';
 import {
   QueryLiquidateDto,
@@ -25,6 +26,7 @@ export class CandidatesController {
   constructor(
     private readonly candidatesService: CandidatesService,
     private readonly amqpConnection: AmqpConnection,
+    private readonly appService: AppService,
   ) {}
   private readonly logger = new Logger(CandidatesController.name);
   private candidatesTimeout =
@@ -81,15 +83,18 @@ export class CandidatesController {
     // Cleaning all candidates list as some workers might have disconnected
     // or some candidates are not anymore
     setInterval(() => {
-      // Have to comment the following as if its the master going down
+      // Maybe have to comment the following as if its the master going down
       // it will take sometime before other worker becomes master
-      // if (this.appService.amItheMaster()) {
-      const timestamp = new Date().getTime() - this.candidatesTimeout - 2000;
-      this.amqpConnection.publish('liquidator-exchange', 'candidates-list', {
-        action: 'deleteBelowTimestamp',
-        timestamp,
-      });
-      // }
+      if (this.appService.amItheMaster()) {
+        const timestamp = new Date().getTime() - this.candidatesTimeout - 2000;
+        // this.logger.debug(
+        //   `Asking to delete candidates below timestamp ${timestamp}`,
+        // );
+        this.amqpConnection.publish('liquidator-exchange', 'candidates-list', {
+          action: 'deleteBelowTimestamp',
+          timestamp,
+        });
+      }
     }, this.candidatesTimeout);
   }
 
