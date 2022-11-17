@@ -257,10 +257,12 @@ export class CompoundAccountsService {
     };
   }
 
-  async getAllCandidatesFromDB() {
-    return this.compoundAccountsModel
-      .find(this.getCandidatesFromDBqueryObj())
-      .lean();
+  async getAllCandidatesFromDB(accountAddress: string | any) {
+    let query = this.getCandidatesFromDBqueryObj();
+    if (accountAddress) {
+      query = { ...query, _id: accountAddress } as typeof query;
+    }
+    return this.compoundAccountsModel.find(query).lean();
   }
 
   async getCandidatesFromDB() {
