@@ -247,7 +247,7 @@ export class IbAccountsService {
   }
 
   getCandidatesFromDBqueryObj() {
-    const time = new Date(new Date().getTime() - 3600000);
+    const time = new Date(new Date().getTime() - 300000);
     const expr = this.enableCandidatesWithSameToken
       ? {}
       : { $ne: ['$liqBorrow.tokenAddress', '$liqCollateral.tokenAddress'] };

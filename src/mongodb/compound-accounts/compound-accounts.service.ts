@@ -242,12 +242,12 @@ export class CompoundAccountsService {
   }
 
   getCandidatesFromDBqueryObj() {
-    const time = new Date(new Date().getTime() - 3600000);
+    const time = new Date(new Date().getTime() - 300000);
     const expr = this.enableCandidatesWithSameToken
       ? {}
       : { $ne: ['$liqBorrow.tokenAddress', '$liqCollateral.tokenAddress'] };
     return {
-      health: {
+      calculatedHealth: {
         $gte: parseFloat(process.env.CANDIDATE_MIN_HEALTH),
         $lte: parseFloat(process.env.CANDIDATE_MAX_HEALTH),
       },
