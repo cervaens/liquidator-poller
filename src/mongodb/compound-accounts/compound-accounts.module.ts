@@ -15,5 +15,6 @@ import {
   ],
   controllers: [CompoundAccountsController],
   providers: [CompoundAccountsService],
+  exports: [CompoundAccountsService],
 })
 export class CompoundAccountsModule {}
