@@ -12,6 +12,8 @@ import {
 import { ApiBasicAuth, ApiOperation } from '@nestjs/swagger';
 import { AppService } from 'src/app.service';
 import { ACLGuard } from 'src/auth/acl.guard';
+import { CompoundAccountsService } from 'src/mongodb/compound-accounts/compound-accounts.service';
+import { IbAccountsService } from 'src/mongodb/ib-accounts/ib-accounts.service';
 import {
   QueryLiquidateDto,
   QueryCandidateDto,
@@ -27,6 +29,8 @@ export class CandidatesController {
     private readonly candidatesService: CandidatesService,
     private readonly amqpConnection: AmqpConnection,
     private readonly appService: AppService,
+    private readonly compoundAccountsService: CompoundAccountsService,
+    private readonly ibAccountsService: IbAccountsService,
   ) {}
   private readonly logger = new Logger(CandidatesController.name);
   private candidatesTimeout =
@@ -99,7 +103,7 @@ export class CandidatesController {
   }
 
   @ApiOperation({
-    description: `Get all candidates from all protocols or a specific protocol or for a specific account`,
+    description: `Get the candidates assigned to a worker for a all/specific protocol or for a specific account`,
   })
   @Get()
   @UseGuards(ACLGuard)
@@ -118,6 +122,37 @@ export class CandidatesController {
         retArray = retArray.concat(Object.values(candidates[protocol]));
       } else if (candidates[protocol][query.account]) {
         retArray = retArray.concat(candidates[protocol][query.account]);
+      }
+    }
+    return retArray;
+  }
+
+  @ApiOperation({
+    description: `Get all candidates from all workers for a all/specific protocol or for a specific account`,
+  })
+  @Get('all')
+  @UseGuards(ACLGuard)
+  async getAllCandidates(
+    @Req() req,
+    @Query() query: QueryCandidateDto,
+  ): Promise<string | Array<Record<string, Record<string, any>>>> {
+    const promises = [];
+
+    if (!query.protocol || (query.protocol && query.protocol === 'Compound')) {
+      promises.push(this.compoundAccountsService.getAllCandidatesFromDB());
+    }
+    if (!query.protocol || (query.protocol && query.protocol === 'IronBank')) {
+      promises.push(this.ibAccountsService.getAllCandidatesFromDB());
+    }
+
+    const candidates = await Promise.all(promises);
+    const retArray = [];
+
+    for (const candidate of candidates.flat()) {
+      if (!query.account) {
+        retArray.push(candidate);
+      } else if (candidate._id === query.account) {
+        retArray.push(candidate);
       }
     }
     return retArray;
