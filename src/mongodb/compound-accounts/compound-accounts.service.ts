@@ -257,6 +257,12 @@ export class CompoundAccountsService {
     };
   }
 
+  async getAllCandidatesFromDB() {
+    return this.compoundAccountsModel
+      .find(this.getCandidatesFromDBqueryObj())
+      .lean();
+  }
+
   async getCandidatesFromDB() {
     let candidatesNew = [];
     return this.compoundAccountsModel

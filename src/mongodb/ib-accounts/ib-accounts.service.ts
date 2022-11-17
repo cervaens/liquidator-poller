@@ -262,6 +262,10 @@ export class IbAccountsService {
     };
   }
 
+  async getAllCandidatesFromDB() {
+    return this.ibAccountsModel.find(this.getCandidatesFromDBqueryObj()).lean();
+  }
+
   async getCandidatesFromDB() {
     let candidatesNew = [];
     return this.ibAccountsModel
