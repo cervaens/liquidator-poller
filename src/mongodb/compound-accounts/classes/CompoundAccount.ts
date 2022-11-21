@@ -129,6 +129,7 @@ export class CompoundAccount extends StandardAccount {
             tokenAddress: token.address,
             units_underlying: token.supply_balance_underlying,
             decimals_underlying,
+            collateral_factor: colFactor,
           };
           if (!top2Collateral[0] || valueUSD > top2Collateral[0].valueUSD) {
             top2Collateral.unshift(collateralObj);

@@ -26,7 +26,8 @@ export class StandardAccount {
 
   public liqTokensValueAbove(abovePercent: number) {
     return (
-      this.liqCollateral.valueUSD > abovePercent * this.totalDepositUSD &&
+      this.liqCollateral.valueUSD * this.liqCollateral.collateral_factor >
+        abovePercent * this.totalDepositUSD &&
       this.liqBorrow.valueUSD > abovePercent * this.totalBorrowUSD
     );
   }
