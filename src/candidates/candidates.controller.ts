@@ -72,6 +72,16 @@ export class CandidatesController {
                   protocol,
                 },
               );
+            } else if (candidates[protocol][id].getHealth() < 1) {
+              this.amqpConnection.publish(
+                'liquidator-exchange',
+                'unhealthy-candidate',
+                {
+                  address: id,
+                  time,
+                  protocol,
+                },
+              );
             }
           }
         });

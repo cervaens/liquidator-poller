@@ -12,16 +12,22 @@ export class BlocknativeService {
   constructor(
     private readonly web3Provider: Web3ProviderService,
     private readonly amqpConnection: AmqpConnection,
-    private readonly httpService: HttpService,
     private readonly appService: AppService,
   ) {}
+  private readonly httpService: HttpService = new HttpService();
   private readonly logger = new Logger(BlocknativeService.name);
   private aggregators: Record<string, any> = {};
   private tokens: Record<string, any> = {};
-  private allActiveCandidates: Record<string, Record<string, any>> = {
+  public strongCandidates: Record<string, Record<string, any>> = {
     Compound: {},
+    IronBank: {},
   };
-  private currentTokensList = new Set();
+  public waiterCandidates: Record<string, Record<string, any>> = {
+    Compound: {},
+    IronBank: {},
+  };
+  private strongCandWatchedAddr = new Set();
+  private waiterCandWatchedAddr = new Set();
   private enabled = process.env.BLOCKNATIVE_ENABLED === 'true' || false;
 
   private compoundProxyContracts = {
@@ -52,14 +58,25 @@ export class BlocknativeService {
   })
   public async deleteFromCandidatesList(msg: Record<string, any>) {
     if (msg.action === 'deleteBelowTimestamp') {
-      for (const protocol of Object.keys(this.allActiveCandidates)) {
-        for (const id of Object.keys(this.allActiveCandidates[protocol])) {
-          if (this.allActiveCandidates[protocol][id].time < msg.timestamp) {
-            delete this.allActiveCandidates[protocol][id];
+      for (const protocol of Object.keys(this.strongCandidates)) {
+        for (const id of Object.keys(this.strongCandidates[protocol])) {
+          if (this.strongCandidates[protocol][id].time < msg.timestamp) {
+            delete this.strongCandidates[protocol][id];
             this.logger.debug(
               `Deleting candidate ${id} from protocol ${protocol} as strong candidate for timestamp lower than ${msg.timestamp}`,
             );
-            this.refreshList();
+            this.refreshStrongCandidatesList();
+          }
+        }
+      }
+      for (const protocol of Object.keys(this.waiterCandidates)) {
+        for (const id of Object.keys(this.waiterCandidates[protocol])) {
+          if (this.waiterCandidates[protocol][id].time < msg.timestamp) {
+            delete this.waiterCandidates[protocol][id];
+            this.logger.debug(
+              `Deleting candidate ${id} from protocol ${protocol} as waiter candidate for timestamp lower than ${msg.timestamp}`,
+            );
+            this.refreshWaiterCandidatesList();
           }
         }
       }
@@ -74,20 +91,20 @@ export class BlocknativeService {
     if (!this.enabled) {
       return;
     }
-    if (!this.allActiveCandidates[msg.protocol]) {
-      this.allActiveCandidates[msg.protocol] = {};
+    if (!this.strongCandidates[msg.protocol]) {
+      this.strongCandidates[msg.protocol] = {};
     }
-    if (!this.allActiveCandidates[msg.protocol][msg.address]) {
+    if (!this.strongCandidates[msg.protocol][msg.address]) {
       this.logger.debug(
         `Setting candidate ${msg.address} from protocol ${msg.protocol} as strong candidate`,
       );
-      this.allActiveCandidates[msg.protocol][msg.address] = {
+      this.strongCandidates[msg.protocol][msg.address] = {
         time: msg.time,
         tokens: msg.tokens,
       };
-      this.refreshList();
+      this.refreshStrongCandidatesList();
     } else {
-      this.allActiveCandidates[msg.protocol][msg.address].time = msg.time;
+      this.strongCandidates[msg.protocol][msg.address].time = msg.time;
     }
   }
 
@@ -101,11 +118,93 @@ export class BlocknativeService {
     this.logger.debug(`Changed blocknative enabled to ${msg.enabled}`);
   }
 
-  async refreshList() {
+  @RabbitSubscribe({
+    exchange: 'liquidator-exchange',
+    routingKey: 'unhealthy-candidate',
+  })
+  updateWaiterCandidates(msg: Record<string, any>) {
+    if (this.waiterCandidates[msg.protocol][msg.address]) {
+      this.waiterCandidates[msg.protocol][msg.address].time = msg.time;
+    }
+  }
+
+  @RabbitSubscribe({
+    exchange: 'liquidator-exchange',
+    routingKey: 'waiter-candidate',
+  })
+  async waiterCandidateMessage(msg: Record<string, any>) {
+    if (!this.enabled) {
+      return;
+    }
+    if (!this.waiterCandidates[msg.protocol]) {
+      this.waiterCandidates[msg.protocol] = {};
+    }
+    if (!this.waiterCandidates[msg.protocol][msg.borrower]) {
+      this.logger.debug(
+        `Setting candidate ${msg.borrower} from protocol ${msg.protocol} as a waiter candidate for method: ${msg.revertMsgWaitFor}`,
+      );
+      this.waiterCandidates[msg.protocol][msg.borrower] = msg;
+      await this.refreshWaiterCandidatesList();
+    } else {
+      this.waiterCandidates[msg.protocol][msg.borrower].time = msg.time;
+    }
+    return;
+  }
+
+  async refreshWaiterCandidatesList() {
     const newSet = new Set();
-    for (const candidates of Object.values(
-      this.allActiveCandidates['Compound'],
-    )) {
+    for (const protocol of Object.keys(this.waiterCandidates)) {
+      for (const candidate of Object.values(this.waiterCandidates[protocol])) {
+        newSet.add(candidate.repayToken);
+        newSet.add(candidate.seizeToken);
+      }
+    }
+
+    for (const address of newSet) {
+      if (
+        !this.waiterCandWatchedAddr.has(address) &&
+        this.appService.amItheMaster()
+      ) {
+        this.waiterCandWatchedAddr.add(address);
+        this.logger.debug(
+          `Blocknative Adding token ${address} to watched addresses`,
+        );
+        const res = await this.fetch('address', {
+          address,
+          method: 'post',
+        });
+        if (res.error) {
+          this.waiterCandWatchedAddr.delete(address);
+          this.logger.debug(
+            `Failed: Blocknative Adding token ${address} has failed: ${res.error}`,
+          );
+        }
+      }
+    }
+
+    this.waiterCandWatchedAddr.forEach(async (address: string) => {
+      if (!newSet.has(address) && this.appService.amItheMaster()) {
+        this.waiterCandWatchedAddr.delete(address);
+        this.logger.debug(
+          `Blocknative: Deleting token ${address} from watched addresses`,
+        );
+        const res = await this.fetch('address', {
+          address: address,
+          method: 'delete',
+        });
+        if (res.error) {
+          this.waiterCandWatchedAddr.add(address);
+          this.logger.debug(
+            `Failed: Blocknative Deleting token ${address} has failed: ${res.error}`,
+          );
+        }
+      }
+    });
+  }
+
+  async refreshStrongCandidatesList() {
+    const newSet = new Set();
+    for (const candidates of Object.values(this.strongCandidates['Compound'])) {
       for (const tokenObj of candidates.tokens) {
         if (
           tokenObj.supply_balance_underlying > 0 ||
@@ -116,17 +215,17 @@ export class BlocknativeService {
             !tokenObj.symbol.match(
               process.env.COMPOUND_STATIC_ONE_USD_PRICES,
             ) &&
-            !this.currentTokensList.has(tokenObj.symbol)
+            !this.strongCandWatchedAddr.has(tokenObj.symbol)
           ) {
             // Here it might add twice although thats ok
-            this.addSymbolToList(tokenObj.symbol);
+            this.addAggregatorToList(tokenObj.symbol);
           }
         }
       }
     }
-    this.currentTokensList.forEach((tokenSymbol: string) => {
+    this.strongCandWatchedAddr.forEach((tokenSymbol: string) => {
       if (!newSet.has(tokenSymbol)) {
-        this.removeSymbolFromList(tokenSymbol);
+        this.removeAggregatorFromList(tokenSymbol);
       }
     });
   }
@@ -163,12 +262,8 @@ export class BlocknativeService {
     return true;
   }
 
-  processData(tx: Record<string, any>) {
-    const method = tx.input.substring(0, 10);
-
-    if (method !== '0xc9807539') {
-      return 'Wrong method';
-    } else if (tx.status === 'confirmed') {
+  processTransmit(tx: Record<string, any>) {
+    if (tx.status === 'confirmed') {
       return 'Ignoring Confirmed status for now';
     }
 
@@ -210,6 +305,42 @@ export class BlocknativeService {
     return true;
   }
 
+  processMint(tx: Record<string, any>) {
+    this.logger.debug(
+      `☑️ *Got Waiter Message* from BlockNative for address ${tx.to}`,
+    );
+
+    const { 0: amountFromBlockNative } =
+      this.web3Provider.web3.eth.abi.decodeParameters(
+        ['uint256'],
+        tx.input.slice(10),
+      );
+
+    const candidatesArray = [];
+    for (const protocol of Object.keys(this.waiterCandidates)) {
+      for (const candidate of Object.values(this.waiterCandidates[protocol])) {
+        if (candidate.repayToken === tx.to || candidate.seizeToken === tx.to) {
+          candidatesArray.push(candidate);
+        }
+      }
+    }
+
+    if (candidatesArray.length > 0) {
+      this.amqpConnection.publish('liquidator-exchange', 'liquidate-many', {
+        candidatesArray,
+        amountFromBlockNative,
+        revertMsgWaitFor: 'Mint',
+        gasPrices: {
+          maxFeePerGas: tx.maxFeePerGas,
+          maxPriorityFeePerGas: tx.maxPriorityFeePerGas,
+        },
+        watchedAddress: tx.to,
+      });
+    }
+
+    return candidatesArray.length;
+  }
+
   public getPriceFromJson(tx: Record<string, any>) {
     const {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -247,38 +378,48 @@ export class BlocknativeService {
     this.tokens[msg.protocol] = msg.tokens;
   }
 
-  async addSymbolToList(symbol: string) {
-    this.currentTokensList.add(symbol);
+  @RabbitSubscribe({
+    exchange: 'liquidator-exchange',
+    routingKey: 'waiter-candidates-list',
+  })
+  public async replaceWaiterCandidatesList(msg: Record<string, any>) {
+    this.waiterCandidates = msg.waiterCandidates;
+  }
+
+  async addAggregatorToList(symbol: string) {
     const address = this.getAggregatorFromSymbol(symbol);
-    this.logger.debug(
-      `Blocknative: Adding ${symbol} with address ${address} to list.`,
-    );
     if (address && this.appService.amItheMaster()) {
+      this.strongCandWatchedAddr.add(symbol);
+      this.logger.debug(
+        `Blocknative: Adding ${symbol} with address ${address} to list.`,
+      );
       const res = await this.fetch('address', { address, method: 'post' });
       if (res.error) {
-        this.currentTokensList.delete(symbol);
+        this.strongCandWatchedAddr.delete(symbol);
         this.logger.debug(
           `Failed: Blocknative Adding ${symbol} has failed: ${res.error}`,
         );
       }
     }
-    return;
+    return this.strongCandWatchedAddr;
   }
 
-  async removeSymbolFromList(symbol: string) {
-    this.currentTokensList.delete(symbol);
+  async removeAggregatorFromList(symbol: string) {
     const address = this.getAggregatorFromSymbol(symbol);
-    this.logger.debug(
-      `Blocknative: Removing ${symbol} with address ${address} to list.`,
-    );
-    const res = await this.fetch('address', { address, method: 'delete' });
-    if (res.error) {
-      this.currentTokensList.add(symbol);
+    if (address && this.appService.amItheMaster()) {
+      this.strongCandWatchedAddr.delete(symbol);
       this.logger.debug(
-        `Failed: Blocknative Removing ${symbol} has failed: ${res.error}`,
+        `Blocknative: Removing ${symbol} with address ${address} to list.`,
       );
+      const res = await this.fetch('address', { address, method: 'delete' });
+      if (res.error) {
+        this.strongCandWatchedAddr.add(symbol);
+        this.logger.debug(
+          `Failed: Blocknative Removing ${symbol} has failed: ${res.error}`,
+        );
+      }
     }
-    return;
+    return this.strongCandWatchedAddr;
   }
 
   async fetch(endpoint: string, config: Record<string, any>) {

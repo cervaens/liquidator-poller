@@ -4,6 +4,6 @@ import { BlocknativeService } from './blocknative.service';
 
 @Module({
   controllers: [BlocknativeController],
-  providers: [BlocknativeService]
+  providers: [BlocknativeService],
 })
 export class BlocknativeModule {}

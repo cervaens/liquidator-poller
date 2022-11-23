@@ -7,6 +7,8 @@ import { AmqpConnection, RabbitSubscribe } from '@golevelup/nestjs-rabbitmq';
 import { Web3ProviderService } from 'src/web3-provider/web3-provider.service';
 import { WalletService } from './wallet/wallet.service';
 import { AppService } from 'src/app.service';
+import * as CompoundConfig from './protocolsConfigs/compound';
+import * as IronBankConfig from './protocolsConfigs/ironbank';
 
 @Injectable()
 export class TxManagerService {
@@ -18,11 +20,17 @@ export class TxManagerService {
   private liquidationsStatus: Record<string, Record<string, any>> = {};
   private realTxsEnabled =
     process.env.LIQUIDATIONS_REAL_TXS_ENABLED === 'true' ? true : false;
+  private waiterEnabled =
+    process.env.LIQUIDATIONS_WAITER_ENABLED === 'true' ? true : false;
   private disabledProtocols: Record<string, boolean> = {
     Compound: process.env.COMPOUND_DISABLE_TXS === 'true',
     IronBank: process.env.IRONBANK_DISABLE_TXS === 'true',
   };
 
+  private protocolTxConfig = {
+    Compound: CompoundConfig,
+    IronBank: IronBankConfig,
+  };
   constructor(
     private readonly provider: Web3ProviderService,
     private readonly wallet: WalletService,
@@ -52,7 +60,7 @@ export class TxManagerService {
     routingKey: 'tx-protocol-status',
   })
   async updateProtocolStatus(msg: Record<string, any>) {
-    this.disabledProtocols[msg.protocol] = !msg.enable;
+    this.protocolTxConfig[msg.protocol].disabled = !msg.enabled;
 
     this.logger.debug(
       `Changed protocol ${msg.protocol} enabled to ${msg.enabled}`,
@@ -65,6 +73,14 @@ export class TxManagerService {
   })
   setRealTxs(value) {
     this.realTxsEnabled = value;
+  }
+
+  @RabbitSubscribe({
+    exchange: 'liquidator-exchange',
+    routingKey: 'set-waiter-candidate',
+  })
+  setWaiterCandidates(value) {
+    this.waiterEnabled = value;
   }
 
   getNrLiquidations(): Record<string, number> {
@@ -85,19 +101,19 @@ export class TxManagerService {
     routingKey: 'liquidate-many',
     queue: 'liquidate-many',
   })
-  async liquidateMany(msg: Array<Record<string, any>>) {
+  async liquidateMany(msg: Record<string, any>) {
     const now = new Date().getTime();
 
     // const promises = [];
 
-    for (const candidate of msg) {
+    for (const candidate of msg.candidatesArray) {
       // We might receive liquidate-many while on init and we need to wait for liquidation statuses
       if (!this.liquidationsStatus[candidate.protocol]) {
         this.logger.debug(`No liquidation status yet. Discarding liquidations`);
         continue;
       }
       const { repayToken, profitUSD, seizeToken, borrower } = candidate;
-      if (this.disabledProtocols[candidate.protocol]) {
+      if (this.protocolTxConfig[candidate.protocol].disabled) {
         this.logger.debug(
           `Protocol ${
             candidate.protocol
@@ -139,20 +155,56 @@ export class TxManagerService {
           );
         }
         continue;
+      } else if (
+        this.liquidationsStatus[candidate.protocol] &&
+        this.liquidationsStatus[candidate.protocol][borrower] &&
+        this.liquidationsStatus[candidate.protocol][borrower].status ===
+          'Reverted' &&
+        msg.revertMsgWaitFor &&
+        (msg.revertMsgWaitFor !==
+          this.liquidationsStatus[candidate.protocol][borrower]
+            .revertMsgWaitFor ||
+          !this.protocolTxConfig[candidate.protocol].checkRevertMsgWaitFor(
+            msg,
+            candidate,
+          ))
+      ) {
+        continue;
       }
 
       this.liquidationsStatus[candidate.protocol][borrower] = {
         status: 'ongoing',
         timestamp: now,
       };
-      const method = this.liquidatorContract.methods.liquidate(
-        this.protocolAddresses[candidate.protocol].compTroller,
-        this.protocolAddresses[candidate.protocol].eth,
-        borrower,
-        repayToken,
-        // parseInt(amount).toString(),
-        seizeToken,
+      this.amqpConnection.publish(
+        'liquidator-exchange',
+        'liquidations-called',
+        this.liquidationsStatus,
       );
+
+      let method: Record<string, any> = {};
+      if (msg.amountFromBlockNative) {
+        this.logger.debug(
+          `Here we'll need to call a different method including the amount`,
+        );
+        method = this.liquidatorContract.methods.liquidate(
+          this.protocolTxConfig[candidate.protocol].addresses.compTroller,
+          this.protocolTxConfig[candidate.protocol].addresses.eth,
+          borrower,
+          repayToken,
+          // parseInt(amount).toString(),
+          seizeToken,
+        );
+      } else {
+        method = this.liquidatorContract.methods.liquidate(
+          this.protocolTxConfig[candidate.protocol].addresses.compTroller,
+          this.protocolTxConfig[candidate.protocol].addresses.eth,
+          borrower,
+          repayToken,
+          // parseInt(amount).toString(),
+          seizeToken,
+        );
+      }
 
       const gasLimit = 2000000;
 
@@ -178,7 +230,7 @@ export class TxManagerService {
               protocol: candidate.protocol,
               accountAddress: borrower,
               estimatedGas,
-              gasPrices: candidate.gasPrices,
+              ...msg,
             });
           } else {
             this.logger.debug(
@@ -194,13 +246,38 @@ export class TxManagerService {
           this.logger.debug(
             `Revert during gas estimation: ${e.name} ${e.message} for account  ${candidate.borrower}, repaying amount ${candidate.amount} of ${candidate.repayToken}, seizing ${candidate.seizeToken}`,
           );
-
           const updateLiqStatus = {};
+          const timestamp = new Date().getTime();
           updateLiqStatus[candidate.protocol] = {};
           updateLiqStatus[candidate.protocol][borrower] = {
             status: 'Reverted',
-            timestamp: new Date().getTime(),
+            timestamp,
           };
+
+          if (
+            this.waiterEnabled &&
+            this.protocolTxConfig[candidate.protocol].revertMsgWaitFor
+          ) {
+            for (const message of Object.keys(
+              this.protocolTxConfig[candidate.protocol].revertMsgWaitFor,
+            )) {
+              if (e.message.match(message)) {
+                updateLiqStatus[candidate.protocol].revertMsgWaitFor =
+                  this.protocolTxConfig[candidate.protocol].revertMsgWaitFor;
+                this.amqpConnection.publish(
+                  'liquidator-exchange',
+                  'waiter-candidate',
+                  {
+                    time: timestamp,
+                    ...candidate,
+                    message:
+                      this.protocolTxConfig[candidate.protocol]
+                        .revertMsgWaitFor[message],
+                  },
+                );
+              }
+            }
+          }
 
           this.amqpConnection.publish(
             'liquidator-exchange',
@@ -208,13 +285,7 @@ export class TxManagerService {
             updateLiqStatus,
           );
         });
-      // );
     }
-    this.amqpConnection.publish(
-      'liquidator-exchange',
-      'liquidations-called',
-      this.liquidationsStatus,
-    );
   }
 
   @RabbitSubscribe({

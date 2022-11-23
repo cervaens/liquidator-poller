@@ -55,4 +55,6 @@ export class ProtocolEnableDto {
 
 export class BlockNativeDto {
   to: string;
+  input: string;
+  error: string;
 }

@@ -154,7 +154,7 @@ export class CompoundAccountsService {
       curNumberCandidates > Object.keys(this.allActiveCandidates).length &&
       this.appService.amItheMaster()
     ) {
-      this.logger.debug('IronBank: Reloading candidates from DB');
+      this.logger.debug('Compound: Reloading candidates from DB');
       this.getCandidatesFromDB();
     }
   }

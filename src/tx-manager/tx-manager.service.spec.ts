@@ -7,57 +7,10 @@ import { AppService } from 'src/app.service';
 import { Web3ProviderService } from 'src/web3-provider/web3-provider.service';
 import { TxManagerService } from './tx-manager.service';
 import { WalletService } from './wallet/wallet.service';
-
-const candidate = {
-  liqCollateral: {
-    valueUSD: 143907.36560171607,
-    symbol_underlying: 'DAI',
-    tokenAddress: '0x8e595470Ed749b85C6F7669de83EAe304C2ec68F',
-    units_underlying: 14379775432550.389,
-  },
-  liqBorrow: {
-    valueUSD: 134166.35469327884,
-    symbol_underlying: 'WETH',
-    tokenAddress: '0x41c84c0e2EE0b740Cf0d31F63f3B6F627DC6b393',
-    units_underlying: 111667572238638060000,
-    decimals_underlying: 18,
-  },
-  address: '0xb08f95FF2616c345831E91FD397D199D35C9c38A',
-  _id: '0xb08f95FF2616c345831E91FD397D199D35C9c38A',
-  closeFactor: 0.5,
-  liquidationIncentive: 1.08,
-  protocol: 'IronBank',
-  tokens: [
-    {
-      address: '0x8e595470Ed749b85C6F7669de83EAe304C2ec68F',
-      borrow_balance_underlying: 0,
-      supply_balance_itoken: 1360403682731540,
-    },
-    {
-      address: '0x48759F220ED983dB51fA7A8C0D2AAb8f3ce4166a',
-      borrow_balance_underlying: 0,
-      supply_balance_itoken: 51756028953,
-    },
-    {
-      address: '0x41c84c0e2EE0b740Cf0d31F63f3B6F627DC6b393',
-      borrow_balance_underlying: 111667572238638060000,
-      supply_balance_itoken: 0,
-    },
-    {
-      address: '0x76Eb2FE28b36B3ee97F3Adae0C69606eeDB2A37c',
-      borrow_balance_underlying: 0,
-      supply_balance_itoken: 1481228283,
-    },
-  ],
-  health: 0.9653819463582144,
-  lastUpdated: 1668687156932,
-  profitUSD: 5105.029796079265,
-  totalDepositUSD: 129521.77662958408,
-  totalBorrowUSD: 134166.35469327884,
-};
+import candidate from '../../test/candidate.json';
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-let answer: Record<string, any>;
+let answerWaiterMsg: Record<string, any>;
 
 @Injectable()
 class SubscribeService {
@@ -66,7 +19,7 @@ class SubscribeService {
     routingKey: 'waiter-candidate',
   })
   async waiterCandidateMessage(msg: Record<string, any>) {
-    answer = msg;
+    answerWaiterMsg = msg;
   }
 }
 
@@ -137,6 +90,51 @@ describe('TxManagerService', () => {
     });
 
     await sleep(300);
-    expect(answer.borrower).toEqual(candidate.address);
+    expect(answerWaiterMsg.borrower).toEqual(candidate.address);
+  });
+
+  it('receive liquidate-many from blocknative waiter-message', async () => {
+    expect(service).toBeDefined();
+
+    jest
+      .spyOn(walletService, 'estimateGas')
+      .mockImplementation(() =>
+        Promise.reject(
+          new Error('Error I cannot send value to fallback error'),
+        ),
+      );
+
+    const waiterObj = {
+      IronBank: {},
+    };
+    waiterObj.IronBank[candidate.address] = {
+      status: 'Reverted',
+      revertMsgWaitFor: 'Mint',
+      timestamp: 123,
+    };
+
+    service.updateLiquidationsList(waiterObj);
+
+    await service.liquidateMany({
+      candidatesArray: [
+        {
+          repayToken: candidate.liqBorrow.tokenAddress,
+          amount: 1,
+          seizeToken: candidate.liqCollateral.tokenAddress,
+          borrower: candidate.address,
+          profitUSD: candidate.profitUSD,
+          protocol: candidate.protocol,
+        },
+      ],
+      amountFromBlockNative: 300000000,
+      revertMsgWaitFor: 'Mint',
+      gasPrices: {
+        maxFeePerGas: 123,
+        maxPriorityFeePerGas: 456,
+      },
+      watchedAddress: candidate.liqBorrow.tokenAddress,
+    });
+
+    expect(answerWaiterMsg.borrower).toEqual(candidate.address);
   });
 });

@@ -316,7 +316,7 @@ export class CandidatesService {
       );
     }
 
-    let candidatesArray = [];
+    const liqObj = { candidatesArray: [], ...msg };
     this.logger.debug(
       `${msg.protocol || 'All protocols'}: Trying to liquidate ${
         candidates.length
@@ -332,21 +332,21 @@ export class CandidatesService {
         protocol: candidates[i].protocol,
         gasPrices: msg.gasPrices,
       };
-      candidatesArray.push(liqCand);
-      if (candidatesArray.length === 10) {
+      liqObj.candidatesArray.push(liqCand);
+      if (liqObj.candidatesArray.length === 10) {
         this.amqpConnection.publish(
           'liquidator-exchange',
           'liquidate-many',
-          candidatesArray,
+          liqObj,
         );
-        candidatesArray = [];
+        liqObj.candidatesArray = [];
       }
     }
-    if (candidatesArray.length > 0) {
+    if (liqObj.candidatesArray.length > 0) {
       this.amqpConnection.publish(
         'liquidator-exchange',
         'liquidate-many',
-        candidatesArray,
+        liqObj,
       );
     }
   }

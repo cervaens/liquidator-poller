@@ -196,9 +196,9 @@ export class WalletService {
     const sentDate = new Date();
 
     sentTx.on('transactionHash', (hash) => {
-      this.logger.debug(
-        `<https://${this.network.chain}.etherscan.io/tx/${hash}>`,
-      );
+      const network =
+        this.network.chain === 'mainnet' ? '' : this.network.chain + '.';
+      this.logger.debug(`<https://${network}etherscan.io/tx/${hash}>`);
       this.amqpConnection.publish('liquidator-exchange', 'tx-created', {
         tx,
         sentDate,
