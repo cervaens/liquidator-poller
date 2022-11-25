@@ -290,11 +290,13 @@ export class BlocknativeService {
             .underlyingAddress,
         price,
         blockNumber: tx.pendingBlockNumber,
+        symbol: this.aggregators[tx.to].tokenSymbol,
       },
     ];
 
     this.amqpConnection.publish('liquidator-exchange', 'prices-updated', {
       protocol: 'Compound',
+      fromMempool: true,
       prices,
       gasPrices: {
         maxFeePerGas: tx.maxFeePerGas,
@@ -327,6 +329,7 @@ export class BlocknativeService {
 
     if (candidatesArray.length > 0) {
       this.amqpConnection.publish('liquidator-exchange', 'liquidate-many', {
+        fromMempool: true,
         candidatesArray,
         amountFromBlockNative,
         revertMsgWaitFor: 'Mint',

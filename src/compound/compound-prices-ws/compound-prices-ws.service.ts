@@ -20,6 +20,10 @@ export class CompoundPricesWsService {
   private cTokenFromHash: Record<string, Record<string, any>> = {};
   private providerId: string;
   private protocol = 'Compound';
+  private noLiquidationCheck =
+    process.env.COMPOUND_UNISWAPANCHORVIEW_NO_LIQUIDATION_CHECK === 'true'
+      ? true
+      : false;
 
   constructor(
     private readonly amqpConnection: AmqpConnection,
@@ -111,6 +115,7 @@ export class CompoundPricesWsService {
           this.amqpConnection.publish('liquidator-exchange', 'prices-updated', {
             protocol: this.protocol,
             prices: msgPrices,
+            noLiquidationCheck: this.noLiquidationCheck,
           });
           msgPrices = [];
         }, 200);

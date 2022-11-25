@@ -320,6 +320,14 @@ export class WalletService {
           10 ** 9
         ).toString(16); // 30000000000 or 30 GWEI for eth 1600 and gas 400000 gives around 19.2USDs
     }
+
+    if (tx.maxFeePerGas < tx.maxPriorityFeePerGas) {
+      tx.maxPriorityFeePerGas = tx.maxFeePerGas;
+      this.logger.debug(
+        `Avoiding "maxFeePerGas cannot be less than maxPriorityFeePerGas" `,
+      );
+    }
+
     // Need to have the following LOCALLY as chain needs to go 31337
     tx.chainId = '0x' + this.network.chainId.toString(16);
     tx = FeeMarketEIP1559Transaction.fromTxData(tx, this.network);

@@ -49,13 +49,24 @@ export class BlocknativeController {
     if (!body || body.error) {
       return false;
     }
-    this.logger.debug(
-      `Mempool data received for aggregator ${JSON.stringify(body.to)}`,
-    );
+
     const method = body.input.substring(0, 10);
     if (method === this.methods.Transmit) {
       this.blocknativeService.processTransmit(body);
+      this.logger.debug(
+        `Mempool data received for aggregator ${JSON.stringify(
+          body.to,
+        )} for method ${method}`,
+      );
     } else if (method === this.methods.Mint) {
+      this.blocknativeService.processMint(body);
+      this.logger.debug(
+        `Mempool data received for token ${JSON.stringify(
+          body.to,
+        )} for method ${method}`,
+      );
+    } else {
+      this.logger.debug(`Could not identify method ${method}`);
     }
 
     return true;

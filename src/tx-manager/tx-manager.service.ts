@@ -138,8 +138,9 @@ export class TxManagerService {
       if (
         this.liquidationsStatus[candidate.protocol] &&
         this.liquidationsStatus[candidate.protocol][borrower] &&
-        ((this.liquidationsStatus[candidate.protocol][borrower].status ===
-          'ongoing' &&
+        ((this.liquidationsStatus[candidate.protocol][borrower].status.match(
+          /ongoing|Errored|Processed/,
+        ) &&
           this.liquidationsStatus[candidate.protocol][borrower].timestamp >
             now - (parseInt(process.env.LIQUIDATIONS_CLEAN_TIME) || 3600000)) ||
           !this.liquidationsStatus[candidate.protocol][borrower].timestamp)
@@ -160,15 +161,19 @@ export class TxManagerService {
         this.liquidationsStatus[candidate.protocol][borrower] &&
         this.liquidationsStatus[candidate.protocol][borrower].status ===
           'Reverted' &&
-        msg.revertMsgWaitFor &&
-        (msg.revertMsgWaitFor !==
-          this.liquidationsStatus[candidate.protocol][borrower]
-            .revertMsgWaitFor ||
-          !this.protocolTxConfig[candidate.protocol].checkRevertMsgWaitFor(
-            msg,
-            candidate,
-          ))
+        ((msg.revertMsgWaitFor &&
+          (msg.revertMsgWaitFor !==
+            this.liquidationsStatus[candidate.protocol][borrower]
+              .revertMsgWaitFor ||
+            !this.protocolTxConfig[candidate.protocol].checkRevertMsgWaitFor(
+              msg,
+              candidate,
+            ))) ||
+          (!msg.revertMsgWaitFor && msg.fromMempool))
       ) {
+        this.logger.debug(
+          `Account ${borrower} status is "Reverted" and no Blocknative update for any of its tokens.`,
+        );
         continue;
       }
 
@@ -212,79 +217,115 @@ export class TxManagerService {
       // const gasPrice = '3000000000';
       const tx = this.wallet._txFor(this.address, method, gasLimit);
 
-      this.wallet
-        .estimateGas(tx)
-        .then((estimatedGas) => {
-          tx.gasLimit =
-            tx.gasLimit && tx.gasLimit < (estimatedGas || 0)
-              ? estimatedGas
-              : tx.gasLimit;
-
-          if (this.realTxsEnabled) {
-            this.logger.debug(
-              ` Requesting TX creation for account ${borrower} in protocol ${candidate.protocol} `,
-            );
-            this.amqpConnection.publish('liquidator-exchange', 'execute-tx', {
-              tx,
-              profitUSD,
-              protocol: candidate.protocol,
-              accountAddress: borrower,
-              estimatedGas,
-              ...msg,
-            });
-          } else {
-            this.logger.debug(
-              `Real liquidations disabled. Tx in ${
-                candidate.protocol
-              } for account ${borrower} with tx: ${JSON.stringify(
-                tx,
-              )} was not sent`,
-            );
-          }
-        })
-        .catch((e) => {
+      // Dont estimate gas, create tx
+      // We dont want to create a tx without estimateGas if status is ongoing/errored
+      // we want to go through estimateGas first
+      if (
+        msg.fromMempool &&
+        (!this.liquidationsStatus[candidate.protocol] ||
+          !this.liquidationsStatus[candidate.protocol][borrower] ||
+          (this.liquidationsStatus[candidate.protocol] &&
+            this.liquidationsStatus[candidate.protocol][borrower] &&
+            !this.liquidationsStatus[candidate.protocol][borrower].status.match(
+              /ongoing|Errored|Processed/,
+            )))
+      ) {
+        if (this.realTxsEnabled) {
           this.logger.debug(
-            `Revert during gas estimation: ${e.name} ${e.message} for account  ${candidate.borrower}, repaying amount ${candidate.amount} of ${candidate.repayToken}, seizing ${candidate.seizeToken}`,
+            ` Requesting TX creation for account ${borrower} in protocol ${candidate.protocol} due to a mempool update`,
           );
-          const updateLiqStatus = {};
-          const timestamp = new Date().getTime();
-          updateLiqStatus[candidate.protocol] = {};
-          updateLiqStatus[candidate.protocol][borrower] = {
-            status: 'Reverted',
-            timestamp,
-          };
+          this.amqpConnection.publish('liquidator-exchange', 'execute-tx', {
+            tx,
+            profitUSD,
+            protocol: candidate.protocol,
+            accountAddress: borrower,
+            estimatedGas: 1000000,
+            ...msg,
+          });
+        } else {
+          this.logger.debug(
+            `Real liquidations disabled. Tx in ${
+              candidate.protocol
+            } for account ${borrower} with tx: ${JSON.stringify(
+              tx,
+            )} was not sent`,
+          );
+        }
+      } else {
+        this.wallet
+          .estimateGas(tx)
+          .then((estimatedGas) => {
+            tx.gasLimit =
+              tx.gasLimit && tx.gasLimit < (estimatedGas || 0)
+                ? estimatedGas
+                : tx.gasLimit;
 
-          if (
-            this.waiterEnabled &&
-            this.protocolTxConfig[candidate.protocol].revertMsgWaitFor
-          ) {
-            for (const message of Object.keys(
-              this.protocolTxConfig[candidate.protocol].revertMsgWaitFor,
-            )) {
-              if (e.message.match(message)) {
-                updateLiqStatus[candidate.protocol].revertMsgWaitFor =
-                  this.protocolTxConfig[candidate.protocol].revertMsgWaitFor;
-                this.amqpConnection.publish(
-                  'liquidator-exchange',
-                  'waiter-candidate',
-                  {
-                    time: timestamp,
-                    ...candidate,
-                    message:
-                      this.protocolTxConfig[candidate.protocol]
-                        .revertMsgWaitFor[message],
-                  },
-                );
+            if (this.realTxsEnabled) {
+              this.logger.debug(
+                ` Requesting TX creation for account ${borrower} in protocol ${candidate.protocol} `,
+              );
+              this.amqpConnection.publish('liquidator-exchange', 'execute-tx', {
+                tx,
+                profitUSD,
+                protocol: candidate.protocol,
+                accountAddress: borrower,
+                estimatedGas,
+                ...msg,
+              });
+            } else {
+              this.logger.debug(
+                `Real liquidations disabled. Tx in ${
+                  candidate.protocol
+                } for account ${borrower} with tx: ${JSON.stringify(
+                  tx,
+                )} was not sent`,
+              );
+            }
+          })
+          .catch((e) => {
+            this.logger.debug(
+              `Revert during gas estimation: ${e.name} ${e.message} for account  ${candidate.borrower}, repaying amount ${candidate.amount} of ${candidate.repayToken}, seizing ${candidate.seizeToken}`,
+            );
+            const updateLiqStatus = {};
+            const timestamp = new Date().getTime();
+            updateLiqStatus[candidate.protocol] = {};
+            updateLiqStatus[candidate.protocol][borrower] = {
+              status: 'Reverted',
+              timestamp,
+            };
+
+            if (
+              this.waiterEnabled &&
+              this.protocolTxConfig[candidate.protocol].revertMsgWaitFor
+            ) {
+              for (const message of Object.keys(
+                this.protocolTxConfig[candidate.protocol].revertMsgWaitFor,
+              )) {
+                if (e.message.match(message)) {
+                  updateLiqStatus[candidate.protocol].revertMsgWaitFor =
+                    this.protocolTxConfig[candidate.protocol].revertMsgWaitFor;
+                  this.amqpConnection.publish(
+                    'liquidator-exchange',
+                    'waiter-candidate',
+                    {
+                      time: timestamp,
+                      ...candidate,
+                      message:
+                        this.protocolTxConfig[candidate.protocol]
+                          .revertMsgWaitFor[message],
+                    },
+                  );
+                }
               }
             }
-          }
 
-          this.amqpConnection.publish(
-            'liquidator-exchange',
-            'liquidations-called',
-            updateLiqStatus,
-          );
-        });
+            this.amqpConnection.publish(
+              'liquidator-exchange',
+              'liquidations-called',
+              updateLiqStatus,
+            );
+          });
+      }
     }
   }
 
@@ -355,11 +396,11 @@ export class TxManagerService {
         type: 'address',
       },
       {
-        name: 'repayToken',
+        name: 'repayCToken',
         type: 'address',
       },
       {
-        name: 'seizeToken',
+        name: 'seizeCToken',
         type: 'address',
       },
       {
