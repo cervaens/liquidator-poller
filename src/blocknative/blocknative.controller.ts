@@ -1,5 +1,5 @@
 import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
-import { Body, Controller, Logger, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Logger, Post, UseGuards } from '@nestjs/common';
 import { ApiBasicAuth, ApiOperation } from '@nestjs/swagger';
 import { BlockNativeDto, EnableDto } from 'src/app.dto';
 import { AppService } from 'src/app.service';
@@ -15,6 +15,11 @@ export class BlocknativeController {
   ) {}
   private readonly logger = new Logger(BlocknativeController.name);
 
+  private methods = {
+    Mint: '0xa0712d68',
+    Transmit: '0xc9807539',
+  };
+
   async onApplicationBootstrap(): Promise<void> {
     // At init the master will start a poll
     this.blocknativeService.getValidators();
@@ -22,6 +27,18 @@ export class BlocknativeController {
     setInterval(async () => {
       this.blocknativeService.getValidators();
     }, parseInt(process.env.BLOCKNATIVE_AGG_POLL_PERIOD));
+
+    setInterval(() => {
+      if (this.appService.amItheMaster()) {
+        this.amqpConnection.publish(
+          'liquidator-exchange',
+          'waiter-candidates-list',
+          {
+            waiterCandidates: this.blocknativeService.waiterCandidates,
+          },
+        );
+      }
+    }, 60000);
   }
 
   @ApiOperation({
@@ -29,15 +46,48 @@ export class BlocknativeController {
   })
   @Post('mempool/')
   memPool(@Body() body: BlockNativeDto): boolean {
-    if (!body) {
+    if (!body || body.error) {
       return false;
     }
-    this.logger.debug(
-      `Mempool data received for aggregator ${JSON.stringify(body.to)}`,
-    );
-    this.blocknativeService.processData(body);
+
+    const method = body.input.substring(0, 10);
+    if (method === this.methods.Transmit) {
+      this.blocknativeService.processTransmit(body);
+      this.logger.debug(
+        `Mempool data received for aggregator ${JSON.stringify(
+          body.to,
+        )} for method ${method}`,
+      );
+    } else if (method === this.methods.Mint) {
+      this.blocknativeService.processMint(body);
+      this.logger.debug(
+        `Mempool data received for token ${JSON.stringify(
+          body.to,
+        )} for method ${method}`,
+      );
+    } else {
+      this.logger.debug(`Could not identify method ${method}`);
+    }
 
     return true;
+  }
+
+  @ApiOperation({
+    description: 'get mempool data',
+  })
+  @Get('strong-candidates/')
+  @UseGuards(ACLGuard)
+  getStrongCandidates(): Record<string, any> {
+    return this.blocknativeService.strongCandidates;
+  }
+
+  @ApiOperation({
+    description: 'get mempool data',
+  })
+  @Get('waiter-candidates/')
+  @UseGuards(ACLGuard)
+  getWaiterCandidates(): Record<string, any> {
+    return this.blocknativeService.waiterCandidates;
   }
 
   @ApiOperation({

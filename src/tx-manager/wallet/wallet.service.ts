@@ -196,9 +196,9 @@ export class WalletService {
     const sentDate = new Date();
 
     sentTx.on('transactionHash', (hash) => {
-      this.logger.debug(
-        `<https://${this.network.chain}.etherscan.io/tx/${hash}>`,
-      );
+      const network =
+        this.network.chain === 'mainnet' ? '' : this.network.chain + '.';
+      this.logger.debug(`<https://${network}etherscan.io/tx/${hash}>`);
       this.amqpConnection.publish('liquidator-exchange', 'tx-created', {
         tx,
         sentDate,
@@ -320,6 +320,14 @@ export class WalletService {
           10 ** 9
         ).toString(16); // 30000000000 or 30 GWEI for eth 1600 and gas 400000 gives around 19.2USDs
     }
+
+    if (tx.maxFeePerGas < tx.maxPriorityFeePerGas) {
+      tx.maxPriorityFeePerGas = tx.maxFeePerGas;
+      this.logger.debug(
+        `Avoiding "maxFeePerGas cannot be less than maxPriorityFeePerGas" `,
+      );
+    }
+
     // Need to have the following LOCALLY as chain needs to go 31337
     tx.chainId = '0x' + this.network.chainId.toString(16);
     tx = FeeMarketEIP1559Transaction.fromTxData(tx, this.network);

@@ -63,6 +63,23 @@ export class TxManagerController {
   }
 
   @ApiOperation({
+    description: `Enables/Disables the waiter candidates. When an estimateGas is Reverted with certain errors, a candidate might wait for specifici conditions to retry the liquidation`,
+  })
+  @Post('waiter-candidates/')
+  @UseGuards(ACLGuard)
+  setWaiterCandidate(@Body() body: EnableDto): string {
+    if (!body || typeof body.enabled !== 'boolean') {
+      return 'Please include boolean enable.';
+    }
+    this.logger.debug(`Setting Waiter candidates to ${body.enabled}`);
+    this.amqpConnection.publish('liquidator-exchange', 'set-waiter-candidate', {
+      enabled: body.enabled,
+    });
+
+    return `Waiter candidates is now ${body.enabled ? 'enabled' : 'disabled'}`;
+  }
+
+  @ApiOperation({
     description: `Gets all current ongoing/processed liquidations`,
   })
   @Get('current-liquidations')
@@ -116,7 +133,9 @@ export class TxManagerController {
       repayToken: body.repayToken,
       seizeToken: body.seizeToken,
     };
-    this.amqpConnection.publish('liquidator-exchange', 'liquidate-many', [tx]);
+    this.amqpConnection.publish('liquidator-exchange', 'liquidate-many', {
+      candidatesArray: [tx],
+    });
 
     return `Sent liquidation transfer: ${JSON.stringify(tx)}`;
   }

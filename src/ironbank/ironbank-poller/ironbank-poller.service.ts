@@ -93,10 +93,11 @@ export class IronbankPollerService {
     };
   }
 
-  async getAccountsFromUnitroller() {
+  async getAccountsFromUnitroller(lastBlockNumber: number) {
     const lastAccount = await this.ibAccounts.getLastAccountByBlockNumber();
     const options = {
-      fromBlock: (lastAccount && lastAccount.lastBlockNumber) || 1, // If this is uncommented, it will retrieve ALL the logs, enable at your own risk, infura might to throttle the calls temporarily (and actually has a limit of 10000 results)
+      fromBlock:
+        lastBlockNumber || (lastAccount && lastAccount.lastBlockNumber) || 1, // If this is uncommented, it will retrieve ALL the logs, enable at your own risk, infura might to throttle the calls temporarily (and actually has a limit of 10000 results)
       address: [process.env.IB_UNITROLLER_ADDRESS],
       topics: [[this.topicEnter, this.topicExit]],
     };

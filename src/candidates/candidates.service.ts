@@ -104,7 +104,10 @@ export class CandidatesService {
     return this.nextInit;
   }
 
-  getCandidatesForLiquidation(protocol: string): Array<any> {
+  getCandidatesForLiquidation(
+    protocol: string,
+    prices: Array<any>,
+  ): Array<any> {
     const candidatesToLiquidate = [];
 
     for (const protocolKey of Object.keys(this.activeModuleCandidates)) {
@@ -119,6 +122,12 @@ export class CandidatesService {
       for (const candidate of Object.values(
         this.activeModuleCandidates[protocolKey],
       )) {
+        if (prices && prices.length > 0) {
+          const candidatesTokens = candidate.tokens.map((cand) => cand.symbol);
+          if (!prices.some((r) => candidatesTokens.includes(r))) {
+            continue;
+          }
+        }
         candidate.updateAccount(
           this.tokens[protocolKey],
           this.pricesUSD[protocolKey],
@@ -253,10 +262,15 @@ export class CandidatesService {
         checkLiquidations = true;
       }
     }
-    if (checkLiquidations) {
+    if (checkLiquidations && !msg.noLiquidationCheck) {
+      const updatedPricesSymbols = msg.prices.map(
+        (priceObj) => priceObj.symbol,
+      );
       this.checkCandidatesLiquidations({
         protocol: msg.protocol,
+        fromMempool: msg.fromMempool,
         gasPrices: msg.gasPrices,
+        updatedPricesSymbols,
       });
     }
   }
@@ -308,7 +322,10 @@ export class CandidatesService {
     routingKey: 'trigger-liquidations',
   })
   checkCandidatesLiquidations(msg: Record<string, any>) {
-    let candidates = this.getCandidatesForLiquidation(msg.protocol);
+    let candidates = this.getCandidatesForLiquidation(
+      msg.protocol,
+      msg.updatedPricesSymbols,
+    );
 
     if (msg.account) {
       candidates = candidates.filter(
@@ -316,7 +333,7 @@ export class CandidatesService {
       );
     }
 
-    let candidatesArray = [];
+    const liqObj = { candidatesArray: [], ...msg };
     this.logger.debug(
       `${msg.protocol || 'All protocols'}: Trying to liquidate ${
         candidates.length
@@ -332,21 +349,21 @@ export class CandidatesService {
         protocol: candidates[i].protocol,
         gasPrices: msg.gasPrices,
       };
-      candidatesArray.push(liqCand);
-      if (candidatesArray.length === 10) {
+      liqObj.candidatesArray.push(liqCand);
+      if (liqObj.candidatesArray.length === 10) {
         this.amqpConnection.publish(
           'liquidator-exchange',
           'liquidate-many',
-          candidatesArray,
+          liqObj,
         );
-        candidatesArray = [];
+        liqObj.candidatesArray = [];
       }
     }
-    if (candidatesArray.length > 0) {
+    if (liqObj.candidatesArray.length > 0) {
       this.amqpConnection.publish(
         'liquidator-exchange',
         'liquidate-many',
-        candidatesArray,
+        liqObj,
       );
     }
   }
