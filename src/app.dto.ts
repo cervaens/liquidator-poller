@@ -42,6 +42,10 @@ export class ProfitDto {
   profit: number;
 }
 
+export class BlockNumberDto {
+  @ApiProperty()
+  blockNumber: number;
+}
 export class ProtocolEnableDto {
   @ApiPropertyOptional({
     description: `Protocol name`,
@@ -55,4 +59,6 @@ export class ProtocolEnableDto {
 
 export class BlockNativeDto {
   to: string;
+  input: string;
+  error: string;
 }

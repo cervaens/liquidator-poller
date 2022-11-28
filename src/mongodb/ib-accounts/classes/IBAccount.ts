@@ -123,6 +123,7 @@ export class IBAccount extends StandardAccount {
             symbol_underlying: underSymbol,
             tokenAddress: token.address,
             units_underlying,
+            collateral_factor: colFactor,
             // decimals_underlying,
           };
           if (!top2Collateral[0] || valueUSD > top2Collateral[0].valueUSD) {

@@ -154,7 +154,7 @@ export class CompoundAccountsService {
       curNumberCandidates > Object.keys(this.allActiveCandidates).length &&
       this.appService.amItheMaster()
     ) {
-      this.logger.debug('IronBank: Reloading candidates from DB');
+      this.logger.debug('Compound: Reloading candidates from DB');
       this.getCandidatesFromDB();
     }
   }
@@ -257,10 +257,12 @@ export class CompoundAccountsService {
     };
   }
 
-  async getAllCandidatesFromDB() {
-    return this.compoundAccountsModel
-      .find(this.getCandidatesFromDBqueryObj())
-      .lean();
+  async getAllCandidatesFromDB(accountAddress: string | any) {
+    let query = this.getCandidatesFromDBqueryObj();
+    if (accountAddress) {
+      query = { ...query, _id: accountAddress } as typeof query;
+    }
+    return this.compoundAccountsModel.find(query).lean();
   }
 
   async getCandidatesFromDB() {

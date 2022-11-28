@@ -262,8 +262,12 @@ export class IbAccountsService {
     };
   }
 
-  async getAllCandidatesFromDB() {
-    return this.ibAccountsModel.find(this.getCandidatesFromDBqueryObj()).lean();
+  async getAllCandidatesFromDB(accountAddress: string | any) {
+    let query = this.getCandidatesFromDBqueryObj();
+    if (accountAddress) {
+      query = { ...query, _id: accountAddress } as typeof query;
+    }
+    return this.ibAccountsModel.find(query).lean();
   }
 
   async getCandidatesFromDB() {

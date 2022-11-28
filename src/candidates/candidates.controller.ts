@@ -72,6 +72,16 @@ export class CandidatesController {
                   protocol,
                 },
               );
+            } else if (candidates[protocol][id].getHealth() < 1) {
+              this.amqpConnection.publish(
+                'liquidator-exchange',
+                'unhealthy-candidate',
+                {
+                  address: id,
+                  time,
+                  protocol,
+                },
+              );
             }
           }
         });
@@ -135,27 +145,21 @@ export class CandidatesController {
   async getAllCandidates(
     @Req() req,
     @Query() query: QueryCandidateDto,
-  ): Promise<string | Array<Record<string, Record<string, any>>>> {
-    const promises = [];
-
+  ): Promise<string | Record<string, Record<string, any>>> {
+    const ret = {};
     if (!query.protocol || (query.protocol && query.protocol === 'Compound')) {
-      promises.push(this.compoundAccountsService.getAllCandidatesFromDB());
+      ret['Compound'] =
+        (await this.compoundAccountsService.getAllCandidatesFromDB(
+          query.account,
+        )) || [];
     }
     if (!query.protocol || (query.protocol && query.protocol === 'IronBank')) {
-      promises.push(this.ibAccountsService.getAllCandidatesFromDB());
+      ret['IronBank'] =
+        (await this.ibAccountsService.getAllCandidatesFromDB(query.account)) ||
+        [];
     }
 
-    const candidates = await Promise.all(promises);
-    const retArray = [];
-
-    for (const candidate of candidates.flat()) {
-      if (!query.account) {
-        retArray.push(candidate);
-      } else if (candidate._id === query.account) {
-        retArray.push(candidate);
-      }
-    }
-    return retArray;
+    return ret;
   }
 
   @ApiOperation({

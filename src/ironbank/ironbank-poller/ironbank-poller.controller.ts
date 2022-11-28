@@ -1,12 +1,16 @@
 import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
-import { Controller, Logger } from '@nestjs/common';
+import { Body, Controller, Logger, Post, UseGuards } from '@nestjs/common';
+import { ApiBasicAuth, ApiOperation } from '@nestjs/swagger';
+import { BlockNumberDto } from 'src/app.dto';
 import { AppService } from 'src/app.service';
+import { ACLGuard } from 'src/auth/acl.guard';
 import { IbAccountsService } from 'src/mongodb/ib-accounts/ib-accounts.service';
 // import { IbControlService } from 'src/mongodb/ib-control/ib-control.service';
 import { IbTokenService } from 'src/mongodb/ib-token/ib-token.service';
 import { IronbankPricesService } from '../ironbank-prices/ironbank-prices.service';
 import { IronbankPollerService } from './ironbank-poller.service';
 
+@ApiBasicAuth()
 @Controller('ironbank-poller')
 export class IronbankPollerController {
   constructor(
@@ -37,7 +41,7 @@ export class IronbankPollerController {
     setInterval(async () => {
       if (this.appService.amItheMaster() && !amITheMaster) {
         amITheMaster = true;
-        this.ibPollerService.getAccountsFromUnitroller();
+        this.ibPollerService.getAccountsFromUnitroller(null);
         this.ibAccountsService.sendLiquidationStatus();
       } else if (!this.appService.amItheMaster() && amITheMaster) {
         amITheMaster = false;
@@ -57,6 +61,20 @@ export class IronbankPollerController {
         this.pollIBTokens();
       }
     }, parseInt(process.env.IRONBANK_POLL_TOKENS_PERIOD));
+  }
+
+  @ApiOperation({
+    description: `Adds an account from a specific protocol to the liquidations blacklist. The account won't be liquidated till it is manually unblacklisted`,
+  })
+  @Post('reload-accounts-assets/')
+  @UseGuards(ACLGuard)
+  blackListAccount(@Body() body: BlockNumberDto): string {
+    if (!body || !body.blockNumber) {
+      return 'Please include the first blocknumber.';
+    }
+    this.ibPollerService.getAccountsFromUnitroller(body.blockNumber);
+
+    return `Started checking blockchain logs from block number ${body.blockNumber}`;
   }
 
   async pollAccounts() {

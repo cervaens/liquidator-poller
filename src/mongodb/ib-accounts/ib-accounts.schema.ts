@@ -14,11 +14,13 @@ class Liquidation {
   symbol_underlying: string;
   tokenAddress: string;
   units_underlying: number;
+  collateral_factor: number;
 }
 
 class LiquidationStatus {
   timestamp: number;
   status: string;
+  revertMsgWaitFor: string;
 }
 
 @Schema()
