@@ -118,7 +118,7 @@ export class IronbankPollerService {
     ];
 
     this.accountsSubscription = this.web3Provider
-      .getWsProvider('Infura')
+      .getWsProvider('Alchemy')
       .eth.subscribe('logs', options, async (err, tx) => {
         if (err || tx == null) {
           this.logger.error(
@@ -126,7 +126,7 @@ export class IronbankPollerService {
           );
           return;
         }
-        this.logger.error('Got tx');
+
         tx.topics.forEach(async (topic) => {
           // If the Transaction Topic is Deposit / Withdraw / Borrow / Repay
           if (topic === this.topicEnter || topic === this.topicExit) {
