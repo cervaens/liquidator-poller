@@ -65,6 +65,14 @@ export class BlocknativeController {
           body.to,
         )} for method ${method}`,
       );
+      // Testing purposes
+      // } else if (body.type === 2) {
+      //   this.blocknativeService.processGoerliTx(body);
+      //   this.logger.debug(
+      //     `Mempool data received for goerli test ${JSON.stringify(
+      //       body.to,
+      //     )} for method ${method}`,
+      //   );
     } else {
       this.logger.debug(`Could not identify method ${method}`);
     }

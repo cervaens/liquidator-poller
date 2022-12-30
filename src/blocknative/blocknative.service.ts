@@ -29,27 +29,31 @@ export class BlocknativeService {
   private strongCandWatchedAddr = new Set();
   private waiterCandWatchedAddr = new Set();
   private enabled = process.env.BLOCKNATIVE_ENABLED === 'true' || false;
+  private network = process.env.BLOCKNATIVE_NETWORK || 'main';
 
   private compoundProxyContracts = {
-    cAAVE: '0x0238247E71AD0aB272203Af13bAEa72e99EE7c3c',
-    cBAT: '0xeBa6F33730B9751a8BA0b18d9C256093E82f6bC2',
-    cCOMP: '0xE270B8E9d7a7d2A7eE35a45E43d17D56b3e272b1',
-    cDAI: '0xb2419f587f497CDd64437f1B367E2e80889631ea',
-    cETH: '0x264BDDFD9D93D48d759FBDB0670bE1C6fDd50236',
-    cFEI: '0xDe2Fa230d4C05ec0337D7b4fc10e16f5663044B0',
-    cFRAX: '0xfAD527D1c9F8677015a560cA80b7b56950a61FE1',
-    cLINK: '0xBcFd9b1a97cCD0a3942f0408350cdc281cDCa1B1',
-    LUSD: '0xBfcbADAa807E25aF90424c8173645B945a401eca',
-    cMATIC: '0x44750a79ae69D5E9bC1651E099DFFE1fb8611AbA',
-    cMKR: '0xbA895504a8E286691E7dacFb47ae8A3A737e2Ce1',
-    cRAI: '0xF0148Ddd8bA74D294E67E65FE1F3f0CD2F43CA8a',
-    cREP: '0x90655316479383795416B615B61282C72D8382C1',
-    cSUSHI: '0x875acA7030B75b5D8cB59c913910a7405337dFf7',
-    cUNI: '0x70f4D236FD678c9DB41a52d28f90E299676d9D90',
-    cWBTC: '0x4846efc15CC725456597044e6267ad0b3B51353E',
-    cWBTC2: '0x4846efc15CC725456597044e6267ad0b3B51353E',
-    cYFI: '0xBa4319741782151D2B1df4799d757892EFda4165',
-    cZRX: '0x5c5db112c98dbe5977A4c37AD33F8a4c9ebd5575',
+    main: {
+      cAAVE: '0x0238247E71AD0aB272203Af13bAEa72e99EE7c3c',
+      cBAT: '0xeBa6F33730B9751a8BA0b18d9C256093E82f6bC2',
+      cCOMP: '0xE270B8E9d7a7d2A7eE35a45E43d17D56b3e272b1',
+      cDAI: '0xb2419f587f497CDd64437f1B367E2e80889631ea',
+      cETH: '0x264BDDFD9D93D48d759FBDB0670bE1C6fDd50236',
+      cFEI: '0xDe2Fa230d4C05ec0337D7b4fc10e16f5663044B0',
+      cFRAX: '0xfAD527D1c9F8677015a560cA80b7b56950a61FE1',
+      cLINK: '0xBcFd9b1a97cCD0a3942f0408350cdc281cDCa1B1',
+      LUSD: '0xBfcbADAa807E25aF90424c8173645B945a401eca',
+      cMATIC: '0x44750a79ae69D5E9bC1651E099DFFE1fb8611AbA',
+      cMKR: '0xbA895504a8E286691E7dacFb47ae8A3A737e2Ce1',
+      cRAI: '0xF0148Ddd8bA74D294E67E65FE1F3f0CD2F43CA8a',
+      cREP: '0x90655316479383795416B615B61282C72D8382C1',
+      cSUSHI: '0x875acA7030B75b5D8cB59c913910a7405337dFf7',
+      cUNI: '0x70f4D236FD678c9DB41a52d28f90E299676d9D90',
+      cWBTC: '0x4846efc15CC725456597044e6267ad0b3B51353E',
+      cWBTC2: '0x4846efc15CC725456597044e6267ad0b3B51353E',
+      cYFI: '0xBa4319741782151D2B1df4799d757892EFda4165',
+      cZRX: '0x5c5db112c98dbe5977A4c37AD33F8a4c9ebd5575',
+    },
+    goerli: {},
   };
 
   @RabbitSubscribe({
@@ -239,11 +243,13 @@ export class BlocknativeService {
   }
 
   public async getValidators() {
-    for (const tokenSymbol of Object.keys(this.compoundProxyContracts)) {
+    for (const tokenSymbol of Object.keys(
+      this.compoundProxyContracts[this.network],
+    )) {
       try {
         const proxyContract = new this.web3Provider.web3.eth.Contract(
           validatorABI as AbiItem[],
-          this.compoundProxyContracts[tokenSymbol],
+          this.compoundProxyContracts[this.network][tokenSymbol],
         );
         const aggregators = await proxyContract.methods
           .getAggregators()
@@ -253,13 +259,29 @@ export class BlocknativeService {
           });
         this.aggregators[aggregators.current] = {
           tokenSymbol,
-          proxyContract: this.compoundProxyContracts[tokenSymbol],
+          proxyContract: this.compoundProxyContracts[this.network][tokenSymbol],
         };
       } catch (err) {
         this.logger.debug('Error instanciating blocknative contracts: ' + err);
       }
     }
     return true;
+  }
+
+  processGoerliTx(tx: Record<string, any>) {
+    this.amqpConnection.publish('liquidator-exchange', 'prices-updated', {
+      protocol: 'Compound',
+      fromMempool: true,
+      mempoolTx: tx,
+      prices: [
+        {
+          underlyingAddress: '0x39aa39c021dfbae8fac545936693ac917d5e7563',
+          price: 1 + Math.random() * 10 ** -3,
+          blockNumber: tx.pendingBlockNumber,
+          symbol: 'cUSDC',
+        },
+      ],
+    });
   }
 
   processTransmit(tx: Record<string, any>) {
@@ -297,6 +319,7 @@ export class BlocknativeService {
     this.amqpConnection.publish('liquidator-exchange', 'prices-updated', {
       protocol: 'Compound',
       fromMempool: true,
+      mempoolTx: tx,
       prices,
       gasPrices: {
         maxFeePerGas: tx.maxFeePerGas,
@@ -330,6 +353,7 @@ export class BlocknativeService {
     if (candidatesArray.length > 0) {
       this.amqpConnection.publish('liquidator-exchange', 'liquidate-many', {
         fromMempool: true,
+        mempoolTx: tx,
         candidatesArray,
         amountFromBlockNative,
         revertMsgWaitFor: 'Mint',
@@ -435,7 +459,7 @@ export class BlocknativeService {
     const data = {
       apiKey: process.env.BLOCKNATIVE_API_KEY,
       blockchain: 'ethereum',
-      networks: ['main'],
+      networks: [this.network],
       address: config.address,
     };
 
