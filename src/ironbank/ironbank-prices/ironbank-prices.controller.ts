@@ -16,35 +16,39 @@ export class IronbankPricesController {
   private stableCoinsStr = '/EUR|USD|DAI|CHF|GBP|MIM/';
   private largeUpdatePeriodStr = '/SNX|CRV|JPY|KRW|CVX/';
   private stableAndLargeStr = this.stableCoinsStr + this.largeUpdatePeriodStr;
+  private moduleEnabled =
+    process.env.IRONBANK_MODULE_ENABLED === 'false' ? false : true;
 
   async onApplicationBootstrap(): Promise<void> {
-    this.stableAndLargeStr.replace('//', '|');
-    setInterval(() => {
-      if (
-        this.appService.amItheMaster() &&
-        this.appService.getControlIdStatus('IB-poller-init-finished')
-      ) {
-        this.pollStableCoins();
-      }
-    }, parseInt(process.env.IB_POLLING_PRICES_LONG));
+    if (this.moduleEnabled) {
+      this.stableAndLargeStr.replace('//', '|');
+      setInterval(() => {
+        if (
+          this.appService.amItheMaster() &&
+          this.appService.getControlIdStatus('IB-poller-init-finished')
+        ) {
+          this.pollStableCoins();
+        }
+      }, parseInt(process.env.IB_POLLING_PRICES_LONG));
 
-    setInterval(() => {
-      if (
-        this.appService.amItheMaster() &&
-        this.appService.getControlIdStatus('IB-poller-init-finished')
-      ) {
-        this.pollLongPeriodCoins();
-      }
-    }, parseInt(process.env.IB_POLLING_PRICES_MEDIUM));
+      setInterval(() => {
+        if (
+          this.appService.amItheMaster() &&
+          this.appService.getControlIdStatus('IB-poller-init-finished')
+        ) {
+          this.pollLongPeriodCoins();
+        }
+      }, parseInt(process.env.IB_POLLING_PRICES_MEDIUM));
 
-    setInterval(() => {
-      if (
-        this.appService.amItheMaster() &&
-        this.appService.getControlIdStatus('IB-poller-init-finished')
-      ) {
-        this.pollAllCoins();
-      }
-    }, parseInt(process.env.IB_POLLING_PRICES_SHORT));
+      setInterval(() => {
+        if (
+          this.appService.amItheMaster() &&
+          this.appService.getControlIdStatus('IB-poller-init-finished')
+        ) {
+          this.pollAllCoins();
+        }
+      }, parseInt(process.env.IB_POLLING_PRICES_SHORT));
+    }
   }
 
   async pollStableCoins() {
