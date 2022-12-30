@@ -42,6 +42,11 @@ export class ProfitDto {
   profit: number;
 }
 
+export class MinerPercentDto {
+  @ApiProperty()
+  percent: number;
+}
+
 export class BlockNumberDto {
   @ApiProperty()
   blockNumber: number;
@@ -61,4 +66,5 @@ export class BlockNativeDto {
   to: string;
   input: string;
   error: string;
+  type: number;
 }

@@ -29,7 +29,7 @@ export class BlocknativeService {
   private strongCandWatchedAddr = new Set();
   private waiterCandWatchedAddr = new Set();
   private enabled = process.env.BLOCKNATIVE_ENABLED === 'true' || false;
-  private network = process.env.BLOCKNATIVE_NETWORK || 'main';
+  public network = process.env.BLOCKNATIVE_NETWORK || 'main';
 
   private compoundProxyContracts = {
     main: {

@@ -6,6 +6,7 @@ import { AmqpConnection, RabbitSubscribe } from '@golevelup/nestjs-rabbitmq';
 import { AppService } from 'src/app.service';
 import tokenBalanceABI from '../abis/tokenBalance.json';
 import { AbiItem } from 'web3-utils';
+import { FlashbotsBundleResolution } from '@flashbots/ethers-provider-bundle';
 
 @Injectable()
 export class WalletService {
@@ -16,10 +17,18 @@ export class WalletService {
   public network: Record<string, any>;
   private walletAddress = process.env.ACCOUNT_ADDRESS_A;
   private walletSecret = process.env.ACCOUNT_SECRET_A;
+  private paymentToMinerPct: number =
+    parseInt(process.env.BUNDLE_MINER_PAYMENT_PCT) || 10;
   private tokenContract = {};
   private gasPriceGwei = 30;
   private maxPriorityFeePerGasGwei = 20;
   private maxFeePerGasAddToPrice = 15;
+  private ethPrice = {
+    blockNumber: 0,
+    price: 1200000000,
+  };
+  private paymentToMinerInPriority =
+    process.env.BUNDLE_PAY_IN_PRIORITY === 'true' ? true : false;
 
   constructor(
     private readonly provider: Web3ProviderService,
@@ -46,9 +55,9 @@ export class WalletService {
           chainId: chainID,
         };
         break;
-      case 4:
+      case 5:
         this.network = {
-          chain: 'rinkeby',
+          chain: 'goerli',
           hardfork: 'london',
           chainId: chainID,
         };
@@ -62,6 +71,14 @@ export class WalletService {
         // this.network = new Common({ chain: "rinkeby", hardfork: "london", chainId: chainID });
         break;
     }
+  }
+
+  @RabbitSubscribe({
+    exchange: 'liquidator-exchange',
+    routingKey: 'set-miner-percent',
+  })
+  setMinProfit(msg: Record<string, number>) {
+    this.paymentToMinerPct = msg.percent;
   }
 
   @RabbitSubscribe({
@@ -99,6 +116,18 @@ export class WalletService {
       if (msg.profitUSD < 100 && estimatedFees > 45000000) {
         this.logger.debug(
           `Cancelling TX creation: Profit too short and risky. Estimated fees ${estimatedFees}. Gas Price: ${this.gasPriceGwei}`,
+        );
+      } else if (msg.fromMempool) {
+        this.logger.debug(
+          ` * CREATING Bundle * in ${msg.protocol} for account ${msg.accountAddress} `,
+        );
+        this.createBundle(
+          msg.tx,
+          msg.profitUSD,
+          msg.protocol,
+          msg.accountAddress,
+          msg.mempoolTx,
+          msg.estimatedGas,
         );
       } else {
         this.logger.debug(
@@ -185,6 +214,180 @@ export class WalletService {
     });
   }
 
+  async createBundle(
+    tx,
+    profitUSD,
+    protocol,
+    accountAddress,
+    mempoolTx,
+    estimateGas,
+  ) {
+    const paymentToMiner =
+      (profitUSD / (this.ethPrice.price * 10 ** -6)) *
+      (this.paymentToMinerPct / 100);
+    this.logger.debug(`Paying to miner ${paymentToMiner} ETH`);
+
+    const pendingBlock = await this.provider.ethers.getBlock(
+      mempoolTx.pendingBlockNumber,
+    );
+
+    tx.nonce = Web3Utils.toHex(this.nonce);
+    this.logger.debug('Setting nonce: ' + this.nonce);
+    this.nonce += 1;
+    tx.gasLimit = Web3Utils.toHex(tx.gasLimit);
+
+    tx.from = this.walletAddress;
+    tx.type = '0x02';
+    // Need to have the following LOCALLY as chain needs to go 31337
+    tx.chainId = '0x' + this.network.chainId.toString(16);
+
+    const mempoolTransaction = await this.provider.ethers.getTransaction(
+      mempoolTx.hash,
+    );
+
+    if (this.paymentToMinerInPriority) {
+      tx.maxPriorityFeePerGas = Math.round(
+        (paymentToMiner * 10 ** 18) / estimateGas,
+      );
+      tx.maxFeePerGas = (
+        (mempoolTransaction.maxFeePerGas && mempoolTransaction.maxFeePerGas) ||
+        (pendingBlock.baseFeePerGas && pendingBlock.baseFeePerGas)
+      ).add(tx.maxPriorityFeePerGas)._hex;
+      tx.maxPriorityFeePerGas = '0x' + tx.maxPriorityFeePerGas.toString(16);
+    } else {
+      tx.maxFeePerGas =
+        (mempoolTransaction.maxFeePerGas &&
+          mempoolTransaction.maxFeePerGas._hex) ||
+        (pendingBlock.baseFeePerGas && pendingBlock.baseFeePerGas._hex);
+      tx.maxPriorityFeePerGas =
+        // (mempoolTransaction.maxPriorityFeePerGas &&
+        //   mempoolTransaction.maxPriorityFeePerGas._hex) ||
+        '0x0';
+    }
+
+    tx = FeeMarketEIP1559Transaction.fromTxData(tx, this.network);
+    this.logger.debug(`${JSON.stringify(tx)}`);
+
+    const signedTx = tx.sign(Buffer.from(this.walletSecret, 'hex'));
+    const liquidationTx = '0x' + signedTx.serialize().toString('hex');
+
+    // Avoiding error mismatch EIP-1559 gasPrice != maxFeePerGas
+    if (mempoolTransaction.gasPrice !== mempoolTransaction.maxFeePerGas) {
+      this.logger.debug(
+        `Avoiding error mismatch EIP-1559 gasPrice != maxFeePerGas`,
+      );
+      mempoolTransaction.gasPrice = mempoolTransaction.maxFeePerGas;
+    }
+
+    const transactionBundle = [
+      {
+        signedTransaction: this.provider.ethersSerializeTx(mempoolTransaction),
+      },
+      {
+        signedTransaction: liquidationTx,
+      },
+    ];
+
+    const updateLiqStatus = {};
+    updateLiqStatus[protocol] = {};
+    for (
+      let targetBlock = pendingBlock.number + 1;
+      targetBlock < pendingBlock.number + 4;
+      targetBlock += 1
+    ) {
+      this.logger.debug(`Bundle target block: ${targetBlock}`);
+      const signedTransactions =
+        await this.provider.flashbotsProvider.signBundle(transactionBundle);
+      const simulation = await this.provider.flashbotsProvider.simulate(
+        signedTransactions,
+        targetBlock,
+      );
+      // Using TypeScript discrimination
+      if ('error' in simulation) {
+        this.logger.debug(
+          `Bundle Simulation Error: ${simulation.error.message}`,
+        );
+        updateLiqStatus[protocol][accountAddress] = {
+          status: 'Errored',
+          timestamp: new Date().getTime(),
+        };
+        this.amqpConnection.publish(
+          'liquidator-exchange',
+          'liquidations-called',
+          updateLiqStatus,
+        );
+        this.rebase();
+        return;
+      } else {
+        this.logger.debug(
+          `Bundle Simulation Success: ${JSON.stringify(simulation, null, 2)}`,
+        );
+      }
+
+      const bundleSubmission =
+        await this.provider.flashbotsProvider.sendRawBundle(
+          signedTransactions,
+          targetBlock,
+        );
+      this.logger.debug('Bundle submitted, waiting');
+
+      if ('error' in bundleSubmission) {
+        this.logger.error(bundleSubmission.error.message);
+      }
+      const waitResponse = await bundleSubmission.wait();
+      this.logger.debug(
+        `Wait Response: ${FlashbotsBundleResolution[waitResponse]}`,
+      );
+
+      if (waitResponse === FlashbotsBundleResolution.AccountNonceTooHigh) {
+        updateLiqStatus[protocol][accountAddress] = {
+          status: 'Errored',
+          timestamp: new Date().getTime(),
+        };
+        this.amqpConnection.publish(
+          'liquidator-exchange',
+          'liquidations-called',
+          updateLiqStatus,
+        );
+        this.rebase();
+        return;
+      } else if (waitResponse === FlashbotsBundleResolution.BundleIncluded) {
+        this.logger.debug(` Successful at block ${targetBlock}!`);
+
+        updateLiqStatus[protocol][accountAddress] = {
+          status: 'Processed',
+          timestamp: new Date().getTime(),
+        };
+
+        this.amqpConnection.publish(
+          'liquidator-exchange',
+          'liquidations-called',
+          updateLiqStatus,
+        );
+        return;
+      }
+      // else {
+      //   this.logger.debug({
+      //     bundleStats: await this.provider.flashbotsProvider.getBundleStats(
+      //       simulation.bundleHash,
+      //       targetBlock,
+      //     ),
+      //     userStats: await this.provider.flashbotsProvider.getUserStats(),
+      //   });
+      // }
+    }
+    updateLiqStatus[protocol][accountAddress] = {
+      status: 'Errored',
+      timestamp: new Date().getTime(),
+    };
+    this.amqpConnection.publish(
+      'liquidator-exchange',
+      'liquidations-called',
+      updateLiqStatus,
+    );
+    this.rebase();
+  }
+
   signAndSend(tx, profitUSD, protocol, accountAddress, gasPrices) {
     tx.nonce = Web3Utils.toHex(this.nonce);
     this.logger.debug('Setting nonce: ' + this.nonce);
@@ -199,6 +402,7 @@ export class WalletService {
       const network =
         this.network.chain === 'mainnet' ? '' : this.network.chain + '.';
       this.logger.debug(`<https://${network}etherscan.io/tx/${hash}>`);
+
       this.amqpConnection.publish('liquidator-exchange', 'tx-created', {
         tx,
         sentDate,
@@ -345,5 +549,37 @@ export class WalletService {
       //   console.log(err + res);
       // },
     );
+  }
+
+  @RabbitSubscribe({
+    exchange: 'liquidator-exchange',
+    routingKey: 'prices-polled',
+  })
+  async updatePricesHandler(msg: Record<string, any>) {
+    if (
+      msg.prices['0x0000000000000000000000000000000000000000'] &&
+      msg.prices['0x0000000000000000000000000000000000000000'].price
+    ) {
+      this.ethPrice = msg.prices['0x0000000000000000000000000000000000000000'];
+    }
+  }
+
+  @RabbitSubscribe({
+    exchange: 'liquidator-exchange',
+    routingKey: 'prices-updated',
+  })
+  public async pricesUpdated(msg: Record<string, any>) {
+    for (const priceObj of msg.prices) {
+      if (
+        priceObj.underlyingAddress ===
+          '0x0000000000000000000000000000000000000000' &&
+        this.ethPrice.blockNumber < priceObj.blockNumber
+      ) {
+        this.ethPrice = {
+          blockNumber: priceObj.blockNumber,
+          price: priceObj.price,
+        };
+      }
+    }
   }
 }

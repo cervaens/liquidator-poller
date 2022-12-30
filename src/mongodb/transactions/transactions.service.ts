@@ -56,33 +56,37 @@ export class TransactionsService {
   public async createTransaction(
     msg: Record<string, any | Record<string, any>>,
   ) {
-    const {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      0: compTroller,
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      1: ethAddress,
-      2: borrower,
-      3: repayToken,
-      4: seizeToken,
-    } = web3Con.eth.abi.decodeParameters(
-      ['address', 'address', 'address', 'address', 'address'],
-      msg.tx.data.slice(10),
-    );
+    try {
+      const {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        0: compTroller,
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        1: ethAddress,
+        2: borrower,
+        3: repayToken,
+        4: seizeToken,
+      } = web3Con.eth.abi.decodeParameters(
+        ['address', 'address', 'address', 'address', 'address'],
+        msg.tx.data.slice(10),
+      );
 
-    await this.transactionsModel
-      .findByIdAndUpdate(msg.hash, {
-        borrower,
-        repayToken,
-        seizeToken,
-        createdDate: new Date(),
-        sentDate: msg.sentDate,
-        gasLimit: msg.tx.gasLimit,
-        protocol: msg.protocol,
-      })
-      .setOptions({ upsert: true })
-      .catch((err) => {
-        this.logger.error('Couldnt insert transaction: ' + err);
-      });
+      await this.transactionsModel
+        .findByIdAndUpdate(msg.hash, {
+          borrower,
+          repayToken,
+          seizeToken,
+          createdDate: new Date(),
+          sentDate: msg.sentDate,
+          gasLimit: msg.tx.gasLimit,
+          protocol: msg.protocol,
+        })
+        .setOptions({ upsert: true })
+        .catch((err) => {
+          this.logger.error('Couldnt insert transaction: ' + err);
+        });
+    } catch (err) {
+      this.logger.error('Couldnt decode parameters: ' + err);
+    }
   }
 
   getTransaction(txHash) {

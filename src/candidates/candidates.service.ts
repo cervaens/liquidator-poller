@@ -269,6 +269,7 @@ export class CandidatesService {
       this.checkCandidatesLiquidations({
         protocol: msg.protocol,
         fromMempool: msg.fromMempool,
+        mempoolTx: msg.mempoolTx,
         gasPrices: msg.gasPrices,
         updatedPricesSymbols,
       });
