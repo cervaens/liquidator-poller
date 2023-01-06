@@ -90,6 +90,7 @@ export class CandidatesController {
           action: 'insert',
           ids: candidateIds,
           protocol,
+          nodeId: this.appService.nodeId,
         });
       }
     }, this.candidatesTimeout);

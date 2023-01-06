@@ -271,6 +271,7 @@ export class IbAccountsService {
   }
 
   async getCandidatesFromDB() {
+    this.logger.debug('IronBank: Reloading candidates from DB');
     let candidatesNew = [];
     return this.ibAccountsModel
       .find(this.getCandidatesFromDBqueryObj())
@@ -411,12 +412,12 @@ export class IbAccountsService {
     }
 
     // Sometimes a node goes down and candidates get lost
-    if (
-      curNumberCandidates > Object.keys(this.allActiveCandidates).length &&
-      this.appService.amItheMaster()
-    ) {
-      this.logger.debug('IronBank: Reloading candidates from DB');
-      this.getCandidatesFromDB();
-    }
+    // if (
+    //   curNumberCandidates > Object.keys(this.allActiveCandidates).length &&
+    //   this.appService.amItheMaster()
+    // ) {
+    //   this.logger.debug('IronBank: Reloading candidates from DB');
+    //   this.getCandidatesFromDB();
+    // }
   }
 }

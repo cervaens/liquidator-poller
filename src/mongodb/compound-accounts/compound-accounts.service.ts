@@ -12,7 +12,7 @@ import { AppService } from 'src/app.service';
 @Injectable()
 export class CompoundAccountsService {
   private readonly logger = new Logger(CompoundAccountsService.name);
-  private allActiveCandidates: Record<string, number> = {};
+  public allActiveCandidates: Record<string, number> = {};
   private protocol = 'Compound';
   private sentInitLiqStatus = false;
   private enableCandidatesWithSameToken =
@@ -150,13 +150,13 @@ export class CompoundAccountsService {
     }
 
     // Sometimes a node goes down and candidates get lost
-    if (
-      curNumberCandidates > Object.keys(this.allActiveCandidates).length &&
-      this.appService.amItheMaster()
-    ) {
-      this.logger.debug('Compound: Reloading candidates from DB');
-      this.getCandidatesFromDB();
-    }
+    // if (
+    //   curNumberCandidates > Object.keys(this.allActiveCandidates).length &&
+    //   this.appService.amItheMaster()
+    // ) {
+    //   this.logger.debug('Compound: Reloading candidates from DB');
+    //   this.getCandidatesFromDB();
+    // }
   }
 
   @RabbitSubscribe({
@@ -266,6 +266,7 @@ export class CompoundAccountsService {
   }
 
   async getCandidatesFromDB() {
+    this.logger.debug('Compound: Reloading candidates from DB');
     let candidatesNew = [];
     return this.compoundAccountsModel
       .find(this.getCandidatesFromDBqueryObj())
