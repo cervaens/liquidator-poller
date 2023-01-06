@@ -21,7 +21,7 @@ export class BlocknativeController {
   };
 
   async onApplicationBootstrap(): Promise<void> {
-    // At init the master will start a poll
+    // At startup the master will start a poll
     this.blocknativeService.getValidators();
 
     setInterval(async () => {
