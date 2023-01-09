@@ -265,7 +265,14 @@ export class CompoundAccountsService {
     return this.compoundAccountsModel.find(query).lean();
   }
 
+  @RabbitSubscribe({
+    exchange: 'liquidator-exchange',
+    routingKey: 'load-candidates-db',
+  })
   async getCandidatesFromDB() {
+    if (!this.appService.amItheMaster()) {
+      return;
+    }
     this.logger.debug('Compound: Reloading candidates from DB');
     let candidatesNew = [];
     return this.compoundAccountsModel

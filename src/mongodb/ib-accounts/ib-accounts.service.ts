@@ -270,7 +270,14 @@ export class IbAccountsService {
     return this.ibAccountsModel.find(query).lean();
   }
 
+  @RabbitSubscribe({
+    exchange: 'liquidator-exchange',
+    routingKey: 'load-candidates-db',
+  })
   async getCandidatesFromDB() {
+    if (!this.appService.amItheMaster()) {
+      return;
+    }
     this.logger.debug('IronBank: Reloading candidates from DB');
     let candidatesNew = [];
     return this.ibAccountsModel

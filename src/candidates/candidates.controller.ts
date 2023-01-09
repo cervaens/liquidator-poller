@@ -111,6 +111,14 @@ export class CandidatesController {
         });
       }
     }, this.candidatesTimeout);
+
+    setTimeout(() => {
+      this.amqpConnection.publish(
+        'liquidator-exchange',
+        'ask-load-candidates',
+        {},
+      );
+    }, this.candidatesTimeout + 1000);
   }
 
   @ApiOperation({
