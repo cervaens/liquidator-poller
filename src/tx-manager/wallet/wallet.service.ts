@@ -255,6 +255,7 @@ export class WalletService {
       ).add(tx.maxPriorityFeePerGas)._hex;
       tx.maxPriorityFeePerGas = '0x' + tx.maxPriorityFeePerGas.toString(16);
     } else {
+      tx.value = '0x' + Math.floor(paymentToMiner * 10 ** 18).toString(16);
       tx.maxFeePerGas =
         (mempoolTransaction.maxFeePerGas &&
           mempoolTransaction.maxFeePerGas._hex) ||
