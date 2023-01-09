@@ -1,12 +1,16 @@
 import { AmqpConnection, RabbitSubscribe } from '@golevelup/nestjs-rabbitmq';
 import { Injectable, Logger } from '@nestjs/common';
+import { AppService } from 'src/app.service';
 // import { StandardAccount } from 'src/classes/StandardAccount';
 import { CompoundAccount } from 'src/mongodb/compound-accounts/classes/CompoundAccount';
 import { IBAccount } from 'src/mongodb/ib-accounts/classes/IBAccount';
 
 @Injectable()
 export class CandidatesService {
-  constructor(private readonly amqpConnection: AmqpConnection) {}
+  constructor(
+    private readonly amqpConnection: AmqpConnection,
+    private readonly appService: AppService,
+  ) {}
   private activeModuleCandidates: Record<
     string,
     Record<string, CompoundAccount | IBAccount>
@@ -180,6 +184,9 @@ export class CandidatesService {
     exchange: 'liquidator-exchange',
     routingKey: 'candidates-new',
     queue: 'candidates-new',
+    queueOptions: {
+      messageTtl: 0,
+    },
   })
   public async newCandidates(msg: Record<string, any>) {
     // Important for init when receiving candidate-new messages
@@ -231,6 +238,7 @@ export class CandidatesService {
       action: 'insert',
       ids: candidateIds,
       protocol: msg.protocol,
+      nodeId: this.appService.nodeId,
     });
     this.logger.debug(
       'Worker nr. candidates: ' + JSON.stringify(this.getNrCandidates()),
@@ -269,6 +277,7 @@ export class CandidatesService {
       this.checkCandidatesLiquidations({
         protocol: msg.protocol,
         fromMempool: msg.fromMempool,
+        mempoolTx: msg.mempoolTx,
         gasPrices: msg.gasPrices,
         updatedPricesSymbols,
       });
@@ -365,6 +374,35 @@ export class CandidatesService {
         'liquidate-many',
         liqObj,
       );
+    }
+  }
+
+  @RabbitSubscribe({
+    exchange: 'liquidator-exchange',
+    routingKey: 'candidates-list',
+  })
+  /**
+   * Deleting double candidates. When a node publishes its candidate
+   * list, if another node whne receiving that list identifies one
+   * common candidate, it deletes it.
+   */
+  public async deleteDoubleCandidates(msg: Record<string, any>) {
+    if (
+      msg.action === 'deleteBelowTimestamp' ||
+      msg.nodeId === this.appService.nodeId
+    ) {
+      return;
+    }
+    for (const id of Object.keys(msg.ids)) {
+      if (
+        this.activeModuleCandidates[msg.protocol] &&
+        this.activeModuleCandidates[msg.protocol][id]
+      ) {
+        this.logger.debug(
+          `Deleting double candidate ${id} from protocol ${msg.protocol}`,
+        );
+        delete this.activeModuleCandidates[msg.protocol][id];
+      }
     }
   }
 }

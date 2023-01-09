@@ -24,43 +24,47 @@ export class IronbankPollerController {
 
   // private tokens: Record<string, any>;
   private readonly logger = new Logger(IronbankPollerController.name);
+  private moduleEnabled =
+    process.env.IRONBANK_MODULE_ENABLED === 'false' ? false : true;
 
   async onApplicationBootstrap(): Promise<void> {
     let amITheMaster = false;
 
-    setTimeout(async () => {
-      const tokens = await this.pollIBTokens();
-      await this.ironBankPrices.getTokensUnderlyingPrice({
-        tokens,
-        init: true,
-      });
-      this.appService.setControlIdStatus('IB-poller-init-finished', true);
-    }, parseInt(process.env.WAIT_TIME_FOR_OTHER_WORKERS));
+    if (this.moduleEnabled) {
+      setTimeout(async () => {
+        const tokens = await this.pollIBTokens();
+        await this.ironBankPrices.getTokensUnderlyingPrice({
+          tokens,
+          init: true,
+        });
+        this.appService.setControlIdStatus('IB-poller-init-finished', true);
+      }, parseInt(process.env.WAIT_TIME_FOR_OTHER_WORKERS));
 
-    this.logger.debug('Waiting to listen from other workers...');
-    setInterval(async () => {
-      if (this.appService.amItheMaster() && !amITheMaster) {
-        amITheMaster = true;
-        this.ibPollerService.getAccountsFromUnitroller(null);
-        this.ibAccountsService.sendLiquidationStatus();
-      } else if (!this.appService.amItheMaster() && amITheMaster) {
-        amITheMaster = false;
-        // unsubscribe if for some reason stops being master
-        this.ibPollerService.unsubscribeWs();
-      }
-    }, parseInt(process.env.WAIT_TIME_FOR_OTHER_WORKERS));
+      this.logger.debug('Waiting to listen from other workers...');
+      setInterval(async () => {
+        if (this.appService.amItheMaster() && !amITheMaster) {
+          amITheMaster = true;
+          this.ibPollerService.getAccountsFromUnitroller(null);
+          this.ibAccountsService.sendLiquidationStatus();
+        } else if (!this.appService.amItheMaster() && amITheMaster) {
+          amITheMaster = false;
+          // unsubscribe if for some reason stops being master
+          this.ibPollerService.unsubscribeWs();
+        }
+      }, parseInt(process.env.WAIT_TIME_FOR_OTHER_WORKERS));
 
-    setInterval(() => {
-      if (amITheMaster) {
-        this.pollAccounts();
-      }
-    }, parseInt(process.env.IRONBANK_POLL_BALANCES_PERIOD));
+      setInterval(() => {
+        if (amITheMaster) {
+          this.pollAccounts();
+        }
+      }, parseInt(process.env.IRONBANK_POLL_BALANCES_PERIOD));
 
-    setInterval(() => {
-      if (amITheMaster) {
-        this.pollIBTokens();
-      }
-    }, parseInt(process.env.IRONBANK_POLL_TOKENS_PERIOD));
+      setInterval(() => {
+        if (amITheMaster) {
+          this.pollIBTokens();
+        }
+      }, parseInt(process.env.IRONBANK_POLL_TOKENS_PERIOD));
+    }
   }
 
   @ApiOperation({

@@ -17,6 +17,8 @@ export class AppService {
   private readonly logger = new Logger(AppService.name);
   constructor(private readonly amqpConnection: AmqpConnection) {}
   public nodeId: string;
+  private lastCandidatesLoad = 0;
+  private lastFetchAccounts = 0;
 
   private appControl: Record<string, boolean> = {
     isThereAMaster: false,
@@ -76,5 +78,45 @@ export class AppService {
       this.setImNoMaster();
     }
     this.appControl.isThereAMaster = true;
+  }
+
+  @RabbitSubscribe({
+    exchange: 'liquidator-exchange',
+    routingKey: 'ask-load-candidates',
+  })
+  public async askToLoadCandidatesFromDB() {
+    if (!this.amItheMaster()) {
+      return;
+    }
+
+    const time = new Date().getTime();
+
+    if (time - this.lastCandidatesLoad > 4000) {
+      this.lastCandidatesLoad = time;
+      this.amqpConnection.publish(
+        'liquidator-exchange',
+        'load-candidates-db',
+        {},
+      );
+    }
+  }
+
+  @RabbitSubscribe({
+    exchange: 'liquidator-exchange',
+    routingKey: 'ask-fetch-accounts',
+  })
+  public async askToFetchAccounts(msg: Record<string, any>) {
+    if (!this.amItheMaster()) {
+      return;
+    }
+
+    const time = new Date().getTime();
+
+    if (time - this.lastFetchAccounts > 4000) {
+      this.lastFetchAccounts = time;
+      this.amqpConnection.publish('liquidator-exchange', 'fetch-accounts', {
+        init: msg.init || false,
+      });
+    }
   }
 }

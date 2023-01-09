@@ -99,7 +99,8 @@ export class CompoundAccount extends StandardAccount {
       !cToken ||
       Object.keys(cToken).length === 0 ||
       !uAddressPricesUSD ||
-      Object.keys(uAddressPricesUSD).length === 0
+      Object.keys(uAddressPricesUSD).length === 0 ||
+      !uAddressPricesUSD['0x0000000000000000000000000000000000000000']
     ) {
       return;
     }

@@ -209,6 +209,9 @@ export class TxManagerService {
           // parseInt(amount).toString(),
           seizeToken,
         );
+        // method = this.liquidatorContract.methods.liquidateBundle(
+        //   this.provider.web3.utils.toWei('0.001', 'ether'),
+        // );
       }
 
       const gasLimit = 2000000;
@@ -227,7 +230,7 @@ export class TxManagerService {
           (this.liquidationsStatus[candidate.protocol] &&
             this.liquidationsStatus[candidate.protocol][borrower] &&
             !this.liquidationsStatus[candidate.protocol][borrower].status.match(
-              /ongoing|Errored|Processed/,
+              /Errored|Processed/,
             )))
       ) {
         if (this.realTxsEnabled) {

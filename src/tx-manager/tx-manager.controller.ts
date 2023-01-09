@@ -3,6 +3,7 @@ import { Body, Controller, Get, Logger, Post, UseGuards } from '@nestjs/common';
 import { ApiBasicAuth, ApiOperation } from '@nestjs/swagger';
 import {
   EnableDto,
+  MinerPercentDto,
   ProtocolEnableDto,
   QueryCandidateDto,
   QueryCustomTxDto,
@@ -158,5 +159,23 @@ export class TxManagerController {
     });
 
     return `Changed protocol ${body.protocol} enabled to ${body.enabled}`;
+  }
+
+  @ApiOperation({
+    description:
+      "Sets the payment to the miner when our bundle's is included in a block. It's the liquidation profit's percentage",
+  })
+  @Post('set-miner-percent/')
+  @UseGuards(ACLGuard)
+  setProfit(@Body() body: MinerPercentDto): string {
+    if (!body || typeof body.percent !== 'number') {
+      return 'Please include a valid miner percent.';
+    }
+    this.logger.debug(`Setting miner percent to ${body.percent}%`);
+    this.amqpConnection.publish('liquidator-exchange', 'set-miner-percent', {
+      percent: body.percent,
+    });
+
+    return `Miner percent profit is now ${body.percent}%`;
   }
 }

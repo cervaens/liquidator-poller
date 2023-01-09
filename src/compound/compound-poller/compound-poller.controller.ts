@@ -28,9 +28,9 @@ export class CompoundPollerController {
       const tokenUAddresses = await this.pollCTokens();
       await this.compoundPricesHelper.pollAndStorePrices(tokenUAddresses);
       // this.pollCethWalletBalance();
-      if (!this.compoundPollerService.isInitOngoing()) {
-        this.pollAccounts(true);
-      }
+      this.amqpConnection.publish('liquidator-exchange', 'ask-fetch-accounts', {
+        init: true,
+      });
     }, parseInt(process.env.WAIT_TIME_FOR_OTHER_WORKERS));
 
     setInterval(() => {
@@ -40,12 +40,9 @@ export class CompoundPollerController {
     }, parseInt(process.env.COMPOUND_POLLING_SCHEDULE_CTOKENS));
 
     setInterval(() => {
-      if (
-        this.appService.amItheMaster() &&
-        !this.compoundPollerService.isInitOngoing()
-      ) {
-        this.pollAccounts();
-      }
+      this.amqpConnection.publish('liquidator-exchange', 'ask-fetch-accounts', {
+        init: false,
+      });
     }, parseInt(process.env.COMPOUND_POLLING_SCHEDULE_ACCOUNTS));
 
     // setInterval(() => {
