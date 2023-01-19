@@ -21,7 +21,7 @@ export class BlocknativeController {
   };
 
   async onApplicationBootstrap(): Promise<void> {
-    // At init the master will start a poll
+    // At startup the master will start a poll
     this.blocknativeService.getValidators();
 
     setInterval(async () => {
@@ -62,6 +62,17 @@ export class BlocknativeController {
       this.blocknativeService.processMint(body);
       this.logger.debug(
         `Mempool data received for token ${JSON.stringify(
+          body.to,
+        )} for method ${method}`,
+      );
+      // Testing purposes
+    } else if (
+      this.blocknativeService.network === 'goerli' &&
+      body.type === 2
+    ) {
+      this.blocknativeService.processGoerliTx(body);
+      this.logger.debug(
+        `Mempool data received for goerli test ${JSON.stringify(
           body.to,
         )} for method ${method}`,
       );

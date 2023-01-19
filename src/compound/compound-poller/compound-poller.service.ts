@@ -18,21 +18,6 @@ export class CompoundPollerService {
   private tokenObj: Record<string, any> = {};
   private cTokenPrices: Record<string, Record<string, number>> = {};
 
-  // Init is necessary so that the activeCandidateList is cleared
-  // to re-spread all candidates including the new joined app
-  @RabbitSubscribe({
-    exchange: 'liquidator-exchange',
-    routingKey: 'accounts-polling-init',
-  })
-  async setInitOngoing(msg: Record<string, boolean>) {
-    this.logger.debug(`Setting InitOngoing as ${msg.initOngoing}`);
-    this.initOngoing = msg.initOngoing;
-  }
-
-  isInitOngoing(): boolean {
-    return this.initOngoing;
-  }
-
   async sleep(millis: number) {
     return new Promise((resolve) => setTimeout(resolve, millis));
   }
@@ -126,15 +111,7 @@ export class CompoundPollerService {
       return;
     }
     const timestamp = new Date().getTime();
-    if (msg.init) {
-      this.amqpConnection.publish(
-        'liquidator-exchange',
-        'accounts-polling-init',
-        {
-          initOngoing: true,
-        },
-      );
-    }
+
     const options = {
       page_size: 50,
       // Adding this one which reduces the returned results in around 700 accounts
@@ -220,16 +197,6 @@ export class CompoundPollerService {
     this.logger.debug(
       ` fetchAccounts execution time: ${new Date().getTime() - timestamp} ms`,
     );
-
-    if (msg.init) {
-      this.amqpConnection.publish(
-        'liquidator-exchange',
-        'accounts-polling-init',
-        {
-          initOngoing: false,
-        },
-      );
-    }
   }
 
   async fetch(endpoint: string, withConfig: Record<string, any>) {

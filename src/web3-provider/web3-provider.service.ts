@@ -1,7 +1,10 @@
 import { Catch, Injectable, Logger } from '@nestjs/common';
 import Web3 from 'web3';
+import { ethers, Wallet } from 'ethers';
 import AWSHttpProvider from '@aws/web3-http-provider';
 import AWSWebsocketProvider from '@aws/web3-ws-provider';
+import { FlashbotsBundleProvider } from '@flashbots/ethers-provider-bundle';
+import { SignatureLike } from '@ethersproject/bytes';
 
 const WSoptions = {
   timeout: 5000, // ms -- 60 min
@@ -50,7 +53,9 @@ export const web3Ws = WSProvider(
 export class Web3ProviderService {
   private readonly logger = new Logger(Web3ProviderService.name);
   public web3: Web3;
+  public ethers: ethers.providers.Web3Provider;
   public web3Ws: Web3;
+  public flashbotsProvider: FlashbotsBundleProvider | any;
   public web3Providers = [];
   public web3WsProviders = [];
   public providersList = JSON.parse(process.env.WEB3_PROVIDERS) || ['AWS'];
@@ -141,6 +146,30 @@ export class Web3ProviderService {
           this.logger.debug('Web3 websocket provider connected:  ' + str),
         );
     });
+  }
+
+  async onModuleInit(): Promise<void> {
+    this.ethers = new ethers.providers.Web3Provider(
+      this.web3.currentProvider as ethers.providers.ExternalProvider,
+    );
+    this.flashbotsProvider = await FlashbotsBundleProvider.create(
+      this.ethers,
+      new Wallet(process.env.FLASHBOTS_SIGNER_PK, this.ethers),
+      process.env.FLASHBOTS_NETWORK === 'goerli'
+        ? 'https://relay-goerli.flashbots.net/'
+        : '',
+      process.env.FLASHBOTS_NETWORK === 'goerli' ? 'goerli' : '',
+    );
+  }
+
+  ethersSerializeTx(transaction): string {
+    const transactionSign: SignatureLike = {
+      r: transaction.r || 'any',
+      s: transaction.s,
+      v: transaction.v,
+    };
+
+    return ethers.utils.serializeTransaction(transaction, transactionSign);
   }
 
   getProvider(provider: string): Web3 {
