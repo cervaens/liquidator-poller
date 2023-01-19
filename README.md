@@ -2,7 +2,8 @@
 # Liquidator poller
 ## Description
 
-This application intent is to poll identify liquidation opportunities among multiple DeFi protocols and perform a call to a liquidator contract when there is such an opportunity.
+This application's goal is to identify liquidation opportunities among multiple DeFi protocols and perform a call to a liquidator contract when there is such an opportunity.
+Even though the application is working, it's not prod ready as the testing part is not fully complete.
 
 ## Dependencies
 This applications uses nestjs, it depends on an mongoDB instance and rabbitMQ.
