@@ -12,7 +12,7 @@ const AWSHttpProvider = require('@aws/web3-http-provider');
 // );
 
 // const provider = new Web3(
-//   'wss://eth-mainnet.alchemyapi.io/v2/***REMOVED***',
+//   'wss://eth-mainnet.alchemyapi.io/v2/DwvILB0y2CqFzqv75RyM9rbYTV4vsmEe',
 // );
 
 const provider = new Web3('http://127.0.0.1:8545');

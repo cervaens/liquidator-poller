@@ -40,12 +40,12 @@ const HTTPProvider = (path) => {
 
 export const web3Con = HTTPProvider(
   process.env.WEB3_HTTP_PROVIDER ||
-    `https://eth-mainnet.alchemyapi.io/v2/***REMOVED***`,
+    `https://eth-mainnet.alchemyapi.io/v2/DwvILB0y2CqFzqv75RyM9rbYTV4vsmEe`,
 );
 
 export const web3Ws = WSProvider(
   process.env.WEB3_WSS_PROVIDER ||
-    `wss://eth-mainnet.alchemyapi.io/v2/***REMOVED***`,
+    `wss://eth-mainnet.alchemyapi.io/v2/DwvILB0y2CqFzqv75RyM9rbYTV4vsmEe`,
 );
 
 @Injectable()
@@ -87,14 +87,14 @@ export class Web3ProviderService {
           this.web3Providers.push(
             HTTPProvider(
               process.env.ALCHEMY_WEB3_HTTP_PROVIDER ||
-                `https://eth-mainnet.alchemyapi.io/v2/***REMOVED***`,
+                `https://eth-mainnet.alchemyapi.io/v2/DwvILB0y2CqFzqv75RyM9rbYTV4vsmEe`,
             ),
           );
           if (this.providersWsList.includes(provider)) {
             this.web3WsProviders.push(
               WSProvider(
                 process.env.ALCHEMY_WEB3_WSS_PROVIDER ||
-                  `wss://eth-mainnet.alchemyapi.io/v2/***REMOVED***`,
+                  `wss://eth-mainnet.alchemyapi.io/v2/DwvILB0y2CqFzqv75RyM9rbYTV4vsmEe`,
               ),
             );
           }
@@ -118,13 +118,13 @@ export class Web3ProviderService {
           this.web3Providers.push(
             HTTPProvider(
               process.env.WEB3_HTTP_PROVIDER ||
-                `https://eth-mainnet.alchemyapi.io/v2/***REMOVED***`,
+                `https://eth-mainnet.alchemyapi.io/v2/DwvILB0y2CqFzqv75RyM9rbYTV4vsmEe`,
             ),
           );
           this.web3WsProviders.push(
             WSProvider(
               process.env.WEB3_WSS_PROVIDER ||
-                `wss://eth-mainnet.alchemyapi.io/v2/***REMOVED***`,
+                `wss://eth-mainnet.alchemyapi.io/v2/DwvILB0y2CqFzqv75RyM9rbYTV4vsmEe`,
             ),
           );
           break;
